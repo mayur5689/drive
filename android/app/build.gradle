@@ -24,7 +24,7 @@ if (flutterVersionName == null) {
 
 android {
     namespace "com.driveclone.drive_clone"
-    compileSdkVersion flutter.compileSdkVersion
+    compileSdk 35
     ndkVersion flutter.ndkVersion
 
     compileOptions {
@@ -43,7 +43,7 @@ android {
     defaultConfig {
         applicationId "com.driveclone.drive_clone"
         minSdkVersion 21
-        targetSdkVersion flutter.targetSdkVersion
+        targetSdkVersion 35
         versionCode flutterVersionCode.toInteger()
         versionName flutterVersionName
     }
