@@ -17,8 +17,12 @@ workflows:
       - name: Build Android APK
         script: |
           flutter build apk --release
+      - name: Build Android App Bundle (for Play Store)
+        script: |
+          flutter build appbundle --release
     artifacts:
       - build/app/outputs/flutter-apk/*.apk
+      - build/app/outputs/bundle/release/*.aab
     publishing:
       email:
         recipients:
