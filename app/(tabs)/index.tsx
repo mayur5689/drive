@@ -46,6 +46,11 @@ export default function FileListScreen() {
 
   const handleUpload = async () => {
     // Check authentication before opening file picker
+    if (isLoadingAuth) {
+      alert('Checking authentication... please try again in a moment');
+      return;
+    }
+
     if (!isAuthenticated) {
       alert('Please login to upload files');
       return;
@@ -63,7 +68,7 @@ export default function FileListScreen() {
       if (!result.canceled && result.assets[0]) {
         console.log('File selected:', result.assets[0].name);
         setFabOpen(false); // Close FAB menu
-        
+
         try {
           await uploadFile(result.assets[0], currentFolderId);
           console.log('File uploaded successfully');

@@ -139,3 +139,4 @@ All tables have RLS enabled for security.
 
 The app is fully functional and ready to use!
 
+

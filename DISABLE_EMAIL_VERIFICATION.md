@@ -49,3 +49,4 @@ The app code has been updated to:
 
 **The app is ready! Just disable email confirmation in the Supabase dashboard and users can login immediately!**
 
+

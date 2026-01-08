@@ -26,17 +26,22 @@ export default function SignUpScreen() {
 
     try {
       const result = await signUp(email, password, name || undefined);
+      const { isAuthenticated } = useAuthStore.getState();
+
       if (result) {
         setSuccess(result);
-        if (result.includes('check your email')) {
+        if (result.includes('email') || !isAuthenticated) {
+          // If message mentions email or user not authenticated, stay on/go to login
           setTimeout(() => {
             router.replace('/(auth)/login');
           }, 2000);
         } else {
           router.replace('/(tabs)');
         }
-      } else {
+      } else if (isAuthenticated) {
         router.replace('/(tabs)');
+      } else {
+        router.replace('/(auth)/login');
       }
     } catch (err: any) {
       setError(err.message || 'Failed to sign up');
@@ -164,4 +169,5 @@ const styles = StyleSheet.create({
     marginTop: 16,
   },
 });
+
 

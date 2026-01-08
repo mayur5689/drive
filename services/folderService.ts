@@ -2,8 +2,9 @@ import { supabase } from '../config/supabase';
 import { Folder } from '../types';
 
 export const getFolders = async (parentId?: string | null): Promise<Folder[]> => {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return []; // Return empty array instead of throwing
+  const { data: { session } } = await supabase.auth.getSession();
+  const user = session?.user;
+  if (!user) return [];
 
   let query = supabase
     .from('folders')
@@ -27,7 +28,8 @@ export const createFolder = async (
   name: string,
   parentId?: string | null
 ): Promise<Folder> => {
-  const { data: { user } } = await supabase.auth.getUser();
+  const { data: { session } } = await supabase.auth.getSession();
+  const user = session?.user;
   if (!user) throw new Error('Not authenticated');
 
   const { data, error } = await supabase

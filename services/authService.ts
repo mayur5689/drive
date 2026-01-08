@@ -59,7 +59,7 @@ export const signUp = async (
         email,
         password,
       });
-      
+
       if (signInResult.data.user && signInResult.data.session) {
         return {
           user: {
@@ -71,17 +71,17 @@ export const signUp = async (
         };
       }
     } catch (signInError) {
-      // If sign in fails, user was created but needs to login manually
+      // If sign in fails, user was created but may need to confirm email
       return {
         user: null,
-        message: 'Account created successfully! Please sign in.',
+        message: 'Account created! If you cannot log in, please check your email for a confirmation link.',
       };
     }
   }
 
   return {
     user: null,
-    message: 'Account created successfully! Please sign in.',
+    message: 'Account created! Please sign in.',
   };
 };
 

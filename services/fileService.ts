@@ -7,7 +7,8 @@ import * as FileSystem from 'expo-file-system/legacy';
 import { v4 as uuidv4 } from 'uuid';
 
 export const getFiles = async (folderId?: string | null): Promise<File[]> => {
-  const { data: { user } } = await supabase.auth.getUser();
+  const { data: { session } } = await supabase.auth.getSession();
+  const user = session?.user;
   if (!user) return []; // Return empty array instead of throwing
 
   let query = supabase
@@ -33,10 +34,10 @@ export const uploadFile = async (
   folderId?: string | null
 ): Promise<File> => {
   // Check authentication first
-  const { data: { user }, error: authError } = await supabase.auth.getUser();
-  
-  if (authError || !user) {
-    console.error('Upload error - Auth check failed:', authError || 'No user');
+  const { data: { session } } = await supabase.auth.getSession();
+  const user = session?.user;
+
+  if (!user) {
     throw new Error('Not authenticated');
   }
 
@@ -57,7 +58,7 @@ export const uploadFile = async (
     // Read file as base64 on mobile using legacy API
     const fileUri = file.uri;
     console.log('Reading file from URI:', fileUri);
-    
+
     try {
       const base64 = await FileSystem.readAsStringAsync(fileUri, {
         encoding: 'base64' as any,
@@ -134,7 +135,8 @@ export const getDownloadUrl = async (path: string): Promise<string> => {
 };
 
 export const searchFiles = async (query: string): Promise<File[]> => {
-  const { data: { user } } = await supabase.auth.getUser();
+  const { data: { session } } = await supabase.auth.getSession();
+  const user = session?.user;
   if (!user) throw new Error('Not authenticated');
 
   const { data, error } = await supabase
@@ -149,7 +151,8 @@ export const searchFiles = async (query: string): Promise<File[]> => {
 };
 
 export const getSharedFiles = async (): Promise<File[]> => {
-  const { data: { user } } = await supabase.auth.getUser();
+  const { data: { session } } = await supabase.auth.getSession();
+  const user = session?.user;
   if (!user) return []; // Return empty array instead of throwing
 
   const { data, error } = await supabase

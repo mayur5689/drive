@@ -29,3 +29,4 @@ expo-router v6 bundles all necessary navigation packages internally. Installing 
 
 The error should be completely fixed. The app will use expo-router's bundled navigation packages which are guaranteed to be compatible.
 
+
