@@ -71,7 +71,7 @@ export default function ClientsPage() {
                                     <input
                                         type="text"
                                         placeholder="Search for Clients"
-                                        className="w-full bg-[#09090B] border border-shark/50 rounded-lg py-2 pl-10 pr-4 text-xs text-iron placeholder:text-storm-gray focus:outline-none focus:border-[#7C86FF]/40 transition-all"
+                                        className="w-full bg-[#09090B] border border-shark/50 rounded-lg py-2 pl-10 pr-4 text-xs text-iron placeholder:text-storm-gray focus:outline-none focus:border-[#279da6]/40 transition-all"
                                     />
                                 </div>
                                 <div className="flex items-center gap-2">
@@ -131,7 +131,7 @@ export default function ClientsPage() {
                                                     <td className="px-5 py-4 border-r border-shark/60"><input type="checkbox" /></td>
                                                     <td className="px-6 py-4 border-r border-shark/60">
                                                         <div className="flex items-center gap-3">
-                                                            <div className="w-8 h-8 rounded-full bg-shark/80 border border-white/5 overflow-hidden flex items-center justify-center text-[10px] text-white bg-gradient-to-br from-[#7C86FF]/20 to-transparent">
+                                                            <div className="w-8 h-8 rounded-full bg-shark/80 border border-white/5 overflow-hidden flex items-center justify-center text-[10px] text-white bg-gradient-to-br from-[#279da6]/20 to-transparent">
                                                                 {client.name.split(' ').map(n => n[0]).join('')}
                                                             </div>
                                                             <span className="text-iron group-hover:text-white transition-colors">{client.name}</span>
@@ -141,8 +141,8 @@ export default function ClientsPage() {
                                                     <td className="px-6 py-4 text-santas-gray border-r border-shark/60 text-[11px] font-bold uppercase tracking-wider">{client.role}</td>
                                                     <td className="px-6 py-4 border-r border-shark/60">
                                                         <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] font-bold border ${client.status === 'Active'
-                                                                ? 'bg-green-500/5 text-green-500 border-green-500/10'
-                                                                : 'bg-yellow-500/5 text-yellow-500 border-yellow-500/10'
+                                                            ? 'bg-green-500/5 text-green-500 border-green-500/10'
+                                                            : 'bg-yellow-500/5 text-yellow-500 border-yellow-500/10'
                                                             }`}>
                                                             <div className={`w-1.5 h-1.5 rounded-full ${client.status === 'Active' ? 'bg-green-500' : 'bg-yellow-500'}`} />
                                                             {client.status}

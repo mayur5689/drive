@@ -2,6 +2,7 @@
 
 import React from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import {
     LayoutDashboard,
@@ -9,7 +10,7 @@ import {
     Calendar,
     Layers,
     Clock,
-    Users,
+    Users as UsersIcon,
     UserCheck,
     Settings,
     Receipt,
@@ -33,14 +34,14 @@ const NavItem: React.FC<NavItemProps> = ({ icon, label, href = '#', active, isCo
     return (
         <Link
             href={href}
-            className={`flex items-center gap-3 px-3 py-1.5 rounded-md text-sm font-medium transition-all relative group ${isActive ? 'text-malibu' : 'text-santas-gray hover:text-iron'
+            className={`flex items-center gap-3 px-3 py-1.5 rounded-md text-sm font-medium transition-all relative group ${isActive ? 'text-[#279da6]' : 'text-santas-gray hover:text-iron'
                 } ${isCollapsed ? 'justify-center px-0' : ''}`}
             title={isCollapsed ? label : ''}
         >
             {isActive && (
-                <div className={`absolute inset-0 bg-shark/40 rounded-md -z-10 ${isCollapsed ? 'mx-1' : ''}`} />
+                <div className={`absolute inset-0 bg-[#279da6]/10 rounded-md -z-10 ${isCollapsed ? 'mx-1' : ''}`} />
             )}
-            <span className={`w-5 h-5 flex items-center justify-center shrink-0 ${isActive ? 'text-malibu' : 'text-storm-gray'}`}>
+            <span className={`w-5 h-5 flex items-center justify-center shrink-0 ${isActive ? 'text-[#279da6]' : 'text-storm-gray'}`}>
                 {icon}
             </span>
             {!isCollapsed && <span className="truncate transition-opacity duration-300">{label}</span>}
@@ -54,63 +55,60 @@ interface SidebarProps {
 
 const Sidebar: React.FC<SidebarProps> = ({ isCollapsed }) => {
     return (
-        <aside className={`${isCollapsed ? 'w-16' : 'w-60'} bg-cod-gray border-r border-shark h-screen flex flex-col shrink-0 transition-all duration-300 ease-in-out overflow-hidden`}>
-            {/* Header / Profile */}
-            <div className="h-16 flex items-center px-4 shrink-0 overflow-hidden">
-                <button className={`flex items-center gap-2 p-1.5 hover:bg-shark rounded-md transition-colors w-full group ${isCollapsed ? 'justify-center p-0' : ''}`}>
-                    <div className="w-8 h-8 rounded-full bg-shark overflow-hidden relative border border-white/10 shrink-0">
-                        <div className="w-full h-full bg-malibu/20 flex items-center justify-center text-[10px] font-bold text-malibu uppercase">
-                            SC
-                        </div>
+        <aside className={`${isCollapsed ? 'w-16' : 'w-60'} bg-cod-gray border-r border-shark h-screen flex flex-col shrink-0 transition-all duration-300 ease-in-out font-sans`}>
+            {/* Brand Logo & Name */}
+            <div className="h-16 flex items-center px-5 shrink-0 overflow-hidden border-b border-shark/40">
+                <div className={`flex items-center gap-3 w-full ${isCollapsed ? 'justify-center' : ''}`}>
+                    <div className="relative w-10 h-10 shrink-0">
+                        <Image
+                            src="/images/Artboard 7@2x.png"
+                            alt="Aneeverse Logo"
+                            fill
+                            className="object-contain"
+                        />
                     </div>
                     {!isCollapsed && (
-                        <>
-                            <div className="flex flex-col items-start overflow-hidden">
-                                <span className="text-sm font-semibold text-iron truncate w-full">Sébastien Chopin</span>
-                                <span className="text-[10px] text-storm-gray truncate w-full">Administrator</span>
-                            </div>
-                            <div className="w-4 h-4 rounded-full bg-shark border border-white/10 flex items-center justify-center ml-auto">
-                                <Plus size={10} className="text-storm-gray" />
-                            </div>
-                        </>
+                        <span className="text-2xl font-black tracking-tighter text-[#279da6] -mt-1 select-none">
+                            aneeverse
+                        </span>
                     )}
-                </button>
+                </div>
             </div>
 
             {/* Navigation Scrollable Area */}
-            <div className="flex-1 overflow-y-auto custom-scrollbar px-3 py-2 space-y-4 overflow-x-hidden">
+            <div className="flex-1 overflow-y-auto custom-scrollbar px-3 py-6 space-y-6 overflow-x-hidden">
                 {/* Dashboards Section */}
                 <div>
-                    {!isCollapsed && <div className="px-3 py-2 text-[10px] font-bold text-storm-gray/80 uppercase tracking-tight">Dashboards</div>}
-                    <nav className="space-y-0.5">
+                    {!isCollapsed && <div className="px-3 py-2 text-[10px] font-bold text-storm-gray uppercase tracking-widest opacity-50 mb-1">Dashboards</div>}
+                    <nav className="space-y-1">
                         <NavItem icon={<LayoutDashboard size={18} />} label="Overview" href="/" isCollapsed={isCollapsed} />
                         <NavItem icon={<FileText size={18} />} label="Requests" href="/requests" isCollapsed={isCollapsed} />
                     </nav>
                 </div>
 
-                {/* Apps Section */}
+                {/* Users Section (Moved Up) */}
                 <div>
-                    {!isCollapsed && <div className="px-3 py-2 text-[10px] font-bold text-storm-gray/80 uppercase tracking-tight">Apps</div>}
-                    <nav className="space-y-0.5">
+                    {!isCollapsed && <div className="px-3 py-2 text-[10px] font-bold text-storm-gray uppercase tracking-widest opacity-50 mb-1">Users</div>}
+                    <nav className="space-y-1">
+                        <NavItem icon={<UsersIcon size={18} />} label="Clients" href="/clients" isCollapsed={isCollapsed} />
+                        <NavItem icon={<UserCheck size={18} />} label="Team" href="/team" isCollapsed={isCollapsed} />
+                    </nav>
+                </div>
+
+                {/* Apps Section (Moved Down) */}
+                <div>
+                    {!isCollapsed && <div className="px-3 py-2 text-[10px] font-bold text-storm-gray uppercase tracking-widest opacity-50 mb-1">Apps</div>}
+                    <nav className="space-y-1">
                         <NavItem icon={<Calendar size={18} />} label="Calendar" isCollapsed={isCollapsed} />
                         <NavItem icon={<Layers size={18} />} label="Widgets" isCollapsed={isCollapsed} />
                         <NavItem icon={<Clock size={18} />} label="Timeline" isCollapsed={isCollapsed} />
                     </nav>
                 </div>
 
-                {/* Users Section */}
+                {/* Management Section */}
                 <div>
-                    {!isCollapsed && <div className="px-3 py-2 text-[10px] font-bold text-storm-gray/80 uppercase tracking-tight">Users</div>}
-                    <nav className="space-y-0.5">
-                        <NavItem icon={<Users size={18} />} label="Clients" href="/clients" isCollapsed={isCollapsed} />
-                        <NavItem icon={<UserCheck size={18} />} label="Team" href="/team" isCollapsed={isCollapsed} />
-                    </nav>
-                </div>
-
-                {/* Settings Section */}
-                <div>
-                    {!isCollapsed && <div className="px-3 py-2 text-[10px] font-bold text-storm-gray/80 uppercase tracking-tight">Management</div>}
-                    <nav className="space-y-0.5">
+                    {!isCollapsed && <div className="px-3 py-2 text-[10px] font-bold text-storm-gray uppercase tracking-widest opacity-50 mb-1">Management</div>}
+                    <nav className="space-y-1">
                         <NavItem icon={<Receipt size={18} />} label="Invoices" isCollapsed={isCollapsed} />
                         <NavItem icon={<BarChart3 size={18} />} label="Reports" isCollapsed={isCollapsed} />
                         <NavItem icon={<Settings size={18} />} label="Settings" isCollapsed={isCollapsed} />
@@ -118,10 +116,21 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed }) => {
                 </div>
             </div>
 
-            {/* Footer Area */}
-            <div className="p-4 space-y-4 shrink-0 overflow-hidden">
-                {/* Logout */}
-                <NavItem icon={<LogOut size={18} />} label="Logout" isCollapsed={isCollapsed} />
+            {/* Footer Area - User Profile */}
+            <div className="p-4 border-t border-shark shrink-0 bg-black/20">
+                <button className={`flex items-center gap-3 p-2 hover:bg-shark rounded-xl transition-all w-full group ${isCollapsed ? 'justify-center p-1' : ''}`}>
+                    <div className="w-8 h-8 rounded-full bg-shark overflow-hidden relative border border-white/10 shrink-0 shadow-lg">
+                        <div className="w-full h-full bg-[#279da6]/20 flex items-center justify-center text-[10px] font-bold text-[#279da6] uppercase">
+                            SC
+                        </div>
+                    </div>
+                    {!isCollapsed && (
+                        <div className="flex flex-col items-start overflow-hidden">
+                            <span className="text-xs font-bold text-iron truncate w-full">Sébastien Chopin</span>
+                            <span className="text-[10px] text-storm-gray truncate w-full">Admin</span>
+                        </div>
+                    )}
+                </button>
             </div>
         </aside>
     );

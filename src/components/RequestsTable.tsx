@@ -57,7 +57,7 @@ interface RequestsTableProps {
 
 const statusStyles = {
     'In Progress': 'bg-[#EAB308]/10 text-[#EAB308] border-[#EAB308]/20',
-    'Todo': 'bg-[#3B82F6]/10 text-[#3B82F6] border-[#3B82F6]/20',
+    'Todo': 'bg-[#279da6]/10 text-[#279da6] border-[#279da6]/20',
     'Done': 'bg-[#10B981]/10 text-[#10B981] border-[#10B981]/20',
     'Bug': 'bg-[#EF4444]/10 text-[#EF4444] border-[#EF4444]/20',
 };

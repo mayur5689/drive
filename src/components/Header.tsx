@@ -63,8 +63,8 @@ const Header: React.FC<HeaderProps> = ({
                             key={tab}
                             onClick={() => setActiveTab(tab)}
                             className={`px-4 py-1.5 rounded-lg text-[11px] font-bold transition-all whitespace-nowrap ${activeTab === tab
-                                    ? 'bg-[#1E1E22] text-[#7C86FF] border border-[#7C86FF]/20 shadow-lg'
-                                    : 'text-santas-gray hover:text-iron hover:bg-white/5'
+                                ? 'bg-[#1E1E22] text-[#279da6] border border-[#279da6]/20 shadow-lg'
+                                : 'text-santas-gray hover:text-iron hover:bg-white/5'
                                 }`}
                         >
                             {tab}

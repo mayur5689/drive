@@ -67,7 +67,7 @@ export default function RequestsPage() {
                                     <input
                                         type="text"
                                         placeholder="Search issue"
-                                        className="w-full bg-[#09090B] border border-shark/50 rounded-lg py-2 pl-10 pr-4 text-xs text-iron placeholder:text-storm-gray focus:outline-none focus:border-[#7C86FF]/40 transition-all"
+                                        className="w-full bg-[#09090B] border border-shark/50 rounded-lg py-2 pl-10 pr-4 text-xs text-iron placeholder:text-storm-gray focus:outline-none focus:border-[#279da6]/40 transition-all"
                                     />
                                 </div>
                                 <div className="flex items-center gap-2">
@@ -131,8 +131,8 @@ export default function RequestsPage() {
                                                     </td>
                                                     <td className="px-6 py-3.5 border-r border-shark/60">
                                                         <div className={`inline-flex items-center gap-1.5 px-3 py-0.5 rounded-md text-[10px] font-bold border ${item.status === 'Done' ? 'bg-[#10B981]/10 text-[#10B981] border-[#10B981]/20' :
-                                                                item.status === 'In Progress' ? 'bg-[#EAB308]/10 text-[#EAB308] border-[#EAB308]/20' :
-                                                                    'bg-[#3B82F6]/10 text-[#3B82F6] border-[#3B82F6]/20'
+                                                            item.status === 'In Progress' ? 'bg-[#EAB308]/10 text-[#EAB308] border-[#EAB308]/20' :
+                                                                'bg-[#279da6]/10 text-[#279da6] border-[#279da6]/20'
                                                             }`}>
                                                             {item.status === 'Done' && <CheckCircle2 size={10} />}
                                                             {item.status === 'In Progress' && <HourglassIcon size={10} />}
