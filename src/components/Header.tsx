@@ -1,0 +1,98 @@
+'use client';
+
+import React, { useState, useEffect } from 'react';
+import {
+    Bell,
+    PanelLeft,
+    Moon,
+    Sun,
+    Plus,
+    ListFilter
+} from 'lucide-react';
+
+interface HeaderProps {
+    onToggleSidebar: () => void;
+    label: string;
+    labelIcon?: React.ReactNode;
+    tabs: string[];
+    activeTab: string;
+    setActiveTab: (tab: string) => void;
+}
+
+const Header: React.FC<HeaderProps> = ({
+    onToggleSidebar,
+    label,
+    labelIcon,
+    tabs,
+    activeTab,
+    setActiveTab
+}) => {
+    const [theme, setTheme] = useState<'dark' | 'light'>('dark');
+
+    // Theme toggle effect
+    useEffect(() => {
+        const root = window.document.documentElement;
+        if (theme === 'light') {
+            root.classList.add('light');
+        } else {
+            root.classList.remove('light');
+        }
+    }, [theme]);
+
+    return (
+        <header className="h-16 border-b border-shark flex items-center justify-between px-6 bg-[#09090B] z-30 shrink-0">
+            {/* Left side: Sidebar Toggle + Category Label + Tabs */}
+            <div className="flex items-center gap-4 flex-1 overflow-hidden">
+                <button
+                    onClick={onToggleSidebar}
+                    className="p-1 text-santas-gray hover:text-white transition-colors"
+                >
+                    <PanelLeft size={18} />
+                </button>
+
+                {/* Section Label Pill */}
+                <div className="flex items-center gap-2 px-3 py-1.5 bg-shark/40 border border-shark rounded-lg shrink-0">
+                    {labelIcon || <ListFilter size={16} className="text-santas-gray" />}
+                    <span className="text-xs font-bold text-iron">{label}</span>
+                </div>
+
+                {/* Dynamic Sub-Navigation */}
+                <div className="flex items-center bg-black/40 border border-shark p-1 rounded-xl overflow-x-auto no-scrollbar ml-2">
+                    {tabs.map((tab) => (
+                        <button
+                            key={tab}
+                            onClick={() => setActiveTab(tab)}
+                            className={`px-4 py-1.5 rounded-lg text-[11px] font-bold transition-all whitespace-nowrap ${activeTab === tab
+                                    ? 'bg-[#1E1E22] text-[#7C86FF] border border-[#7C86FF]/20 shadow-lg'
+                                    : 'text-santas-gray hover:text-iron hover:bg-white/5'
+                                }`}
+                        >
+                            {tab}
+                        </button>
+                    ))}
+                </div>
+            </div>
+
+            {/* Right side: New + Theme + Notification */}
+            <div className="flex items-center gap-3 ml-4">
+                <button className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-santas-gray hover:text-white transition-colors group">
+                    <Plus size={16} className="group-hover:text-white" />
+                    <span>new</span>
+                </button>
+                <div className="h-4 w-[1px] bg-shark" />
+                <button
+                    onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+                    className="p-2 text-santas-gray hover:text-white rounded-lg hover:bg-shark/40 transition-all"
+                >
+                    {theme === 'dark' ? <Moon size={18} /> : <Sun size={18} />}
+                </button>
+                <button className="p-2 text-santas-gray hover:text-white rounded-lg hover:bg-shark/40 transition-all relative">
+                    <Bell size={18} />
+                    <div className="absolute top-2 right-2.5 w-1.5 h-1.5 bg-red-500 rounded-full border border-black" />
+                </button>
+            </div>
+        </header>
+    );
+};
+
+export default Header;

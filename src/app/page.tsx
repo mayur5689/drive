@@ -1,84 +1,119 @@
-import Image from "next/image";
+'use client';
 
-export default function Home() {
+import React, { useState } from 'react';
+import Sidebar from '@/components/Sidebar';
+import Header from '@/components/Header';
+import RequestsTable from '@/components/RequestsTable';
+import Charts from '@/components/Charts';
+import {
+  LayoutDashboard,
+  ArrowUpRight,
+  ArrowDownRight,
+  TrendingUp,
+  Users,
+  Zap,
+  Clock
+} from 'lucide-react';
+
+export default function DashboardPage() {
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [activeTab, setActiveTab] = useState('Overview');
+
+  const overviewTabs = ['Overview', 'Analytics', 'Performance', 'Usage'];
+
   return (
-    <div className="min-h-screen bg-[#030303] text-white selection:bg-purple-500/30 font-sans overflow-x-hidden">
-      {/* Background Blobs */}
-      <div className="fixed top-0 left-0 w-full h-full overflow-hidden -z-10 pointer-events-none">
-        <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-purple-600/20 blur-[120px] rounded-full animate-pulse" />
-        <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-blue-600/20 blur-[120px] rounded-full animate-pulse [animation-delay:1s]" />
-      </div>
+    <div className="flex h-screen bg-[#09090B] text-iron font-sans overflow-hidden">
+      <Sidebar isCollapsed={isSidebarCollapsed} />
 
-      {/* Header */}
-      <header className="fixed top-0 left-0 w-full z-50 px-6 py-6 flex justify-between items-center backdrop-blur-md border-b border-white/5">
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 bg-gradient-to-tr from-purple-600 to-blue-500 rounded-lg flex items-center justify-center font-bold text-lg">A</div>
-          <span className="text-xl font-bold tracking-tight">AneeRequest</span>
-        </div>
-        <nav className="hidden md:flex items-center gap-8 text-sm font-medium text-zinc-400">
-          <a href="#" className="hover:text-white transition-colors">Features</a>
-          <a href="#" className="hover:text-white transition-colors">Pricing</a>
-          <a href="#" className="hover:text-white transition-colors">Resources</a>
-          <button className="px-5 py-2 bg-white text-black rounded-full font-semibold hover:bg-zinc-200 transition-all active:scale-95">
-            Get Started
-          </button>
-        </nav>
-      </header>
+      <div className="flex-1 flex flex-col min-w-0 bg-[#09090B] relative">
+        <Header
+          onToggleSidebar={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+          label="Overview"
+          labelIcon={<LayoutDashboard size={16} className="text-santas-gray" />}
+          tabs={overviewTabs}
+          activeTab={activeTab}
+          setActiveTab={setActiveTab}
+        />
 
-      {/* Hero Section */}
-      <main className="pt-40 pb-20 px-6 max-w-7xl mx-auto flex flex-col items-center text-center">
-        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/5 border border-white/10 text-xs font-medium text-purple-400 mb-8 animate-fade-in">
-          <span className="w-2 h-2 rounded-full bg-purple-500 animate-ping" />
-          Beta version 2.0 is now live
-        </div>
-        
-        <h1 className="text-5xl md:text-8xl font-extrabold tracking-tight mb-8 leading-[1.1] animate-slide-up">
-          Streamline Your <br />
-          <span className="text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-blue-400">Collaborations.</span>
-        </h1>
-        
-        <p className="max-w-2xl text-lg md:text-xl text-zinc-400 mb-12 animate-slide-up [animation-delay:0.1s]">
-          AneeRequest simplifies how you manage requests and collaborative workflows. 
-          Built for modern teams who value speed, beauty, and precision.
-        </p>
+        <main className="flex-1 overflow-y-auto custom-scrollbar bg-[#121214]">
+          <div className="p-6">
+            {/* High-Fidelity Content Container */}
+            <div className="bg-[#18181B] border border-shark rounded-2xl p-6 shadow-2xl space-y-8">
 
-        <div className="flex flex-col sm:flex-row gap-4 animate-slide-up [animation-delay:0.2s]">
-          <button className="px-8 py-4 bg-gradient-to-r from-purple-600 to-blue-600 rounded-xl font-bold hover:shadow-[0_0_20px_rgba(147,51,234,0.4)] transition-all active:scale-95">
-            Start Requesting Free
-          </button>
-          <button className="px-8 py-4 bg-white/5 border border-white/10 rounded-xl font-bold hover:bg-white/10 transition-all active:scale-95 backdrop-blur-sm">
-            Watch Demo
-          </button>
-        </div>
+              {/* Stats Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                {[
+                  { label: 'Total Revenue', value: '$45,231.89', trend: '+20.1%', icon: <Zap className="text-malibu" size={18} />, up: true },
+                  { label: 'Active Clients', value: '+2,350', trend: '+180.1%', icon: <Users className="text-emerald-400" size={18} />, up: true },
+                  { label: 'Total Requests', value: '12,234', trend: '+19%', icon: <Zap className="text-amber-400" size={18} />, up: true },
+                  { label: 'Active Now', value: '573', trend: '+201', icon: <Clock className="text-rose-400" size={18} />, up: true },
+                ].map((stat, i) => (
+                  <div key={i} className="bg-shark/10 border border-shark rounded-xl p-5 hover:bg-shark/20 transition-all group">
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="p-2 bg-shark/40 rounded-lg border border-shark group-hover:border-malibu/20 transition-all">
+                        {stat.icon}
+                      </div>
+                      <div className={`flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded-full ${stat.up ? 'bg-emerald-500/10 text-emerald-500' : 'bg-rose-500/10 text-rose-500'}`}>
+                        {stat.up ? <ArrowUpRight size={10} /> : <ArrowDownRight size={10} />}
+                        {stat.trend}
+                      </div>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-xs font-medium text-santas-gray uppercase tracking-wider">{stat.label}</p>
+                      <h3 className="text-2xl font-bold text-iron">{stat.value}</h3>
+                    </div>
+                  </div>
+                ))}
+              </div>
 
-        {/* Mockup / Visual Area */}
-        <div className="mt-20 w-full max-w-5xl aspect-video rounded-3xl border border-white/10 bg-white/5 backdrop-blur-xl relative overflow-hidden group animate-slide-up [animation-delay:0.3s]">
-          <div className="absolute inset-0 bg-gradient-to-b from-transparent to-[#030303]/80 pointer-events-none" />
-          <div className="absolute top-0 left-0 w-full h-8 bg-white/5 flex items-center gap-1.5 px-4">
-            <div className="w-2 h-2 rounded-full bg-red-500/50" />
-            <div className="w-2 h-2 rounded-full bg-yellow-500/50" />
-            <div className="w-2 h-2 rounded-full bg-green-500/50" />
-          </div>
-          <div className="p-12 flex flex-col gap-6">
-            <div className="flex justify-between items-center">
-              <div className="h-4 w-40 bg-white/10 rounded-full" />
-              <div className="h-4 w-20 bg-white/10 rounded-full" />
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {[1, 2, 3].map((i) => (
-                <div key={i} className="h-40 bg-white/5 rounded-2xl border border-white/5 p-6 flex flex-col justify-end gap-3 group-hover:border-purple-500/30 transition-colors">
-                  <div className="h-3 w-1/2 bg-white/10 rounded-full" />
-                  <div className="h-3 w-3/4 bg-white/10 rounded-full" />
+              {/* Charts Section */}
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div className="lg:col-span-2">
+                  <Charts />
                 </div>
-              ))}
+                <div className="bg-shark/10 border border-shark rounded-xl p-6 flex flex-col justify-between">
+                  <div className="flex items-center justify-between mb-6">
+                    <h3 className="text-sm font-bold text-iron">Performance Goals</h3>
+                    <TrendingUp size={16} className="text-malibu" />
+                  </div>
+                  <div className="space-y-6">
+                    {[
+                      { label: 'Request Resolution', value: 85, color: 'bg-malibu' },
+                      { label: 'Client Satisfaction', value: 92, color: 'bg-emerald-400' },
+                      { label: 'Build Stability', value: 78, color: 'bg-amber-400' },
+                    ].map((goal, i) => (
+                      <div key={i} className="space-y-2">
+                        <div className="flex justify-between text-[11px] font-bold">
+                          <span className="text-santas-gray uppercase tracking-wider">{goal.label}</span>
+                          <span className="text-iron">{goal.value}%</span>
+                        </div>
+                        <div className="h-1.5 w-full bg-shark rounded-full overflow-hidden">
+                          <div className={`h-full ${goal.color}`} style={{ width: `${goal.value}%` }} />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <button className="mt-8 w-full py-2.5 rounded-lg bg-iron text-cod-gray text-xs font-bold hover:bg-white transition-all">
+                    View Full Report
+                  </button>
+                </div>
+              </div>
+
+              {/* Recent Requests */}
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-bold text-iron">Recent Requests</h3>
+                  <button className="text-xs font-bold text-malibu hover:underline">View all</button>
+                </div>
+                <div className="bg-black/20 border border-shark/60 rounded-xl overflow-hidden">
+                  <RequestsTable />
+                </div>
+              </div>
+
             </div>
           </div>
-        </div>
-      </main>
-
-      <footer className="py-20 border-t border-white/5 text-center text-zinc-500 text-sm">
-        <p>&copy; 2024 AneeRequest. Crafted with precision for AneeVerse.</p>
-      </footer>
+        </main>
+      </div>
     </div>
   );
 }
