@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname, useRouter } from 'next/navigation';
@@ -16,7 +16,9 @@ import {
     BarChart2,
     Settings,
     LogOut,
-    MoreHorizontal
+    MoreHorizontal,
+    AlertTriangle,
+    X
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 
@@ -58,131 +60,202 @@ export default function Sidebar({ isCollapsed }: SidebarProps) {
     const pathname = usePathname();
     const router = useRouter();
     const { profile, signOut } = useAuth();
+    const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
 
     const handleSignOut = async () => {
-        await signOut();
-        router.push('/login');
+        try {
+            // Attempt to sign out via Supabase
+            await signOut();
+        } catch (error) {
+            console.error('Sign out error:', error);
+        } finally {
+            // ALWAYS clear storage and redirect, even if sign out fails
+            window.localStorage.clear();
+            window.sessionStorage.clear();
+
+            // Clear specific Supabase cookies as a fallback if possible
+            document.cookie.split(";").forEach((c) => {
+                document.cookie = c
+                    .replace(/^ +/, "")
+                    .replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/");
+            });
+
+            // Hard redirect to login
+            window.location.href = '/login';
+        }
     };
+
+    const isAdmin = profile?.role === 'super_admin' || profile?.role === 'admin';
 
     const menuItems = [
         { name: 'Overview', icon: LayoutGrid, path: '/' },
         { name: 'Requests', icon: MessageSquare, path: '/requests' },
-        { name: 'Calendar', icon: Calendar, path: '/calendar', section: 'Apps' },
-        { name: 'Widgets', icon: Box, path: '/widgets', section: 'Apps' },
-        { name: 'Timeline', icon: Clock, path: '/timeline', section: 'Apps' },
-        { name: 'Clients', icon: Users, path: '/clients', section: 'Users' },
-        { name: 'Team', icon: UserPlus, path: '/team', section: 'Users' },
-        { name: 'Invoices', icon: CreditCard, path: '/invoices', section: 'Management' },
-        { name: 'Reports', icon: BarChart2, path: '/reports', section: 'Management' },
-        { name: 'Settings', icon: Settings, path: '/settings', section: 'Management' },
+        { name: 'Calendar', icon: Calendar, path: '/calendar', section: 'Apps', adminOnly: true },
+        { name: 'Widgets', icon: Box, path: '/widgets', section: 'Apps', adminOnly: true },
+        { name: 'Timeline', icon: Clock, path: '/timeline', section: 'Apps', adminOnly: true },
+        { name: 'Clients', icon: Users, path: '/clients', section: 'Users', adminOnly: true },
+        { name: 'Team', icon: UserPlus, path: '/team', section: 'Users', adminOnly: true },
+        { name: 'Invoices', icon: CreditCard, path: '/invoices', section: 'Management', adminOnly: true },
+        { name: 'Reports', icon: BarChart2, path: '/reports', section: 'Management', adminOnly: true },
+        { name: 'Settings', icon: Settings, path: '/settings', section: 'Management', adminOnly: true },
     ];
 
+    // Filter items based on role
+    const filteredItems = menuItems.filter(item => !item.adminOnly || isAdmin);
+
     return (
-        <aside className={`flex flex-col bg-[#09090B] border-r border-[#1C1C1F] transition-all duration-300 ease-in-out ${isCollapsed ? 'w-20' : 'w-64'}`}>
-            {/* Brand Header */}
-            <div className="p-6 mb-2 flex items-center gap-3">
-                <div className="relative w-8 h-8 flex-shrink-0">
-                    <Image
-                        src="/images/Artboard 7@2x.png"
-                        alt="Aneeverse Logo"
-                        fill
-                        className="object-contain"
-                    />
-                </div>
-                {!isCollapsed && (
-                    <div className="flex flex-col -mt-1">
-                        <h1 className="text-xl font-black tracking-tighter text-[#279da6] select-none uppercase">aneeverse</h1>
-                        <p className="text-[8px] text-storm-gray -mt-1 font-bold tracking-widest uppercase">Request hub</p>
+        <>
+            <aside className={`flex flex-col bg-[#09090B] border-r border-[#1C1C1F] transition-all duration-300 ease-in-out ${isCollapsed ? 'w-20' : 'w-64'}`}>
+                {/* Brand Header */}
+                <div className="p-6 mb-2 flex items-center gap-3">
+                    <div className="relative w-8 h-8 flex-shrink-0">
+                        <Image
+                            src="/images/Artboard 7@2x.png"
+                            alt="Aneeverse Logo"
+                            fill
+                            className="object-contain"
+                        />
                     </div>
-                )}
-            </div>
-
-            {/* Navigation */}
-            <div className="flex-1 px-4 py-2 flex flex-col gap-8 overflow-y-auto no-scrollbar scroll-smooth">
-                {/* Dashboards Section */}
-                <div>
                     {!isCollapsed && (
-                        <h3 className="text-[10px] font-black text-storm-gray uppercase tracking-[0.2em] mb-4 px-3 opacity-50">
-                            Dashboards
-                        </h3>
-                    )}
-                    <nav className="flex flex-col gap-1">
-                        {menuItems.filter(item => !item.section).map((item) => (
-                            <SidebarItem key={item.name} item={item} isCollapsed={isCollapsed} isActive={pathname === item.path} />
-                        ))}
-                    </nav>
-                </div>
-
-                {/* Users Section */}
-                <div>
-                    {!isCollapsed && (
-                        <h3 className="text-[10px] font-black text-storm-gray uppercase tracking-[0.2em] mb-4 px-3 opacity-50">
-                            Users
-                        </h3>
-                    )}
-                    <nav className="flex flex-col gap-1">
-                        {menuItems.filter(item => item.section === 'Users').map((item) => (
-                            <SidebarItem key={item.name} item={item} isCollapsed={isCollapsed} isActive={pathname === item.path} />
-                        ))}
-                    </nav>
-                </div>
-
-                {/* Apps Section */}
-                <div>
-                    {!isCollapsed && (
-                        <h3 className="text-[10px] font-black text-storm-gray uppercase tracking-[0.2em] mb-4 px-3 opacity-50">
-                            Apps
-                        </h3>
-                    )}
-                    <nav className="flex flex-col gap-1">
-                        {menuItems.filter(item => item.section === 'Apps').map((item) => (
-                            <SidebarItem key={item.name} item={item} isCollapsed={isCollapsed} isActive={pathname === item.path} />
-                        ))}
-                    </nav>
-                </div>
-
-                {/* Management Section */}
-                <div>
-                    {!isCollapsed && (
-                        <h3 className="text-[10px] font-black text-storm-gray uppercase tracking-[0.2em] mb-4 px-3 opacity-50">
-                            Management
-                        </h3>
-                    )}
-                    <nav className="flex flex-col gap-1">
-                        {menuItems.filter(item => item.section === 'Management').map((item) => (
-                            <SidebarItem key={item.name} item={item} isCollapsed={isCollapsed} isActive={pathname === item.path} />
-                        ))}
-                    </nav>
-                </div>
-            </div>
-
-            {/* User Footer */}
-            <div className="p-4 border-t border-shark">
-                <div className={`bg-[#121214] border border-shark/40 p-3 rounded-2xl flex items-center justify-between gap-2 group/profile hover:border-[#279da6]/30 transition-all ${isCollapsed ? 'flex-col p-2' : ''}`}>
-                    <div className="flex items-center gap-3 overflow-hidden">
-                        <div className="w-9 h-9 rounded-full bg-shark relative shrink-0 ring-2 ring-transparent group-hover/profile:ring-[#279da6]/20 transition-all overflow-hidden flex items-center justify-center text-xs font-bold text-white bg-gradient-to-br from-[#279da6]/20 to-transparent">
-                            {profile?.full_name?.split(' ').map((n: string) => n[0]).join('') || profile?.email?.[0].toUpperCase() || 'U'}
+                        <div className="flex flex-col -mt-1">
+                            <h1 className="text-xl font-black tracking-tighter text-[#279da6] select-none uppercase">aneeverse</h1>
+                            <p className="text-[8px] text-storm-gray -mt-1 font-bold tracking-widest uppercase">Request hub</p>
                         </div>
-                        {!isCollapsed && (
-                            <div className="flex flex-col min-w-0">
-                                <p className="text-[11px] font-bold text-iron truncate leading-none mb-1">
-                                    {profile?.full_name || 'User Account'}
-                                </p>
-                                <p className="text-[9px] text-storm-gray font-medium truncate uppercase tracking-tighter">
-                                    {profile?.role?.replace('_', ' ') || 'Guest'}
-                                </p>
-                            </div>
-                        )}
-                    </div>
-                    <button
-                        onClick={() => handleSignOut()}
-                        className={`p-2 hover:bg-rose-500/10 hover:text-rose-500 text-storm-gray rounded-xl transition-all ${isCollapsed ? 'mt-1 w-full flex justify-center' : ''}`}
-                        title="Sign Out"
-                    >
-                        <LogOut size={16} />
-                    </button>
+                    )}
                 </div>
-            </div>
-        </aside>
+
+                {/* Navigation */}
+                <div className="flex-1 px-4 py-2 flex flex-col gap-8 overflow-y-auto no-scrollbar scroll-smooth">
+                    {/* Dashboards Section */}
+                    <div>
+                        {!isCollapsed && (
+                            <h3 className="text-[10px] font-black text-storm-gray uppercase tracking-[0.2em] mb-4 px-3 opacity-50">
+                                Dashboards
+                            </h3>
+                        )}
+                        <nav className="flex flex-col gap-1">
+                            {filteredItems.filter(item => !item.section).map((item) => (
+                                <SidebarItem key={item.name} item={item} isCollapsed={isCollapsed} isActive={pathname === item.path} />
+                            ))}
+                        </nav>
+                    </div>
+
+                    {/* Users Section - Only if Admin */}
+                    {isAdmin && (
+                        <div>
+                            {!isCollapsed && (
+                                <h3 className="text-[10px] font-black text-storm-gray uppercase tracking-[0.2em] mb-4 px-3 opacity-50">
+                                    Users
+                                </h3>
+                            )}
+                            <nav className="flex flex-col gap-1">
+                                {filteredItems.filter(item => item.section === 'Users').map((item) => (
+                                    <SidebarItem key={item.name} item={item} isCollapsed={isCollapsed} isActive={pathname === item.path} />
+                                ))}
+                            </nav>
+                        </div>
+                    )}
+
+                    {/* Apps Section - Only if Admin */}
+                    {isAdmin && (
+                        <div>
+                            {!isCollapsed && (
+                                <h3 className="text-[10px] font-black text-storm-gray uppercase tracking-[0.2em] mb-4 px-3 opacity-50">
+                                    Apps
+                                </h3>
+                            )}
+                            <nav className="flex flex-col gap-1">
+                                {filteredItems.filter(item => item.section === 'Apps').map((item) => (
+                                    <SidebarItem key={item.name} item={item} isCollapsed={isCollapsed} isActive={pathname === item.path} />
+                                ))}
+                            </nav>
+                        </div>
+                    )}
+
+                    {/* Management Section - Only if Admin */}
+                    {isAdmin && (
+                        <div>
+                            {!isCollapsed && (
+                                <h3 className="text-[10px] font-black text-storm-gray uppercase tracking-[0.2em] mb-4 px-3 opacity-50">
+                                    Management
+                                </h3>
+                            )}
+                            <nav className="flex flex-col gap-1">
+                                {filteredItems.filter(item => item.section === 'Management').map((item) => (
+                                    <SidebarItem key={item.name} item={item} isCollapsed={isCollapsed} isActive={pathname === item.path} />
+                                ))}
+                            </nav>
+                        </div>
+                    )}
+                </div>
+
+                {/* User Footer */}
+                <div className="p-4 border-t border-shark">
+                    <div className={`bg-[#121214] border border-shark/40 p-3 rounded-2xl flex items-center justify-between gap-2 group/profile hover:border-[#279da6]/30 transition-all ${isCollapsed ? 'flex-col p-2' : ''}`}>
+                        <div className="flex items-center gap-3 overflow-hidden">
+                            <div className="w-9 h-9 rounded-full bg-shark relative shrink-0 ring-2 ring-transparent group-hover/profile:ring-[#279da6]/20 transition-all overflow-hidden flex items-center justify-center text-xs font-bold text-white bg-gradient-to-br from-[#279da6]/20 to-transparent">
+                                {profile?.full_name?.split(' ').map((n: string) => n[0]).join('') || profile?.email?.[0].toUpperCase() || 'U'}
+                            </div>
+                            {!isCollapsed && (
+                                <div className="flex flex-col min-w-0">
+                                    <p className="text-[11px] font-bold text-iron truncate leading-none mb-1">
+                                        {profile?.full_name || 'User Account'}
+                                    </p>
+                                    <p className="text-[9px] text-storm-gray font-medium truncate uppercase tracking-tighter">
+                                        {profile?.role?.replace('_', ' ') || 'Guest'}
+                                    </p>
+                                </div>
+                            )}
+                        </div>
+                        <button
+                            onClick={() => setShowLogoutConfirm(true)}
+                            className={`p-2 hover:bg-rose-500/10 hover:text-rose-500 text-storm-gray rounded-xl transition-all ${isCollapsed ? 'mt-1 w-full flex justify-center' : ''}`}
+                            title="Sign Out"
+                        >
+                            <LogOut size={16} />
+                        </button>
+                    </div>
+                </div>
+            </aside>
+
+            {/* Logout Confirmation Modal */}
+            {showLogoutConfirm && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
+                    <div className="bg-[#18181B] border border-shark rounded-3xl p-8 max-w-sm w-full shadow-2xl animate-slide-up">
+                        <div className="flex justify-between items-start mb-6">
+                            <div className="w-12 h-12 rounded-2xl bg-rose-500/10 flex items-center justify-center text-rose-500">
+                                <AlertTriangle size={24} />
+                            </div>
+                            <button
+                                onClick={() => setShowLogoutConfirm(false)}
+                                className="text-storm-gray hover:text-iron transition-colors"
+                            >
+                                <X size={20} />
+                            </button>
+                        </div>
+
+                        <h2 className="text-xl font-bold text-iron mb-2">Sign out?</h2>
+                        <p className="text-storm-gray text-sm mb-8 leading-relaxed">
+                            Are you sure you want to sign out of your session? You'll need to login again to access your dashboard.
+                        </p>
+
+                        <div className="flex flex-col gap-3">
+                            <button
+                                onClick={handleSignOut}
+                                className="w-full bg-rose-600 hover:bg-rose-700 text-white py-3 rounded-xl font-bold text-sm transition-all shadow-lg shadow-rose-600/20 active:scale-[0.98]"
+                            >
+                                Yes, Sign Out
+                            </button>
+                            <button
+                                onClick={() => setShowLogoutConfirm(false)}
+                                className="w-full bg-shark/50 hover:bg-shark text-iron py-3 rounded-xl font-bold text-sm transition-all active:scale-[0.98]"
+                            >
+                                Cancel
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+        </>
     );
 }

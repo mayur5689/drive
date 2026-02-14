@@ -71,3 +71,93 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: error.message }, { status: 500 });
     }
 }
+
+export async function PATCH(request: Request) {
+    try {
+        const body = await request.json();
+        const { id, name, organization, email } = body;
+
+        if (!id) {
+            return NextResponse.json({ error: "Missing client ID" }, { status: 400 });
+        }
+
+        const serviceClient = createServiceClient();
+
+        // 1. Update the 'clients' table
+        const { data: clientData, error: clientError } = await serviceClient
+            .from('clients')
+            .update({ name, organization, email })
+            .eq('id', id)
+            .select()
+            .single();
+
+        if (clientError) throw clientError;
+
+        // 2. Find the Auth user by current email and update metadata/email if changed
+        const { data: usersData, error: listError } = await serviceClient.auth.admin.listUsers();
+        if (listError) throw listError;
+
+        const authUser = usersData.users.find(u => u.email === (email || clientData.email));
+
+        if (authUser) {
+            await serviceClient.auth.admin.updateUserById(authUser.id, {
+                email: email || undefined,
+                user_metadata: { full_name: name || authUser.user_metadata.full_name }
+            });
+
+            // Note: If email changed, the 'profiles' table should update automatically 
+            // if you have a trigger, or we can update it manually here.
+            await serviceClient
+                .from('profiles')
+                .update({ email: email || undefined, full_name: name || undefined })
+                .eq('id', authUser.id);
+        }
+
+        return NextResponse.json({
+            message: "Client updated successfully",
+            client: clientData
+        });
+
+    } catch (error: any) {
+        console.error("Client Update Error:", error);
+        return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+}
+
+export async function DELETE(request: Request) {
+    try {
+        const { searchParams } = new URL(request.url);
+        const id = searchParams.get('id');
+        const email = searchParams.get('email');
+
+        if (!id || !email) {
+            return NextResponse.json({ error: "Missing client ID or Email" }, { status: 400 });
+        }
+
+        const serviceClient = createServiceClient();
+
+        // 1. Delete the Auth user first
+        const { data: usersData, error: listError } = await serviceClient.auth.admin.listUsers();
+        if (listError) throw listError;
+
+        const authUser = usersData.users.find(u => u.email === email);
+        if (authUser) {
+            const { error: authDeleteError } = await serviceClient.auth.admin.deleteUser(authUser.id);
+            if (authDeleteError) throw authDeleteError;
+        }
+
+        // 2. Update 'clients' table to delete the record
+        const { error: clientDeleteError } = await serviceClient
+            .from('clients')
+            .delete()
+            .eq('id', id);
+
+        if (clientDeleteError) throw clientDeleteError;
+
+        return NextResponse.json({ message: "Client and account deleted successfully" });
+
+    } catch (error: any) {
+        console.error("Client Deletion Error:", error);
+        return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+}

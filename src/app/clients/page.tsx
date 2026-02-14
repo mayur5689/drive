@@ -17,8 +17,15 @@ import {
     X,
     Eye,
     EyeOff,
-    Loader2
+    Loader2,
+    Edit2,
+    UserCog,
+    Building,
+    Trash2,
+    AlertTriangle,
+    ExternalLink
 } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 
 interface ClientItem {
     id: string;
@@ -31,10 +38,15 @@ interface ClientItem {
 }
 
 export default function ClientsPage() {
+    const router = useRouter();
     const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
     const [activeTab, setActiveTab] = useState('All Clients');
     const [isModalOpen, setIsModalOpen] = useState(false);
+    const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+    const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+    const [selectedClient, setSelectedClient] = useState<ClientItem | null>(null);
     const [showPassword, setShowPassword] = useState(false);
+    const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
 
     // State for Data
     const [clients, setClients] = useState<ClientItem[]>([]);
@@ -81,7 +93,12 @@ export default function ClientsPage() {
         fetchClients();
     }, []);
 
-    // Handle Form Submit
+    const resetForm = () => {
+        setFormData({ name: '', organization: '', email: '', password: '', confirmPassword: '' });
+        setSelectedClient(null);
+    };
+
+    // Handle Create Form Submit
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (formData.password !== formData.confirmPassword) {
@@ -99,7 +116,7 @@ export default function ClientsPage() {
 
             if (response.ok) {
                 setIsModalOpen(false);
-                setFormData({ name: '', organization: '', email: '', password: '', confirmPassword: '' });
+                resetForm();
                 fetchClients(); // Refresh list
             } else {
                 const err = await response.json();
@@ -107,6 +124,85 @@ export default function ClientsPage() {
             }
         } catch (error) {
             console.error('Submit failed:', error);
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
+    // Handle Edit Click
+    const handleEditClick = (client: ClientItem) => {
+        setSelectedClient(client);
+        setFormData({
+            name: client.name,
+            organization: client.organization,
+            email: client.email,
+            password: '',
+            confirmPassword: ''
+        });
+        setIsEditModalOpen(true);
+        setActiveDropdown(null);
+    };
+
+    // Handle Edit Submit
+    const handleEditSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!selectedClient) return;
+
+        setIsSubmitting(true);
+        try {
+            const response = await fetch('/api/clients', {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    id: selectedClient.id,
+                    name: formData.name,
+                    organization: formData.organization,
+                    email: formData.email
+                })
+            });
+
+            if (response.ok) {
+                setIsEditModalOpen(false);
+                resetForm();
+                fetchClients();
+            } else {
+                const err = await response.json();
+                alert(`Error: ${err.error}`);
+            }
+        } catch (error) {
+            console.error('Update failed:', error);
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
+    // Handle Delete Click
+    const handleDeleteClick = (client: ClientItem) => {
+        setSelectedClient(client);
+        setIsDeleteModalOpen(true);
+        setActiveDropdown(null);
+    };
+
+    // Handle Delete Confirm
+    const handleDeleteConfirm = async () => {
+        if (!selectedClient) return;
+
+        setIsSubmitting(true);
+        try {
+            const response = await fetch(`/api/clients?id=${selectedClient.id}&email=${selectedClient.email}`, {
+                method: 'DELETE'
+            });
+
+            if (response.ok) {
+                setIsDeleteModalOpen(false);
+                resetForm();
+                fetchClients();
+            } else {
+                const err = await response.json();
+                alert(`Error: ${err.error}`);
+            }
+        } catch (error) {
+            console.error('Delete failed:', error);
         } finally {
             setIsSubmitting(false);
         }
@@ -160,8 +256,8 @@ export default function ClientsPage() {
                             </div>
 
                             {/* Clients Table */}
-                            <div className="border border-shark/60 rounded-xl overflow-hidden bg-black/20">
-                                <div className="overflow-x-auto">
+                            <div className="border border-shark/60 rounded-xl bg-black/20">
+                                <div className="overflow-visible">
                                     <table className="w-full text-left border-collapse table-auto text-xs">
                                         <thead>
                                             <tr className="border-b border-shark text-storm-gray text-[10px] uppercase font-bold bg-shark/20">
@@ -206,16 +302,63 @@ export default function ClientsPage() {
                                                         <td className="px-6 py-4 text-santas-gray border-r border-shark/60 font-bold uppercase tracking-tight">{client.organization}</td>
                                                         <td className="px-6 py-4 border-r border-shark/60">
                                                             <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] font-bold border ${client.status === 'Active'
-                                                                    ? 'bg-green-500/5 text-green-500 border-green-500/10'
-                                                                    : 'bg-yellow-500/5 text-yellow-500 border-yellow-500/10'
+                                                                ? 'bg-green-500/5 text-green-500 border-green-500/10'
+                                                                : 'bg-yellow-500/5 text-yellow-500 border-yellow-500/10'
                                                                 }`}>
                                                                 <div className={`w-1.5 h-1.5 rounded-full ${client.status === 'Active' ? 'bg-green-500' : 'bg-yellow-500'}`} />
                                                                 {client.status}
                                                             </div>
                                                         </td>
                                                         <td className="px-6 py-4 text-storm-gray border-r border-shark/60 font-medium">{client.lastLogin}</td>
-                                                        <td className="px-6 py-4 text-storm-gray text-center cursor-pointer hover:text-white">
-                                                            <MoreHorizontal size={14} />
+                                                        <td className="px-6 py-4 relative group/actions">
+                                                            <button
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    setActiveDropdown(activeDropdown === client.id ? null : client.id);
+                                                                }}
+                                                                className={`w-8 h-8 flex items-center justify-center rounded-lg transition-all hover:bg-shark ${activeDropdown === client.id ? 'bg-shark text-[#279da6]' : 'text-storm-gray'}`}
+                                                            >
+                                                                <MoreHorizontal size={14} />
+                                                            </button>
+
+                                                            {/* Dropdown Menu */}
+                                                            {activeDropdown === client.id && (
+                                                                <div
+                                                                    className="absolute right-0 top-full mt-2 z-[100] w-48 bg-[#18181B] border border-shark rounded-xl shadow-2xl overflow-hidden py-1 animate-scale-in origin-top-right"
+                                                                    onMouseLeave={() => setActiveDropdown(null)}
+                                                                >
+                                                                    <button
+                                                                        onClick={() => router.push(`/clients/${client.id}`)}
+                                                                        className="w-full flex items-center gap-3 px-4 py-2 text-[11px] font-bold text-santas-gray hover:text-white hover:bg-[#279da6]/10 transition-all"
+                                                                    >
+                                                                        <Eye size={14} className="text-[#279da6]" />
+                                                                        <span>View Details</span>
+                                                                    </button>
+                                                                    <button
+                                                                        onClick={() => handleEditClick(client)}
+                                                                        className="w-full flex items-center gap-3 px-4 py-2 text-[11px] font-bold text-santas-gray hover:text-white hover:bg-[#279da6]/10 transition-all"
+                                                                    >
+                                                                        <Edit2 size={14} className="text-[#279da6]" />
+                                                                        <span>Edit Account</span>
+                                                                    </button>
+                                                                    <button className="w-full flex items-center gap-3 px-4 py-2 text-[11px] font-bold text-santas-gray hover:text-white hover:bg-[#279da6]/10 transition-all">
+                                                                        <UserCog size={14} className="text-[#279da6]" />
+                                                                        <span>Impersonate</span>
+                                                                    </button>
+                                                                    <button className="w-full flex items-center gap-3 px-4 py-2 text-[11px] font-bold text-santas-gray hover:text-white hover:bg-[#279da6]/10 transition-all">
+                                                                        <Building size={14} className="text-[#279da6]" />
+                                                                        <span>Change Organization</span>
+                                                                    </button>
+                                                                    <div className="h-px bg-shark my-1" />
+                                                                    <button
+                                                                        onClick={() => handleDeleteClick(client)}
+                                                                        className="w-full flex items-center gap-3 px-4 py-2 text-[11px] font-bold text-rose-500 hover:text-rose-400 hover:bg-rose-500/10 transition-all"
+                                                                    >
+                                                                        <Trash2 size={14} />
+                                                                        <span>Delete Client</span>
+                                                                    </button>
+                                                                </div>
+                                                            )}
                                                         </td>
                                                     </tr>
                                                 ))
@@ -326,6 +469,120 @@ export default function ClientsPage() {
                                     </button>
                                 </div>
                             </form>
+                        </div>
+                    </div>
+                )}
+
+                {/* --- Edit Client Modal --- */}
+                {isEditModalOpen && (
+                    <div className="fixed inset-0 z-[100] flex items-center justify-center">
+                        <div className="absolute inset-0 bg-black/80 backdrop-blur-sm animate-fade-in" onClick={() => setIsEditModalOpen(false)} />
+
+                        <div className="relative bg-[#18181B] border border-shark w-full max-w-md rounded-2xl shadow-2xl overflow-hidden animate-slide-up mx-4">
+                            <form onSubmit={handleEditSubmit}>
+                                <div className="flex items-center justify-between px-6 py-4 border-b border-shark">
+                                    <h3 className="text-lg font-bold text-iron">Edit Client Account</h3>
+                                    <button type="button" onClick={() => setIsEditModalOpen(false)} className="p-1.5 text-santas-gray hover:text-white hover:bg-shark rounded-lg">
+                                        <X size={18} />
+                                    </button>
+                                </div>
+
+                                <div className="p-6 space-y-5">
+                                    <div className="space-y-1.5">
+                                        <label className="text-[11px] font-bold text-santas-gray uppercase tracking-wider">Client Name *</label>
+                                        <input
+                                            required
+                                            type="text"
+                                            value={formData.name}
+                                            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                                            className="w-full bg-[#09090B] border border-shark/60 rounded-xl py-2.5 px-4 text-sm text-iron focus:outline-none focus:border-[#279da6]/60"
+                                        />
+                                    </div>
+
+                                    <div className="space-y-1.5">
+                                        <label className="text-[11px] font-bold text-santas-gray uppercase tracking-wider">Company/Organization Name</label>
+                                        <input
+                                            type="text"
+                                            value={formData.organization}
+                                            onChange={(e) => setFormData({ ...formData, organization: e.target.value })}
+                                            className="w-full bg-[#09090B] border border-shark/60 rounded-xl py-2.5 px-4 text-sm text-iron focus:outline-none focus:border-[#279da6]/60"
+                                        />
+                                    </div>
+
+                                    <div className="space-y-1.5">
+                                        <label className="text-[11px] font-bold text-santas-gray uppercase tracking-wider">Email Address *</label>
+                                        <input
+                                            required
+                                            type="email"
+                                            value={formData.email}
+                                            onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                                            className="w-full bg-[#09090B] border border-shark/60 rounded-xl py-2.5 px-4 text-sm text-iron focus:outline-none focus:border-[#279da6]/60"
+                                        />
+                                    </div>
+                                    <p className="text-[10px] text-storm-gray">Note: Password changes are handled via individual account settings.</p>
+                                </div>
+
+                                <div className="p-6 bg-[#121214] border-t border-shark flex items-center justify-end gap-3">
+                                    <button type="button" onClick={() => setIsEditModalOpen(false)} className="px-6 py-2.5 text-xs font-bold text-iron hover:bg-shark rounded-xl transition-all">
+                                        Cancel
+                                    </button>
+                                    <button
+                                        type="submit"
+                                        disabled={isSubmitting}
+                                        className="px-6 py-2.5 text-xs font-bold bg-[#279da6] text-white rounded-xl shadow-lg hover:bg-[#279da6]/90 transition-all flex items-center gap-2 disabled:opacity-50"
+                                    >
+                                        {isSubmitting ? (
+                                            <>
+                                                <Loader2 size={14} className="animate-spin" />
+                                                Updating...
+                                            </>
+                                        ) : 'Update Account'}
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                )}
+
+                {/* --- Delete Confirmation Modal --- */}
+                {isDeleteModalOpen && (
+                    <div className="fixed inset-0 z-[100] flex items-center justify-center">
+                        <div className="absolute inset-0 bg-black/80 backdrop-blur-sm animate-fade-in" onClick={() => setIsDeleteModalOpen(false)} />
+
+                        <div className="relative bg-[#18181B] border border-shark w-full max-w-sm rounded-3xl shadow-2xl overflow-hidden animate-slide-up mx-4 p-8">
+                            <div className="flex justify-between items-start mb-6">
+                                <div className="w-12 h-12 rounded-2xl bg-rose-500/10 flex items-center justify-center text-rose-500">
+                                    <AlertTriangle size={24} />
+                                </div>
+                                <button
+                                    onClick={() => setIsDeleteModalOpen(false)}
+                                    className="text-storm-gray hover:text-iron transition-colors"
+                                >
+                                    <X size={20} />
+                                </button>
+                            </div>
+
+                            <h2 className="text-xl font-bold text-iron mb-2">Delete Client?</h2>
+                            <p className="text-storm-gray text-sm mb-8 leading-relaxed">
+                                Are you sure you want to delete <span className="text-white font-bold">{selectedClient?.name}</span>? This will permanently remove their access and all associated data.
+                            </p>
+
+                            <div className="flex flex-col gap-3">
+                                <button
+                                    onClick={handleDeleteConfirm}
+                                    disabled={isSubmitting}
+                                    className="w-full bg-rose-600 hover:bg-rose-700 text-white py-3 rounded-xl font-bold text-sm transition-all shadow-lg shadow-rose-600/20 active:scale-[0.98] flex items-center justify-center gap-2 disabled:opacity-50"
+                                >
+                                    {isSubmitting ? <Loader2 size={16} className="animate-spin" /> : null}
+                                    Yes, Delete Account
+                                </button>
+                                <button
+                                    onClick={() => setIsDeleteModalOpen(false)}
+                                    className="w-full bg-shark/50 hover:bg-shark text-iron py-3 rounded-xl font-bold text-sm transition-all active:scale-[0.98]"
+                                >
+                                    Cancel
+                                </button>
+                            </div>
                         </div>
                     </div>
                 )}
