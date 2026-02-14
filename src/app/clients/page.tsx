@@ -20,23 +20,23 @@ interface ClientItem {
     id: string;
     name: string;
     email: string;
-    role: 'Member' | 'Owner' | 'Admin';
+    organization: string;
     status: 'Active' | 'Invited';
     lastLogin: string;
     avatar?: string;
 }
 
 const mockClients: ClientItem[] = [
-    { id: '1', name: 'Betty King', email: 'betty.king@example.com', role: 'Member', status: 'Active', lastLogin: 'Feb 14, 2026, 04:06 PM' },
-    { id: '2', name: 'James Rodriguez', email: 'james.rodriguez@example.com', role: 'Owner', status: 'Active', lastLogin: 'Feb 14, 2026, 03:56 PM' },
-    { id: '3', name: 'Mary Williams', email: 'mary.williams@example.com', role: 'Owner', status: 'Active', lastLogin: 'Feb 14, 2026, 03:41 PM' },
-    { id: '4', name: 'Nancy Hall', email: 'nancy.hall@example.com', role: 'Member', status: 'Active', lastLogin: 'Feb 14, 2026, 03:26 PM' },
-    { id: '5', name: 'Michael Martinez', email: 'michael.martinez@example.com', role: 'Admin', status: 'Active', lastLogin: 'Feb 14, 2026, 03:11 PM' },
-    { id: '6', name: 'John Doe', email: 'john.doe@example.com', role: 'Admin', status: 'Active', lastLogin: 'Feb 14, 2026, 02:11 PM' },
-    { id: '7', name: 'Chris Wilson', email: 'chris.wilson@example.com', role: 'Member', status: 'Active', lastLogin: 'Feb 14, 2026, 11:11 AM' },
-    { id: '8', name: 'Karen Clark', email: 'karen.clark@example.com', role: 'Member', status: 'Active', lastLogin: 'Feb 14, 2026, 04:11 AM' },
-    { id: '9', name: 'Jane Smith', email: 'jane.smith@example.com', role: 'Member', status: 'Active', lastLogin: 'Feb 13, 2026, 04:11 AM' },
-    { id: '10', name: 'Linda White', email: 'linda.white@example.com', role: 'Member', status: 'Invited', lastLogin: 'Feb 13, 2026, 04:11 AM' },
+    { id: '1', name: 'Betty King', email: 'betty.king@example.com', organization: 'Novino Tech', status: 'Active', lastLogin: 'Feb 14, 2026, 04:06 PM' },
+    { id: '2', name: 'James Rodriguez', email: 'james.rodriguez@example.com', organization: 'AneeVerse', status: 'Active', lastLogin: 'Feb 14, 2026, 03:56 PM' },
+    { id: '3', name: 'Mary Williams', email: 'mary.williams@example.com', organization: 'AneeVerse', status: 'Active', lastLogin: 'Feb 14, 2026, 03:41 PM' },
+    { id: '4', name: 'Nancy Hall', email: 'nancy.hall@example.com', organization: 'Global Solutions', status: 'Active', lastLogin: 'Feb 14, 2026, 03:26 PM' },
+    { id: '5', name: 'Michael Martinez', email: 'michael.martinez@example.com', organization: 'Starlight Inc', status: 'Active', lastLogin: 'Feb 14, 2026, 03:11 PM' },
+    { id: '6', name: 'John Doe', email: 'john.doe@example.com', organization: 'NexGen Lab', status: 'Active', lastLogin: 'Feb 14, 2026, 02:11 PM' },
+    { id: '7', name: 'Chris Wilson', email: 'chris.wilson@example.com', organization: 'Novino Tech', status: 'Active', lastLogin: 'Feb 14, 2026, 11:11 AM' },
+    { id: '8', name: 'Karen Clark', email: 'karen.clark@example.com', organization: 'AneeVerse', status: 'Active', lastLogin: 'Feb 14, 2026, 04:11 AM' },
+    { id: '9', name: 'Jane Smith', email: 'jane.smith@example.com', organization: 'Global Solutions', status: 'Active', lastLogin: 'Feb 13, 2026, 04:11 AM' },
+    { id: '10', name: 'Linda White', email: 'linda.white@example.com', organization: 'Starlight Inc', status: 'Invited', lastLogin: 'Feb 13, 2026, 04:11 AM' },
 ];
 
 export default function ClientsPage() {
@@ -109,7 +109,7 @@ export default function ClientsPage() {
                                                 </th>
                                                 <th className="px-6 py-4 border-r border-shark/60">
                                                     <div className="flex items-center gap-1 cursor-pointer hover:text-white transition-colors">
-                                                        Role <ArrowUpDown size={12} />
+                                                        Organization <ArrowUpDown size={12} />
                                                     </div>
                                                 </th>
                                                 <th className="px-6 py-4 border-r border-shark/60">
@@ -138,11 +138,11 @@ export default function ClientsPage() {
                                                         </div>
                                                     </td>
                                                     <td className="px-6 py-4 text-santas-gray border-r border-shark/60">{client.email}</td>
-                                                    <td className="px-6 py-4 text-santas-gray border-r border-shark/60 text-[11px] font-bold uppercase tracking-wider">{client.role}</td>
+                                                    <td className="px-6 py-4 text-santas-gray border-r border-shark/60 text-[11px] font-bold uppercase tracking-wider">{client.organization}</td>
                                                     <td className="px-6 py-4 border-r border-shark/60">
                                                         <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] font-bold border ${client.status === 'Active'
-                                                            ? 'bg-green-500/5 text-green-500 border-green-500/10'
-                                                            : 'bg-yellow-500/5 text-yellow-500 border-yellow-500/10'
+                                                                ? 'bg-green-500/5 text-green-500 border-green-500/10'
+                                                                : 'bg-yellow-500/5 text-yellow-500 border-yellow-500/10'
                                                             }`}>
                                                             <div className={`w-1.5 h-1.5 rounded-full ${client.status === 'Active' ? 'bg-green-500' : 'bg-yellow-500'}`} />
                                                             {client.status}
