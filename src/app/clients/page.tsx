@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
 import {
@@ -16,7 +16,8 @@ import {
     Users,
     X,
     Eye,
-    EyeOff
+    EyeOff,
+    Loader2
 } from 'lucide-react';
 
 interface ClientItem {
@@ -25,17 +26,9 @@ interface ClientItem {
     email: string;
     organization: string;
     status: 'Active' | 'Invited';
-    lastLogin: string;
+    lastLogin: string | null;
     avatar?: string;
 }
-
-const mockClients: ClientItem[] = [
-    { id: '1', name: 'Betty King', email: 'betty.king@example.com', organization: 'Novino Tech', status: 'Active', lastLogin: 'Feb 14, 2026, 04:06 PM' },
-    { id: '2', name: 'James Rodriguez', email: 'james.rodriguez@example.com', organization: 'AneeVerse', status: 'Active', lastLogin: 'Feb 14, 2026, 03:56 PM' },
-    { id: '3', name: 'Mary Williams', email: 'mary.williams@example.com', organization: 'AneeVerse', status: 'Active', lastLogin: 'Feb 14, 2026, 03:41 PM' },
-    { id: '4', name: 'Nancy Hall', email: 'nancy.hall@example.com', organization: 'Global Solutions', status: 'Active', lastLogin: 'Feb 14, 2026, 03:26 PM' },
-    { id: '5', name: 'Michael Martinez', email: 'michael.martinez@example.com', organization: 'Starlight Inc', status: 'Active', lastLogin: 'Feb 14, 2026, 03:11 PM' },
-];
 
 export default function ClientsPage() {
     const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
@@ -43,7 +36,81 @@ export default function ClientsPage() {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [showPassword, setShowPassword] = useState(false);
 
+    // State for Data
+    const [clients, setClients] = useState<ClientItem[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [isSubmitting, setIsSubmitting] = useState(false);
+
+    // Form State
+    const [formData, setFormData] = useState({
+        name: '',
+        organization: '',
+        email: '',
+        password: '',
+        confirmPassword: ''
+    });
+
     const clientCategories = ['All Clients', 'Leads', 'Ongoing', 'Closed', 'Archived'];
+
+    // Fetch Clients
+    const fetchClients = async () => {
+        setIsLoading(true);
+        try {
+            const response = await fetch('/api/clients');
+            const data = await response.json();
+            if (response.ok) {
+                // Map snake_case from DB to camelCase for UI
+                const mappedData = data.map((c: any) => ({
+                    id: c.id,
+                    name: c.name,
+                    email: c.email,
+                    organization: c.organization,
+                    status: c.status,
+                    lastLogin: c.last_login ? new Date(c.last_login).toLocaleString() : 'Never'
+                }));
+                setClients(mappedData);
+            }
+        } catch (error) {
+            console.error('Failed to fetch clients:', error);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        fetchClients();
+    }, []);
+
+    // Handle Form Submit
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (formData.password !== formData.confirmPassword) {
+            alert("Passwords don't match!");
+            return;
+        }
+
+        setIsSubmitting(true);
+        try {
+            const response = await fetch('/api/clients', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(formData)
+            });
+
+            if (response.ok) {
+                setIsModalOpen(false);
+                setFormData({ name: '', organization: '', email: '', password: '', confirmPassword: '' });
+                fetchClients(); // Refresh list
+            } else {
+                const err = await response.json();
+                alert(`Error: ${err.error}`);
+            }
+        } catch (error) {
+            console.error('Submit failed:', error);
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
 
     return (
         <div className="flex h-screen bg-[#09090B] text-iron font-sans overflow-hidden">
@@ -95,7 +162,7 @@ export default function ClientsPage() {
                             {/* Clients Table */}
                             <div className="border border-shark/60 rounded-xl overflow-hidden bg-black/20">
                                 <div className="overflow-x-auto">
-                                    <table className="w-full text-left border-collapse table-auto">
+                                    <table className="w-full text-left border-collapse table-auto text-xs">
                                         <thead>
                                             <tr className="border-b border-shark text-storm-gray text-[10px] uppercase font-bold bg-shark/20">
                                                 <th className="px-5 py-4 w-10 border-r border-shark/60"><input type="checkbox" /></th>
@@ -108,31 +175,51 @@ export default function ClientsPage() {
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-shark/60">
-                                            {mockClients.map((client) => (
-                                                <tr key={client.id} className="hover:bg-shark/10 transition-colors group text-xs font-medium">
-                                                    <td className="px-5 py-4 border-r border-shark/60"><input type="checkbox" /></td>
-                                                    <td className="px-6 py-4 border-r border-shark/60">
-                                                        <div className="flex items-center gap-3">
-                                                            <div className="w-8 h-8 rounded-full bg-shark/80 border border-white/5 overflow-hidden flex items-center justify-center text-[10px] text-white bg-gradient-to-br from-[#279da6]/20 to-transparent">
-                                                                {client.name.split(' ').map(n => n[0]).join('')}
-                                                            </div>
-                                                            <span className="text-iron">{client.name}</span>
+                                            {isLoading ? (
+                                                <tr>
+                                                    <td colSpan={7} className="px-6 py-12 text-center text-storm-gray font-medium">
+                                                        <div className="flex items-center justify-center gap-2">
+                                                            <Loader2 size={16} className="animate-spin text-[#279da6]" />
+                                                            Loading clients...
                                                         </div>
-                                                    </td>
-                                                    <td className="px-6 py-4 text-santas-gray border-r border-shark/60">{client.email}</td>
-                                                    <td className="px-6 py-4 text-santas-gray border-r border-shark/60 font-bold">{client.organization}</td>
-                                                    <td className="px-6 py-4 border-r border-shark/60">
-                                                        <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] font-bold border bg-green-500/5 text-green-500 border-green-500/10">
-                                                            <div className="w-1.5 h-1.5 rounded-full bg-green-500" />
-                                                            {client.status}
-                                                        </div>
-                                                    </td>
-                                                    <td className="px-6 py-4 text-storm-gray border-r border-shark/60">{client.lastLogin}</td>
-                                                    <td className="px-6 py-4 text-storm-gray text-center cursor-pointer hover:text-white">
-                                                        <MoreHorizontal size={14} />
                                                     </td>
                                                 </tr>
-                                            ))}
+                                            ) : clients.length === 0 ? (
+                                                <tr>
+                                                    <td colSpan={7} className="px-6 py-12 text-center text-storm-gray font-medium uppercase tracking-widest opacity-40">
+                                                        No clients found. Add one to get started.
+                                                    </td>
+                                                </tr>
+                                            ) : (
+                                                clients.map((client) => (
+                                                    <tr key={client.id} className="hover:bg-shark/10 transition-colors group">
+                                                        <td className="px-5 py-4 border-r border-shark/60"><input type="checkbox" /></td>
+                                                        <td className="px-6 py-4 border-r border-shark/60">
+                                                            <div className="flex items-center gap-3">
+                                                                <div className="w-8 h-8 rounded-full bg-shark/80 border border-white/5 overflow-hidden flex items-center justify-center text-[10px] text-white bg-gradient-to-br from-[#279da6]/20 to-transparent">
+                                                                    {client.name.split(' ').map(n => n[0]).join('')}
+                                                                </div>
+                                                                <span className="text-iron font-medium">{client.name}</span>
+                                                            </div>
+                                                        </td>
+                                                        <td className="px-6 py-4 text-santas-gray border-r border-shark/60">{client.email}</td>
+                                                        <td className="px-6 py-4 text-santas-gray border-r border-shark/60 font-bold uppercase tracking-tight">{client.organization}</td>
+                                                        <td className="px-6 py-4 border-r border-shark/60">
+                                                            <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] font-bold border ${client.status === 'Active'
+                                                                    ? 'bg-green-500/5 text-green-500 border-green-500/10'
+                                                                    : 'bg-yellow-500/5 text-yellow-500 border-yellow-500/10'
+                                                                }`}>
+                                                                <div className={`w-1.5 h-1.5 rounded-full ${client.status === 'Active' ? 'bg-green-500' : 'bg-yellow-500'}`} />
+                                                                {client.status}
+                                                            </div>
+                                                        </td>
+                                                        <td className="px-6 py-4 text-storm-gray border-r border-shark/60 font-medium">{client.lastLogin}</td>
+                                                        <td className="px-6 py-4 text-storm-gray text-center cursor-pointer hover:text-white">
+                                                            <MoreHorizontal size={14} />
+                                                        </td>
+                                                    </tr>
+                                                ))
+                                            )}
                                         </tbody>
                                     </table>
                                 </div>
@@ -144,109 +231,101 @@ export default function ClientsPage() {
                 {/* --- Create Client Modal --- */}
                 {isModalOpen && (
                     <div className="fixed inset-0 z-[100] flex items-center justify-center">
-                        {/* Backdrop */}
-                        <div
-                            className="absolute inset-0 bg-black/80 backdrop-blur-sm animate-fade-in"
-                            onClick={() => setIsModalOpen(false)}
-                        />
+                        <div className="absolute inset-0 bg-black/80 backdrop-blur-sm animate-fade-in" onClick={() => setIsModalOpen(false)} />
 
-                        {/* Modal Content */}
                         <div className="relative bg-[#18181B] border border-shark w-full max-w-md rounded-2xl shadow-2xl overflow-hidden animate-slide-up mx-4">
-                            <div className="flex items-center justify-between px-6 py-4 border-b border-shark">
-                                <h3 className="text-lg font-bold text-iron">Client Information</h3>
-                                <button
-                                    onClick={() => setIsModalOpen(false)}
-                                    className="p-1.5 text-santas-gray hover:text-white hover:bg-shark rounded-lg transition-all"
-                                >
-                                    <X size={18} />
-                                </button>
-                            </div>
-
-                            <div className="p-6 space-y-5">
-                                {/* Name */}
-                                <div className="space-y-1.5">
-                                    <label className="text-[11px] font-bold text-santas-gray uppercase tracking-wider">
-                                        Client Name <span className="text-rose-500">*</span>
-                                    </label>
-                                    <input
-                                        type="text"
-                                        placeholder="John Doe"
-                                        className="w-full bg-[#09090B] border border-shark/60 rounded-xl py-2.5 px-4 text-sm text-iron focus:outline-none focus:border-[#279da6]/60 transition-all placeholder:text-storm-gray/50"
-                                    />
+                            <form onSubmit={handleSubmit}>
+                                <div className="flex items-center justify-between px-6 py-4 border-b border-shark">
+                                    <h3 className="text-lg font-bold text-iron">Client Information</h3>
+                                    <button type="button" onClick={() => setIsModalOpen(false)} className="p-1.5 text-santas-gray hover:text-white hover:bg-shark rounded-lg">
+                                        <X size={18} />
+                                    </button>
                                 </div>
 
-                                {/* Organization */}
-                                <div className="space-y-1.5">
-                                    <label className="text-[11px] font-bold text-santas-gray uppercase tracking-wider">
-                                        Company/Organization Name
-                                    </label>
-                                    <input
-                                        type="text"
-                                        placeholder="ACME Corporation"
-                                        className="w-full bg-[#09090B] border border-shark/60 rounded-xl py-2.5 px-4 text-sm text-iron focus:outline-none focus:border-[#279da6]/60 transition-all placeholder:text-storm-gray/50"
-                                    />
-                                </div>
-
-                                {/* Email */}
-                                <div className="space-y-1.5">
-                                    <label className="text-[11px] font-bold text-santas-gray uppercase tracking-wider">
-                                        Email Address <span className="text-rose-500">*</span>
-                                    </label>
-                                    <input
-                                        type="email"
-                                        placeholder="john@example.com"
-                                        className="w-full bg-[#09090B] border border-shark/60 rounded-xl py-2.5 px-4 text-sm text-iron focus:outline-none focus:border-[#279da6]/60 transition-all placeholder:text-storm-gray/50"
-                                    />
-                                </div>
-
-                                {/* Password */}
-                                <div className="space-y-1.5">
-                                    <label className="text-[11px] font-bold text-santas-gray uppercase tracking-wider">
-                                        Password <span className="text-rose-500">*</span>
-                                    </label>
-                                    <div className="relative">
+                                <div className="p-6 space-y-5">
+                                    <div className="space-y-1.5">
+                                        <label className="text-[11px] font-bold text-santas-gray uppercase tracking-wider">Client Name *</label>
                                         <input
-                                            type={showPassword ? "text" : "password"}
-                                            placeholder="Enter password"
-                                            className="w-full bg-[#09090B] border border-shark/60 rounded-xl py-2.5 px-4 text-sm text-iron focus:outline-none focus:border-[#279da6]/60 transition-all placeholder:text-storm-gray/50"
+                                            required
+                                            type="text"
+                                            placeholder="John Doe"
+                                            value={formData.name}
+                                            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                                            className="w-full bg-[#09090B] border border-shark/60 rounded-xl py-2.5 px-4 text-sm text-iron focus:outline-none focus:border-[#279da6]/60"
                                         />
-                                        <button
-                                            type="button"
-                                            onClick={() => setShowPassword(!showPassword)}
-                                            className="absolute right-3 top-1/2 -translate-y-1/2 text-storm-gray hover:text-iron transition-colors"
-                                        >
-                                            {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-                                        </button>
                                     </div>
-                                    <p className="text-[10px] text-storm-gray font-medium">Minimum 6 characters</p>
+
+                                    <div className="space-y-1.5">
+                                        <label className="text-[11px] font-bold text-santas-gray uppercase tracking-wider">Company/Organization Name</label>
+                                        <input
+                                            type="text"
+                                            placeholder="ACME Corporation"
+                                            value={formData.organization}
+                                            onChange={(e) => setFormData({ ...formData, organization: e.target.value })}
+                                            className="w-full bg-[#09090B] border border-shark/60 rounded-xl py-2.5 px-4 text-sm text-iron focus:outline-none focus:border-[#279da6]/60"
+                                        />
+                                    </div>
+
+                                    <div className="space-y-1.5">
+                                        <label className="text-[11px] font-bold text-santas-gray uppercase tracking-wider">Email Address *</label>
+                                        <input
+                                            required
+                                            type="email"
+                                            placeholder="john@example.com"
+                                            value={formData.email}
+                                            onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                                            className="w-full bg-[#09090B] border border-shark/60 rounded-xl py-2.5 px-4 text-sm text-iron focus:outline-none focus:border-[#279da6]/60"
+                                        />
+                                    </div>
+
+                                    <div className="space-y-1.5">
+                                        <label className="text-[11px] font-bold text-santas-gray uppercase tracking-wider">Password *</label>
+                                        <div className="relative">
+                                            <input
+                                                required
+                                                type={showPassword ? "text" : "password"}
+                                                placeholder="Enter password"
+                                                value={formData.password}
+                                                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                                                className="w-full bg-[#09090B] border border-shark/60 rounded-xl py-2.5 px-4 text-sm text-iron focus:outline-none focus:border-[#279da6]/60"
+                                            />
+                                            <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-storm-gray hover:text-iron">
+                                                {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    <div className="space-y-1.5">
+                                        <label className="text-[11px] font-bold text-santas-gray uppercase tracking-wider">Confirm Password *</label>
+                                        <input
+                                            required
+                                            type="password"
+                                            placeholder="Confirm password"
+                                            value={formData.confirmPassword}
+                                            onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
+                                            className="w-full bg-[#09090B] border border-shark/60 rounded-xl py-2.5 px-4 text-sm text-iron focus:outline-none focus:border-[#279da6]/60"
+                                        />
+                                    </div>
                                 </div>
 
-                                {/* Confirm Password */}
-                                <div className="space-y-1.5">
-                                    <label className="text-[11px] font-bold text-santas-gray uppercase tracking-wider">
-                                        Confirm Password <span className="text-rose-500">*</span>
-                                    </label>
-                                    <input
-                                        type="password"
-                                        placeholder="Confirm password"
-                                        className="w-full bg-[#09090B] border border-shark/60 rounded-xl py-2.5 px-4 text-sm text-iron focus:outline-none focus:border-[#279da6]/60 transition-all placeholder:text-storm-gray/50"
-                                    />
+                                <div className="p-6 bg-[#121214] border-t border-shark flex items-center justify-end gap-3">
+                                    <button type="button" onClick={() => setIsModalOpen(false)} className="px-6 py-2.5 text-xs font-bold text-iron hover:bg-shark rounded-xl transition-all">
+                                        Cancel
+                                    </button>
+                                    <button
+                                        type="submit"
+                                        disabled={isSubmitting}
+                                        className="px-6 py-2.5 text-xs font-bold bg-[#279da6] text-white rounded-xl shadow-lg hover:bg-[#279da6]/90 transition-all flex items-center gap-2 disabled:opacity-50"
+                                    >
+                                        {isSubmitting ? (
+                                            <>
+                                                <Loader2 size={14} className="animate-spin" />
+                                                Creating...
+                                            </>
+                                        ) : 'Create Client Account'}
+                                    </button>
                                 </div>
-                            </div>
-
-                            <div className="p-6 bg-[#121214] border-t border-shark flex items-center justify-end gap-3">
-                                <button
-                                    onClick={() => setIsModalOpen(false)}
-                                    className="px-6 py-2.5 text-xs font-bold text-iron hover:bg-shark rounded-xl transition-all"
-                                >
-                                    Cancel
-                                </button>
-                                <button
-                                    className="px-6 py-2.5 text-xs font-bold bg-[#279da6] text-white rounded-xl shadow-lg shadow-[#279da6]/10 hover:shadow-[#279da6]/20 transition-all"
-                                >
-                                    Create Client Account
-                                </button>
-                            </div>
+                            </form>
                         </div>
                     </div>
                 )}
