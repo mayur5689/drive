@@ -3,48 +3,49 @@
 import React from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import {
-    LayoutDashboard,
-    FileText,
+    LayoutGrid,
+    MessageSquare,
     Calendar,
-    Layers,
+    Box,
     Clock,
-    Users as UsersIcon,
-    UserCheck,
+    Users,
+    UserPlus,
+    CreditCard,
+    BarChart2,
     Settings,
-    Receipt,
-    BarChart3,
     LogOut,
-    Plus
+    MoreHorizontal
 } from 'lucide-react';
+import { useAuth } from '@/context/AuthContext';
 
-interface NavItemProps {
-    icon: React.ReactNode;
-    label: string;
-    href?: string;
-    active?: boolean;
-    isCollapsed?: boolean;
+interface SidebarItemProps {
+    item: {
+        name: string;
+        icon: any;
+        path: string;
+    };
+    isActive: boolean;
+    isCollapsed: boolean;
 }
 
-const NavItem: React.FC<NavItemProps> = ({ icon, label, href = '#', active, isCollapsed }) => {
-    const pathname = usePathname();
-    const isActive = active !== undefined ? active : (href !== '#' && pathname === href);
+const SidebarItem: React.FC<SidebarItemProps> = ({ item, isActive, isCollapsed }) => {
+    const Icon = item.icon;
 
     return (
         <Link
-            href={href}
-            className={`flex items-center gap-3 px-3 py-1.5 rounded-md text-sm font-medium transition-all relative group ${isActive ? 'text-[#279da6]' : 'text-santas-gray hover:text-iron'
+            href={item.path}
+            className={`flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-bold transition-all relative group ${isActive ? 'text-[#279da6] bg-[#279da6]/5' : 'text-storm-gray hover:text-iron hover:bg-shark/20'
                 } ${isCollapsed ? 'justify-center px-0' : ''}`}
-            title={isCollapsed ? label : ''}
         >
             {isActive && (
-                <div className={`absolute inset-0 bg-[#279da6]/10 rounded-md -z-10 ${isCollapsed ? 'mx-1' : ''}`} />
+                <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-5 bg-[#279da6] rounded-r-full shadow-[0_0_15px_rgba(39,157,166,0.5)]" />
             )}
-            <span className={`w-5 h-5 flex items-center justify-center shrink-0 ${isActive ? 'text-[#279da6]' : 'text-storm-gray'}`}>
-                {icon}
+            <span className={`flex items-center justify-center shrink-0 ${isActive ? 'text-[#279da6]' : 'text-storm-gray'}`}>
+                <Icon size={18} strokeWidth={isActive ? 2.5 : 2} />
             </span>
-            {!isCollapsed && <span className="truncate transition-opacity duration-300">{label}</span>}
+            {!isCollapsed && <span className="truncate transition-opacity duration-300">{item.name}</span>}
         </Link>
     );
 };
@@ -53,87 +54,135 @@ interface SidebarProps {
     isCollapsed: boolean;
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ isCollapsed }) => {
+export default function Sidebar({ isCollapsed }: SidebarProps) {
+    const pathname = usePathname();
+    const router = useRouter();
+    const { profile, signOut } = useAuth();
+
+    const handleSignOut = async () => {
+        await signOut();
+        router.push('/login');
+    };
+
+    const menuItems = [
+        { name: 'Overview', icon: LayoutGrid, path: '/' },
+        { name: 'Requests', icon: MessageSquare, path: '/requests' },
+        { name: 'Calendar', icon: Calendar, path: '/calendar', section: 'Apps' },
+        { name: 'Widgets', icon: Box, path: '/widgets', section: 'Apps' },
+        { name: 'Timeline', icon: Clock, path: '/timeline', section: 'Apps' },
+        { name: 'Clients', icon: Users, path: '/clients', section: 'Users' },
+        { name: 'Team', icon: UserPlus, path: '/team', section: 'Users' },
+        { name: 'Invoices', icon: CreditCard, path: '/invoices', section: 'Management' },
+        { name: 'Reports', icon: BarChart2, path: '/reports', section: 'Management' },
+        { name: 'Settings', icon: Settings, path: '/settings', section: 'Management' },
+    ];
+
     return (
-        <aside className={`${isCollapsed ? 'w-16' : 'w-60'} bg-cod-gray border-r border-shark h-screen flex flex-col shrink-0 transition-all duration-300 ease-in-out font-sans`}>
-            {/* Brand Logo & Name */}
-            <div className="h-16 flex items-center px-5 shrink-0 overflow-hidden border-b border-shark/40">
-                <div className={`flex items-center gap-3 w-full ${isCollapsed ? 'justify-center' : ''}`}>
-                    <div className="relative w-10 h-10 shrink-0">
-                        <Image
-                            src="/images/Artboard 7@2x.png"
-                            alt="Aneeverse Logo"
-                            fill
-                            className="object-contain"
-                        />
-                    </div>
-                    {!isCollapsed && (
-                        <span className="text-2xl font-black tracking-tighter text-[#279da6] -mt-1 select-none">
-                            aneeverse
-                        </span>
-                    )}
+        <aside className={`flex flex-col bg-[#09090B] border-r border-[#1C1C1F] transition-all duration-300 ease-in-out ${isCollapsed ? 'w-20' : 'w-64'}`}>
+            {/* Brand Header */}
+            <div className="p-6 mb-2 flex items-center gap-3">
+                <div className="relative w-8 h-8 flex-shrink-0">
+                    <Image
+                        src="/images/Artboard 7@2x.png"
+                        alt="Aneeverse Logo"
+                        fill
+                        className="object-contain"
+                    />
                 </div>
+                {!isCollapsed && (
+                    <div className="flex flex-col -mt-1">
+                        <h1 className="text-xl font-black tracking-tighter text-[#279da6] select-none uppercase">aneeverse</h1>
+                        <p className="text-[8px] text-storm-gray -mt-1 font-bold tracking-widest uppercase">Request hub</p>
+                    </div>
+                )}
             </div>
 
-            {/* Navigation Scrollable Area */}
-            <div className="flex-1 overflow-y-auto custom-scrollbar px-3 py-6 space-y-6 overflow-x-hidden">
+            {/* Navigation */}
+            <div className="flex-1 px-4 py-2 flex flex-col gap-8 overflow-y-auto no-scrollbar scroll-smooth">
                 {/* Dashboards Section */}
                 <div>
-                    {!isCollapsed && <div className="px-3 py-2 text-[10px] font-bold text-storm-gray uppercase tracking-widest opacity-50 mb-1">Dashboards</div>}
-                    <nav className="space-y-1">
-                        <NavItem icon={<LayoutDashboard size={18} />} label="Overview" href="/" isCollapsed={isCollapsed} />
-                        <NavItem icon={<FileText size={18} />} label="Requests" href="/requests" isCollapsed={isCollapsed} />
+                    {!isCollapsed && (
+                        <h3 className="text-[10px] font-black text-storm-gray uppercase tracking-[0.2em] mb-4 px-3 opacity-50">
+                            Dashboards
+                        </h3>
+                    )}
+                    <nav className="flex flex-col gap-1">
+                        {menuItems.filter(item => !item.section).map((item) => (
+                            <SidebarItem key={item.name} item={item} isCollapsed={isCollapsed} isActive={pathname === item.path} />
+                        ))}
                     </nav>
                 </div>
 
-                {/* Users Section (Moved Up) */}
+                {/* Users Section */}
                 <div>
-                    {!isCollapsed && <div className="px-3 py-2 text-[10px] font-bold text-storm-gray uppercase tracking-widest opacity-50 mb-1">Users</div>}
-                    <nav className="space-y-1">
-                        <NavItem icon={<UsersIcon size={18} />} label="Clients" href="/clients" isCollapsed={isCollapsed} />
-                        <NavItem icon={<UserCheck size={18} />} label="Team" href="/team" isCollapsed={isCollapsed} />
+                    {!isCollapsed && (
+                        <h3 className="text-[10px] font-black text-storm-gray uppercase tracking-[0.2em] mb-4 px-3 opacity-50">
+                            Users
+                        </h3>
+                    )}
+                    <nav className="flex flex-col gap-1">
+                        {menuItems.filter(item => item.section === 'Users').map((item) => (
+                            <SidebarItem key={item.name} item={item} isCollapsed={isCollapsed} isActive={pathname === item.path} />
+                        ))}
                     </nav>
                 </div>
 
-                {/* Apps Section (Moved Down) */}
+                {/* Apps Section */}
                 <div>
-                    {!isCollapsed && <div className="px-3 py-2 text-[10px] font-bold text-storm-gray uppercase tracking-widest opacity-50 mb-1">Apps</div>}
-                    <nav className="space-y-1">
-                        <NavItem icon={<Calendar size={18} />} label="Calendar" isCollapsed={isCollapsed} />
-                        <NavItem icon={<Layers size={18} />} label="Widgets" isCollapsed={isCollapsed} />
-                        <NavItem icon={<Clock size={18} />} label="Timeline" isCollapsed={isCollapsed} />
+                    {!isCollapsed && (
+                        <h3 className="text-[10px] font-black text-storm-gray uppercase tracking-[0.2em] mb-4 px-3 opacity-50">
+                            Apps
+                        </h3>
+                    )}
+                    <nav className="flex flex-col gap-1">
+                        {menuItems.filter(item => item.section === 'Apps').map((item) => (
+                            <SidebarItem key={item.name} item={item} isCollapsed={isCollapsed} isActive={pathname === item.path} />
+                        ))}
                     </nav>
                 </div>
 
                 {/* Management Section */}
                 <div>
-                    {!isCollapsed && <div className="px-3 py-2 text-[10px] font-bold text-storm-gray uppercase tracking-widest opacity-50 mb-1">Management</div>}
-                    <nav className="space-y-1">
-                        <NavItem icon={<Receipt size={18} />} label="Invoices" isCollapsed={isCollapsed} />
-                        <NavItem icon={<BarChart3 size={18} />} label="Reports" isCollapsed={isCollapsed} />
-                        <NavItem icon={<Settings size={18} />} label="Settings" isCollapsed={isCollapsed} />
+                    {!isCollapsed && (
+                        <h3 className="text-[10px] font-black text-storm-gray uppercase tracking-[0.2em] mb-4 px-3 opacity-50">
+                            Management
+                        </h3>
+                    )}
+                    <nav className="flex flex-col gap-1">
+                        {menuItems.filter(item => item.section === 'Management').map((item) => (
+                            <SidebarItem key={item.name} item={item} isCollapsed={isCollapsed} isActive={pathname === item.path} />
+                        ))}
                     </nav>
                 </div>
             </div>
 
-            {/* Footer Area - User Profile */}
-            <div className="p-4 border-t border-shark shrink-0 bg-black/20">
-                <button className={`flex items-center gap-3 p-2 hover:bg-shark rounded-xl transition-all w-full group ${isCollapsed ? 'justify-center p-1' : ''}`}>
-                    <div className="w-8 h-8 rounded-full bg-shark overflow-hidden relative border border-white/10 shrink-0 shadow-lg">
-                        <div className="w-full h-full bg-[#279da6]/20 flex items-center justify-center text-[10px] font-bold text-[#279da6] uppercase">
-                            SC
+            {/* User Footer */}
+            <div className="p-4 border-t border-shark">
+                <div className={`bg-[#121214] border border-shark/40 p-3 rounded-2xl flex items-center justify-between gap-2 group/profile hover:border-[#279da6]/30 transition-all ${isCollapsed ? 'flex-col p-2' : ''}`}>
+                    <div className="flex items-center gap-3 overflow-hidden">
+                        <div className="w-9 h-9 rounded-full bg-shark relative shrink-0 ring-2 ring-transparent group-hover/profile:ring-[#279da6]/20 transition-all overflow-hidden flex items-center justify-center text-xs font-bold text-white bg-gradient-to-br from-[#279da6]/20 to-transparent">
+                            {profile?.full_name?.split(' ').map((n: string) => n[0]).join('') || profile?.email?.[0].toUpperCase() || 'U'}
                         </div>
+                        {!isCollapsed && (
+                            <div className="flex flex-col min-w-0">
+                                <p className="text-[11px] font-bold text-iron truncate leading-none mb-1">
+                                    {profile?.full_name || 'User Account'}
+                                </p>
+                                <p className="text-[9px] text-storm-gray font-medium truncate uppercase tracking-tighter">
+                                    {profile?.role?.replace('_', ' ') || 'Guest'}
+                                </p>
+                            </div>
+                        )}
                     </div>
-                    {!isCollapsed && (
-                        <div className="flex flex-col items-start overflow-hidden">
-                            <span className="text-xs font-bold text-iron truncate w-full">Sébastien Chopin</span>
-                            <span className="text-[10px] text-storm-gray truncate w-full">Admin</span>
-                        </div>
-                    )}
-                </button>
+                    <button
+                        onClick={() => handleSignOut()}
+                        className={`p-2 hover:bg-rose-500/10 hover:text-rose-500 text-storm-gray rounded-xl transition-all ${isCollapsed ? 'mt-1 w-full flex justify-center' : ''}`}
+                        title="Sign Out"
+                    >
+                        <LogOut size={16} />
+                    </button>
+                </div>
             </div>
         </aside>
     );
-};
-
-export default Sidebar;
+}

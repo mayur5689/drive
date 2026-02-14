@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { supabase, createServiceClient } from '@/lib/supabase';
 
 export async function GET() {
     try {
@@ -21,25 +21,53 @@ export async function POST(request: Request) {
         const body = await request.json();
         const { name, organization, email, password } = body;
 
-        // Note: In a real production app, you would also create a user in Supabase Auth
-        // For now, we are just saving to the clients table as requested
-        const { data, error } = await supabase
+        if (!email || !password || !name) {
+            return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
+        }
+
+        // Initialize Service Client to bypass client-side auth and direct user creation
+        const serviceClient = createServiceClient();
+
+        // 1. Create the user in Supabase Auth
+        const { data: authData, error: authError } = await serviceClient.auth.admin.createUser({
+            email,
+            password,
+            email_confirm: true, // Automatically confirm email
+            user_metadata: { full_name: name }
+        });
+
+        if (authError) throw authError;
+
+        // 2. The SQL Trigger (on_auth_user_created) will automatically create the row in 'profiles'
+
+        // 3. Add to the legacy 'clients' table for dashboard compatibility
+        const { data, error: tableError } = await serviceClient
             .from('clients')
             .insert([
                 {
                     name,
                     organization,
                     email,
-                    status: 'Invited', // Default status for new accounts
+                    status: 'Active', // Set to Active since account is now created
                     last_login: null
                 }
             ])
             .select();
 
-        if (error) throw error;
+        if (tableError) {
+            // Rollback auth user if table insert fails (optional but good practice)
+            await serviceClient.auth.admin.deleteUser(authData.user.id);
+            throw tableError;
+        }
 
-        return NextResponse.json(data[0]);
+        return NextResponse.json({
+            message: "Client created and account activated",
+            user: authData.user,
+            client: data[0]
+        });
+
     } catch (error: any) {
+        console.error("Client Creation Error:", error);
         return NextResponse.json({ error: error.message }, { status: 500 });
     }
 }
