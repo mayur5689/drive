@@ -14,7 +14,8 @@ import {
     Upload,
     AlertCircle,
     MessageSquare as ChatIcon,
-    Loader2
+    Loader2,
+    Plus as PlusIcon
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import ChatDrawer from '@/components/ChatDrawer';
@@ -25,11 +26,19 @@ interface RequestItem {
     title: string;
     description: string;
     client: { full_name: string; email: string } | null;
-    status: 'Todo' | 'In Progress' | 'Done';
-    priority: 'Low' | 'Medium' | 'High' | 'Critical';
-    assignee: { full_name: string } | null;
+    status: string;
+    priority: string;
+    assigned_to: string | null;
+    assignee: { id: string; full_name: string } | null;
     due_date: string;
     created_at: string;
+    updated_at: string;
+}
+
+interface Profile {
+    id: string;
+    full_name: string;
+    email: string;
 }
 
 export default function RequestsPage() {
@@ -37,23 +46,34 @@ export default function RequestsPage() {
     const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
     const [activeTab, setActiveTab] = useState('All');
     const [requests, setRequests] = useState<RequestItem[]>([]);
+    const [profiles, setProfiles] = useState<Profile[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [selectedRequest, setSelectedRequest] = useState<RequestItem | null>(null);
     const [isChatOpen, setIsChatOpen] = useState(false);
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+    const dateInputRefs = React.useRef<{ [key: string]: HTMLInputElement | null }>({});
 
     const subTabs = ['All', 'Assigned', 'Open', 'Unassigned', 'Completed'];
 
     const fetchRequests = async () => {
         setIsLoading(true);
         try {
-            const response = await fetch('/api/requests');
-            const data = await response.json();
-            if (response.ok) {
+            const [reqRes, profRes] = await Promise.all([
+                fetch('/api/requests'),
+                fetch('/api/profiles')
+            ]);
+
+            if (reqRes.ok) {
+                const data = await reqRes.json();
                 setRequests(data);
             }
+
+            if (profRes.ok) {
+                const data = await profRes.json();
+                setProfiles(data);
+            }
         } catch (error) {
-            console.error('Failed to fetch requests:', error);
+            console.error('Failed to fetch data:', error);
         } finally {
             setIsLoading(false);
         }
@@ -66,6 +86,41 @@ export default function RequestsPage() {
     const handleOpenChat = (request: RequestItem) => {
         setSelectedRequest(request);
         setIsChatOpen(true);
+    };
+
+    const handleUpdateField = async (requestId: string, field: string, value: any) => {
+        const originalRequests = [...requests];
+
+        // Optimistic UI update
+        const updatedRequests = requests.map(req => {
+            if (req.id === requestId) {
+                const updatedReq = { ...req, [field]: value };
+                if (field === 'assigned_to') {
+                    const profile = profiles.find(p => p.id === value);
+                    updatedReq.assignee = profile ? { id: profile.id, full_name: profile.full_name } : null;
+                }
+                return updatedReq;
+            }
+            return req;
+        });
+
+        setRequests(updatedRequests);
+
+        try {
+            const response = await fetch(`/api/requests?id=${requestId}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ [field]: value })
+            });
+
+            if (!response.ok) {
+                setRequests(originalRequests);
+                alert(`Failed to update ${field}`);
+            }
+        } catch (error) {
+            console.error(`Error updating ${field}:`, error);
+            setRequests(originalRequests);
+        }
     };
 
     return (
@@ -125,11 +180,11 @@ export default function RequestsPage() {
                                                 <tr className="border-b border-shark text-storm-gray text-[10px] uppercase font-bold tracking-wider bg-shark/20">
                                                     <th className="px-5 py-4 w-10 border-r border-shark/60"><input type="checkbox" /></th>
                                                     {[
-                                                        'Title', 'Client', 'Status', 'Assigned', 'Priority', 'Due Date', 'Created', 'Action'
+                                                        'Title', 'Client', 'Status', 'Assigned', 'Priority', 'Due Date', 'Last Updated', 'Created'
                                                     ].map((header, idx) => (
                                                         <th key={header} className={`px-6 py-4 border-r border-shark/60 ${idx === 7 ? 'border-r-0' : ''}`}>
                                                             <div className="flex items-center gap-1 cursor-pointer hover:text-white transition-colors">
-                                                                {header} <ChevronDown size={12} />
+                                                                {header}
                                                             </div>
                                                         </th>
                                                     ))}
@@ -165,38 +220,91 @@ export default function RequestsPage() {
                                                                 {item.client?.full_name || 'Unknown'}
                                                             </td>
                                                             <td className="px-6 py-3.5 border-r border-shark/60">
-                                                                <div className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md font-bold border ${item.status === 'Done' ? 'bg-[#10B981]/5 text-[#10B981] border-[#10B981]/10' :
-                                                                    item.status === 'In Progress' ? 'bg-[#EAB308]/5 text-[#EAB308] border-[#EAB308]/10' :
-                                                                        'bg-[#279da6]/5 text-[#279da6] border-[#279da6]/10'
-                                                                    }`}>
-                                                                    <div className={`w-1.5 h-1.5 rounded-full ${item.status === 'Done' ? 'bg-[#10B981]' : item.status === 'In Progress' ? 'bg-[#EAB308]' : 'bg-[#279da6]'}`} />
-                                                                    {item.status}
-                                                                </div>
+                                                                <select
+                                                                    value={item.status}
+                                                                    onChange={(e) => handleUpdateField(item.id, 'status', e.target.value)}
+                                                                    className={`bg-transparent font-bold text-[10px] uppercase tracking-wider focus:outline-none cursor-pointer hover:underline py-0.5 px-2 rounded-md border
+                                                                    ${item.status === 'Done' ? 'bg-[#10B981]/5 text-[#10B981] border-[#10B981]/20' :
+                                                                            item.status === 'In Progress' ? 'bg-[#EAB308]/5 text-[#EAB308] border-[#EAB308]/20' :
+                                                                                item.status === 'Review' ? 'bg-blue-500/5 text-blue-400 border-blue-400/20' :
+                                                                                    'bg-[#279da6]/5 text-[#279da6] border-[#279da6]/20'
+                                                                        }`}
+                                                                >
+                                                                    <option value="Todo" className="bg-[#121214]">Todo</option>
+                                                                    <option value="In Progress" className="bg-[#121214]">In Progress</option>
+                                                                    <option value="Review" className="bg-[#121214]">Review</option>
+                                                                    <option value="Done" className="bg-[#121214]">Done</option>
+                                                                </select>
                                                             </td>
                                                             <td className="px-6 py-3.5 text-santas-gray border-r border-shark/60 whitespace-nowrap">
-                                                                {item.assignee?.full_name || 'Unassigned'}
+                                                                <div className="flex items-center gap-2">
+                                                                    <div className="w-5 h-5 rounded-full bg-shark/40 border border-shark flex items-center justify-center text-storm-gray overflow-hidden shrink-0">
+                                                                        {item.assignee ? (
+                                                                            <div className="w-full h-full bg-[#279da6] text-white flex items-center justify-center text-[8px] font-black">
+                                                                                {item.assignee.full_name?.split(' ').map(n => n[0]).join('')}
+                                                                            </div>
+                                                                        ) : (
+                                                                            <PlusIcon size={10} />
+                                                                        )}
+                                                                    </div>
+                                                                    <select
+                                                                        value={item.assigned_to || ''}
+                                                                        onChange={(e) => handleUpdateField(item.id, 'assigned_to', e.target.value)}
+                                                                        className="bg-transparent text-[11px] font-bold text-iron focus:outline-none cursor-pointer hover:text-white transition-all appearance-none"
+                                                                    >
+                                                                        <option value="" className="bg-[#121214]">Unassigned</option>
+                                                                        {profiles.map(p => (
+                                                                            <option key={p.id} value={p.id} className="bg-[#121214]">{p.full_name}</option>
+                                                                        ))}
+                                                                    </select>
+                                                                </div>
                                                             </td>
                                                             <td className="px-6 py-3.5 border-r border-shark/60 font-bold">
-                                                                <span className={
-                                                                    item.priority === 'Critical' ? 'text-rose-500' :
-                                                                        item.priority === 'High' ? 'text-amber-500' :
-                                                                            item.priority === 'Medium' ? 'text-blue-400' :
-                                                                                'text-storm-gray'
-                                                                }>{item.priority}</span>
-                                                            </td>
-                                                            <td className="px-6 py-3.5 text-storm-gray border-r border-shark/60 whitespace-nowrap">
-                                                                {item.due_date ? new Date(item.due_date).toLocaleDateString() : '-'}
-                                                            </td>
-                                                            <td className="px-6 py-3.5 text-storm-gray border-r border-shark/60 whitespace-nowrap">
-                                                                {new Date(item.created_at).toLocaleDateString()}
-                                                            </td>
-                                                            <td className="px-6 py-3.5 text-center">
-                                                                <button
-                                                                    onClick={() => router.push(`/requests/${item.id}`)}
-                                                                    className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#279da6]/10 text-[#279da6] hover:bg-[#279da6] hover:text-white transition-all font-black text-[10px] uppercase shadow-sm"
+                                                                <select
+                                                                    value={item.priority}
+                                                                    onChange={(e) => handleUpdateField(item.id, 'priority', e.target.value)}
+                                                                    className={`bg-transparent text-[11px] font-bold focus:outline-none cursor-pointer hover:underline
+                                                                    ${item.priority === 'Critical' ? 'text-rose-500' :
+                                                                            item.priority === 'High' ? 'text-amber-500' :
+                                                                                item.priority === 'Medium' ? 'text-blue-400' :
+                                                                                    'text-storm-gray'
+                                                                        }`}
                                                                 >
-                                                                    <span>View</span>
-                                                                </button>
+                                                                    <option value="Low" className="bg-[#121214]">Low</option>
+                                                                    <option value="Medium" className="bg-[#121214]">Medium</option>
+                                                                    <option value="High" className="bg-[#121214]">High</option>
+                                                                    <option value="Critical" className="bg-[#121214]">Critical</option>
+                                                                </select>
+                                                            </td>
+                                                            <td className="px-6 py-3.5 text-storm-gray border-r border-shark/60 whitespace-nowrap">
+                                                                <div className="flex items-center gap-2 group/date">
+                                                                    <input
+                                                                        ref={el => { dateInputRefs.current[item.id] = el; }}
+                                                                        type="date"
+                                                                        value={item.due_date ? new Date(item.due_date).toISOString().split('T')[0] : ''}
+                                                                        onChange={(e) => handleUpdateField(item.id, 'due_date', e.target.value)}
+                                                                        className="bg-transparent text-iron border-none focus:outline-none cursor-pointer hover:text-white transition-all text-[11px] font-bold uppercase w-24 [color-scheme:dark] [&::-webkit-calendar-picker-indicator]:hidden"
+                                                                    />
+                                                                    <CalendarIcon
+                                                                        size={12}
+                                                                        className="text-storm-gray opacity-50 group-hover/date:opacity-100 transition-opacity cursor-pointer"
+                                                                        onClick={() => dateInputRefs.current[item.id]?.showPicker()}
+                                                                    />
+                                                                </div>
+                                                            </td>
+                                                            <td className="px-6 py-3.5 text-storm-gray border-r border-shark/60 whitespace-nowrap text-[10px]">
+                                                                {item.updated_at ? (
+                                                                    <div className="flex flex-col">
+                                                                        <span className="text-iron font-bold">{new Date(item.updated_at).toLocaleDateString()}</span>
+                                                                        <span className="opacity-50">{new Date(item.updated_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                                                                    </div>
+                                                                ) : '-'}
+                                                            </td>
+                                                            <td className="px-6 py-3.5 text-storm-gray whitespace-nowrap text-[10px]">
+                                                                <div className="flex flex-col">
+                                                                    <span className="text-iron font-bold">{new Date(item.created_at).toLocaleDateString()}</span>
+                                                                    <span className="opacity-50">{new Date(item.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                                                                </div>
                                                             </td>
                                                         </tr>
                                                     ))

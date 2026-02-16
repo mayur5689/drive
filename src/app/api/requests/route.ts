@@ -11,18 +11,63 @@ export async function GET(request: Request) {
             .from('requests')
             .select(`
                 *,
-                client:client_id (full_name, email),
-                assignee:assigned_to (full_name)
+                client:client_id (id, full_name, email),
+                assignee:assigned_to (id, full_name)
             `);
 
         if (id) {
             const { data, error } = await query.eq('id', id).single();
             if (error) throw error;
+
+            // Fetch organization from clients table
+            if (data.client?.email) {
+                const { data: clientData } = await supabase
+                    .from('clients')
+                    .select('organization')
+                    .eq('email', data.client.email)
+                    .maybeSingle();
+
+                if (clientData) {
+                    data.client.organization = clientData.organization;
+                }
+
+                // Calculate request number for this client
+                const { count } = await supabase
+                    .from('requests')
+                    .select('*', { count: 'exact', head: true })
+                    .eq('client_id', data.client_id)
+                    .lte('created_at', data.created_at);
+
+                data.request_number = count;
+            }
+
             return NextResponse.json(data);
         }
 
         const { data, error } = await query.order('created_at', { ascending: false });
         if (error) throw error;
+
+        // Fetch organizations for all clients if it's a list
+        const clientEmails = data
+            .map(r => r.client?.email)
+            .filter(Boolean);
+
+        if (clientEmails.length > 0) {
+            const { data: clientsData } = await supabase
+                .from('clients')
+                .select('email, organization')
+                .in('email', clientEmails);
+
+            if (clientsData) {
+                data.forEach(r => {
+                    if (r.client?.email) {
+                        const c = clientsData.find(cd => cd.email === r.client.email);
+                        if (c) r.client.organization = c.organization;
+                    }
+                });
+            }
+        }
+
         return NextResponse.json(data);
     } catch (error: any) {
         return NextResponse.json({ error: error.message }, { status: 500 });
