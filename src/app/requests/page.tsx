@@ -5,17 +5,15 @@ import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
 import {
     Search,
-    Download,
-    Plus,
-    Calendar as CalendarIcon,
-    ArrowUpDown,
     ChevronDown,
-    ListFilter,
-    Upload,
-    AlertCircle,
+    Calendar as CalendarIcon,
     MessageSquare as ChatIcon,
     Loader2,
-    Plus as PlusIcon
+    Plus as PlusIcon,
+    Filter,
+    SlidersHorizontal,
+    LayoutList,
+    X
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import ChatDrawer from '@/components/ChatDrawer';
@@ -25,12 +23,13 @@ interface RequestItem {
     id: string;
     title: string;
     description: string;
-    client: { full_name: string; email: string } | null;
+    client: { full_name: string; email: string; organization?: string } | null;
     status: string;
     priority: string;
     assigned_to: string | null;
     assignee: { id: string; full_name: string } | null;
     due_date: string;
+    request_number?: number;
     created_at: string;
     updated_at: string;
 }
@@ -51,6 +50,17 @@ export default function RequestsPage() {
     const [selectedRequest, setSelectedRequest] = useState<RequestItem | null>(null);
     const [isChatOpen, setIsChatOpen] = useState(false);
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+    const [searchQuery, setSearchQuery] = useState('');
+    const [isFilterOpen, setIsFilterOpen] = useState(false);
+    const [filters, setFilters] = useState({
+        client: '',
+        organization: '',
+        assigned_to: '',
+        status: '',
+        priority: '',
+        request_number: '',
+        due_date: ''
+    });
     const dateInputRefs = React.useRef<{ [key: string]: HTMLInputElement | null }>({});
 
     const subTabs = ['All', 'Assigned', 'Open', 'Unassigned', 'Completed'];
@@ -123,6 +133,33 @@ export default function RequestsPage() {
         }
     };
 
+    const filteredRequests = requests.filter(req => {
+        // Search query
+        const searchLower = searchQuery.toLowerCase();
+        const matchesSearch = !searchQuery ||
+            req.title?.toLowerCase().includes(searchLower) ||
+            req.client?.full_name?.toLowerCase().includes(searchLower) ||
+            (req.client as any)?.organization?.toLowerCase().includes(searchLower);
+
+        // Tab filters
+        let matchesTab = true;
+        if (activeTab === 'Assigned') matchesTab = !!req.assigned_to;
+        else if (activeTab === 'Unassigned') matchesTab = !req.assigned_to;
+        else if (activeTab === 'Open') matchesTab = req.status !== 'Done';
+        else if (activeTab === 'Completed') matchesTab = req.status === 'Done';
+
+        // Advanced filters
+        const matchesClient = !filters.client || req.client?.full_name?.toLowerCase().includes(filters.client.toLowerCase());
+        const matchesOrg = !filters.organization || (req.client as any)?.organization?.toLowerCase().includes(filters.organization.toLowerCase());
+        const matchesAssignee = !filters.assigned_to || req.assigned_to === filters.assigned_to;
+        const matchesStatus = !filters.status || req.status === filters.status;
+        const matchesPriority = !filters.priority || req.priority === filters.priority;
+        const matchesNumber = !filters.request_number || req.request_number?.toString() === filters.request_number;
+        const matchesDate = !filters.due_date || (req.due_date && req.due_date.startsWith(filters.due_date));
+
+        return (matchesSearch || false) && matchesTab && (matchesClient || false) && (matchesOrg || false) && matchesAssignee && matchesStatus && matchesPriority && matchesNumber && matchesDate;
+    });
+
     return (
         <div className="flex h-screen bg-[#09090B] text-iron font-sans overflow-hidden">
             <Sidebar isCollapsed={isSidebarCollapsed} />
@@ -132,7 +169,7 @@ export default function RequestsPage() {
                     <Header
                         onToggleSidebar={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
                         label="Requests"
-                        labelIcon={<ListFilter size={16} className="text-santas-gray" />}
+                        labelIcon={<LayoutList size={16} className="text-santas-gray" />}
                         tabs={subTabs}
                         activeTab={activeTab}
                         setActiveTab={setActiveTab}
@@ -146,28 +183,144 @@ export default function RequestsPage() {
 
                                 {/* Toolbar */}
                                 <div className="flex items-center justify-between mb-6">
-                                    <div className="relative w-80">
-                                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-santas-gray" size={16} />
-                                        <input
-                                            type="text"
-                                            placeholder="Search for a request..."
-                                            className="w-full bg-[#09090B] border border-shark/50 rounded-lg py-2 pl-10 pr-4 text-xs text-iron placeholder:text-storm-gray focus:outline-none focus:border-[#279da6]/40 transition-all"
-                                        />
-                                    </div>
                                     <div className="flex items-center gap-2">
-                                        <button className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-shark bg-shark/20 text-[11px] font-bold text-santas-gray hover:text-white transition-all">
-                                            <div className="p-1 bg-shark rounded-sm">
-                                                <Upload size={10} />
-                                            </div>
-                                            <span>import</span>
+                                        <div className="relative w-80">
+                                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-santas-gray" size={14} />
+                                            <input
+                                                type="text"
+                                                value={searchQuery}
+                                                onChange={(e) => setSearchQuery(e.target.value)}
+                                                placeholder="Search for a request..."
+                                                className="w-full bg-[#09090B] border border-shark/50 rounded-lg py-1.5 pl-9 pr-4 text-[11px] text-iron placeholder:text-storm-gray focus:outline-none focus:border-[#279da6]/40 transition-all font-bold"
+                                            />
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center gap-1">
+                                        <div className="relative">
+                                            <button
+                                                onClick={() => setIsFilterOpen(!isFilterOpen)}
+                                                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border transition-all text-[11px] font-bold ${isFilterOpen ? 'bg-[#279da6]/10 border-[#279da6]/40 text-[#279da6]' : 'border-shark bg-[#121214] text-santas-gray hover:text-white'}`}
+                                            >
+                                                <Filter size={14} />
+                                                <span>Filters</span>
+                                                <ChevronDown size={14} className={isFilterOpen ? 'rotate-180 transition-transform' : 'transition-transform'} />
+                                            </button>
+
+                                            {isFilterOpen && (
+                                                <div className="absolute right-0 mt-2 w-72 bg-[#121214] border border-shark rounded-xl shadow-2xl p-5 z-50 space-y-4 animate-in fade-in slide-in-from-top-2 duration-200">
+                                                    <div className="flex items-center justify-between mb-1">
+                                                        <h4 className="text-[12px] font-black uppercase tracking-widest text-[#279da6]">Advanced Filters</h4>
+                                                        <button
+                                                            onClick={() => {
+                                                                setFilters({
+                                                                    client: '',
+                                                                    organization: '',
+                                                                    assigned_to: '',
+                                                                    status: '',
+                                                                    priority: '',
+                                                                    request_number: '',
+                                                                    due_date: ''
+                                                                });
+                                                            }}
+                                                            className="text-[10px] font-bold text-storm-gray hover:text-white underline underline-offset-4"
+                                                        >
+                                                            Reset all
+                                                        </button>
+                                                    </div>
+
+                                                    <div className="space-y-3">
+                                                        <div className="space-y-1.5">
+                                                            <label className="text-[10px] font-bold text-storm-gray uppercase">Client</label>
+                                                            <input
+                                                                type="text"
+                                                                value={filters.client}
+                                                                onChange={(e) => setFilters(f => ({ ...f, client: e.target.value }))}
+                                                                className="w-full bg-[#09090B] border border-shark rounded-lg px-3 py-1.5 text-[11px] font-bold focus:outline-none focus:border-[#279da6]/40 text-iron"
+                                                                placeholder="Client name..."
+                                                            />
+                                                        </div>
+
+                                                        <div className="space-y-1.5">
+                                                            <label className="text-[10px] font-bold text-storm-gray uppercase">Organization</label>
+                                                            <input
+                                                                type="text"
+                                                                value={filters.organization}
+                                                                onChange={(e) => setFilters(f => ({ ...f, organization: e.target.value }))}
+                                                                className="w-full bg-[#09090B] border border-shark rounded-lg px-3 py-1.5 text-[11px] font-bold focus:outline-none focus:border-[#279da6]/40 text-iron"
+                                                                placeholder="Organization name..."
+                                                            />
+                                                        </div>
+
+                                                        <div className="grid grid-cols-2 gap-3">
+                                                            <div className="space-y-1.5">
+                                                                <label className="text-[10px] font-bold text-storm-gray uppercase">Assigned To</label>
+                                                                <select
+                                                                    value={filters.assigned_to}
+                                                                    onChange={(e) => setFilters(f => ({ ...f, assigned_to: e.target.value }))}
+                                                                    className="w-full bg-[#09090B] border border-shark rounded-lg px-2 py-1.5 text-[11px] font-bold focus:outline-none focus:border-[#279da6]/40 text-iron"
+                                                                >
+                                                                    <option value="">All</option>
+                                                                    {profiles.map(p => <option key={p.id} value={p.id}>{p.full_name}</option>)}
+                                                                </select>
+                                                            </div>
+                                                            <div className="space-y-1.5">
+                                                                <label className="text-[10px] font-bold text-storm-gray uppercase">Status</label>
+                                                                <select
+                                                                    value={filters.status}
+                                                                    onChange={(e) => setFilters(f => ({ ...f, status: e.target.value }))}
+                                                                    className="w-full bg-[#09090B] border border-shark rounded-lg px-2 py-1.5 text-[11px] font-bold focus:outline-none focus:border-[#279da6]/40 text-iron"
+                                                                >
+                                                                    <option value="">All</option>
+                                                                    <option value="Todo">Todo</option>
+                                                                    <option value="In Progress">In Progress</option>
+                                                                    <option value="Review">Review</option>
+                                                                    <option value="Done">Done</option>
+                                                                </select>
+                                                            </div>
+                                                        </div>
+
+                                                        <div className="grid grid-cols-2 gap-3">
+                                                            <div className="space-y-1.5">
+                                                                <label className="text-[10px] font-bold text-storm-gray uppercase">Priority</label>
+                                                                <select
+                                                                    value={filters.priority}
+                                                                    onChange={(e) => setFilters(f => ({ ...f, priority: e.target.value }))}
+                                                                    className="w-full bg-[#09090B] border border-shark rounded-lg px-2 py-1.5 text-[11px] font-bold focus:outline-none focus:border-[#279da6]/40 text-iron"
+                                                                >
+                                                                    <option value="">All</option>
+                                                                    <option value="Low">Low</option>
+                                                                    <option value="Medium">Medium</option>
+                                                                    <option value="High">High</option>
+                                                                    <option value="Critical">Critical</option>
+                                                                </select>
+                                                            </div>
+                                                            <div className="space-y-1.5">
+                                                                <label className="text-[10px] font-bold text-storm-gray uppercase">Due Date</label>
+                                                                <input
+                                                                    type="date"
+                                                                    value={filters.due_date}
+                                                                    onChange={(e) => setFilters(f => ({ ...f, due_date: e.target.value }))}
+                                                                    className="w-full bg-[#09090B] border border-shark rounded-lg px-2 py-1.5 text-[11px] font-bold focus:outline-none focus:border-[#279da6]/40 text-iron"
+                                                                />
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        <div className="w-[1px] h-4 bg-shark/60 mx-1" />
+
+                                        <button className="p-2 rounded-lg border border-shark bg-[#121214] text-santas-gray hover:text-white transition-all hover:bg-shark/40">
+                                            <SlidersHorizontal size={14} />
                                         </button>
-                                        <button className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-shark bg-shark/20 text-[11px] font-bold text-santas-gray hover:text-white transition-all">
-                                            <span>All Status</span>
-                                            <ChevronDown size={14} className="text-storm-gray" />
-                                        </button>
-                                        <button className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-shark bg-shark/20 text-[11px] font-bold text-santas-gray hover:text-white transition-all">
-                                            <CalendarIcon size={14} className="text-storm-gray" />
-                                            <span>Last 30 Days</span>
+
+                                        <div className="w-[1px] h-4 bg-shark/60 mx-1" />
+
+                                        <button className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-shark bg-[#121214] text-[11px] font-bold text-santas-gray hover:text-white transition-all hover:bg-shark/40">
+                                            <LayoutList size={14} />
+                                            <span>List</span>
+                                            <ChevronDown size={14} />
                                         </button>
                                     </div>
                                 </div>
@@ -200,14 +353,14 @@ export default function RequestsPage() {
                                                             </div>
                                                         </td>
                                                     </tr>
-                                                ) : requests.length === 0 ? (
+                                                ) : filteredRequests.length === 0 ? (
                                                     <tr>
                                                         <td colSpan={10} className="px-6 py-20 text-center text-storm-gray uppercase text-[10px] font-black tracking-widest opacity-40">
-                                                            No requests found.
+                                                            No matches found for your criteria.
                                                         </td>
                                                     </tr>
                                                 ) : (
-                                                    requests.map((item) => (
+                                                    filteredRequests.map((item) => (
                                                         <tr key={item.id} className="hover:bg-shark/10 transition-colors group text-[11px]">
                                                             <td className="px-5 py-3.5 border-r border-shark/60"><input type="checkbox" /></td>
                                                             <td
@@ -331,8 +484,6 @@ export default function RequestsPage() {
                 onClose={() => setIsCreateModalOpen(false)}
                 onSuccess={fetchRequests}
             />
-        </div>
+        </div >
     );
 }
-
-

@@ -32,7 +32,7 @@ interface ClientItem {
     name: string;
     email: string;
     organization: string;
-    status: 'Active' | 'Invited';
+    createdAt: string;
     lastLogin: string | null;
     avatar?: string;
 }
@@ -77,7 +77,7 @@ export default function ClientsPage() {
                     name: c.name,
                     email: c.email,
                     organization: c.organization,
-                    status: c.status,
+                    createdAt: new Date(c.created_at).toLocaleDateString(),
                     lastLogin: c.last_login ? new Date(c.last_login).toLocaleString() : 'Never'
                 }));
                 setClients(mappedData);
@@ -266,7 +266,7 @@ export default function ClientsPage() {
                                                     <th className="px-6 py-4 border-r border-shark/60">User</th>
                                                     <th className="px-6 py-4 border-r border-shark/60">Email</th>
                                                     <th className="px-6 py-4 border-r border-shark/60">Organization</th>
-                                                    <th className="px-6 py-4 border-r border-shark/60">Status</th>
+                                                    <th className="px-6 py-4 border-r border-shark/60">Created At</th>
                                                     <th className="px-6 py-4 border-r border-shark/60">Last Login</th>
                                                     <th className="px-6 py-4 w-10"></th>
                                                 </tr>
@@ -309,15 +309,7 @@ export default function ClientsPage() {
                                                                 {client.email}
                                                             </td>
                                                             <td className="px-6 py-4 text-santas-gray border-r border-shark/60 font-bold uppercase tracking-tight">{client.organization}</td>
-                                                            <td className="px-6 py-4 border-r border-shark/60">
-                                                                <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] font-bold border ${client.status === 'Active'
-                                                                    ? 'bg-green-500/5 text-green-500 border-green-500/10'
-                                                                    : 'bg-yellow-500/5 text-yellow-500 border-yellow-500/10'
-                                                                    }`}>
-                                                                    <div className={`w-1.5 h-1.5 rounded-full ${client.status === 'Active' ? 'bg-green-500' : 'bg-yellow-500'}`} />
-                                                                    {client.status}
-                                                                </div>
-                                                            </td>
+                                                            <td className="px-6 py-4 text-storm-gray border-r border-shark/60 font-medium">{client.createdAt}</td>
                                                             <td className="px-6 py-4 text-storm-gray border-r border-shark/60 font-medium">{client.lastLogin}</td>
                                                             <td className="px-6 py-4 relative group/actions">
                                                                 <button

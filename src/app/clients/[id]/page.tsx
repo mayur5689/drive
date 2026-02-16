@@ -175,8 +175,6 @@ export default function ClientDetailPage() {
                                     <Users size={16} className="text-[#279da6]" />
                                     <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-tight">
                                         <span className="text-iron">{client.name}</span>
-                                        <div className="w-1 h-1 rounded-full bg-shark" />
-                                        <span className="text-[#279da6] text-[10px]">{client.status}</span>
                                     </div>
                                 </div>
                             </div>
