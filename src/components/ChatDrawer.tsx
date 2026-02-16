@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
+import Linkify from 'linkify-react';
 import {
     X,
     Send,
@@ -10,17 +11,28 @@ import {
     CheckCheck,
     Loader2,
     User,
-    Shield
+    Shield,
+    Image as ImageIcon,
+    FileText,
+    File as FileIcon,
+    Download,
+    Trash2
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/context/AuthContext';
+
+interface Attachment {
+    name: string;
+    url: string;
+    type: string;
+}
 
 interface Message {
     id: string;
     request_id: string;
     sender_id: string;
     message: string;
-    attachments: any[];
+    attachments: Attachment[];
     is_read: boolean;
     created_at: string;
     sender?: {
@@ -42,7 +54,11 @@ export default function ChatDrawer({ isOpen, onClose, requestId, requestTitle }:
     const [newMessage, setNewMessage] = useState('');
     const [isLoading, setIsLoading] = useState(true);
     const [isSending, setIsSending] = useState(false);
+    const [isUploading, setIsUploading] = useState(false);
+    const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+    const [uploadProgress, setUploadProgress] = useState(0);
     const messagesEndRef = useRef<HTMLDivElement>(null);
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -63,7 +79,7 @@ export default function ChatDrawer({ isOpen, onClose, requestId, requestTitle }:
                         table: 'request_messages',
                         filter: `request_id=eq.${requestId}`
                     },
-                    async (payload) => {
+                    async (payload: any) => {
                         // Fetch the full message with sender info
                         const { data, error } = await supabase
                             .from('request_messages')
@@ -72,7 +88,7 @@ export default function ChatDrawer({ isOpen, onClose, requestId, requestTitle }:
                             .single();
 
                         if (!error && data) {
-                            setMessages(prev => [...prev, data as Message]);
+                            setMessages((prev: Message[]) => [...prev, data as Message]);
                         }
                     }
                 )
@@ -103,30 +119,86 @@ export default function ChatDrawer({ isOpen, onClose, requestId, requestTitle }:
         }
     };
 
+    const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (e.target.files) {
+            const files = Array.from(e.target.files);
+            setSelectedFiles(prev => [...prev, ...files]);
+        }
+    };
+
+    const removeFile = (index: number) => {
+        setSelectedFiles((prev: File[]) => prev.filter((_, i: number) => i !== index));
+    };
+
+    const uploadFiles = async (files: File[]): Promise<Attachment[]> => {
+        const uploadedAttachments: Attachment[] = [];
+        setIsUploading(true);
+
+        for (const file of files) {
+            const formData = new FormData();
+            formData.append('file', file);
+
+            try {
+                const response = await fetch('/api/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    uploadedAttachments.push({
+                        name: data.name,
+                        url: data.url,
+                        type: data.type
+                    });
+                }
+            } catch (error) {
+                console.error('Upload failed:', error);
+            }
+        }
+
+        setIsUploading(false);
+        return uploadedAttachments;
+    };
+
     const handleSendMessage = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!newMessage.trim() || !profile) return;
+        if ((!newMessage.trim() && selectedFiles.length === 0) || !profile || isSending) return;
 
-        const messageText = newMessage.trim();
-        setNewMessage('');
         setIsSending(true);
+        const messageText = newMessage.trim();
+        const filesToUpload = [...selectedFiles];
+
+        setNewMessage('');
+        setSelectedFiles([]);
 
         try {
+            let attachments: Attachment[] = [];
+            if (filesToUpload.length > 0) {
+                attachments = await uploadFiles(filesToUpload);
+
+                // If we selected files but none uploaded successfully, don't send an empty message
+                if (attachments.length === 0 && messageText === '') {
+                    setIsSending(false);
+                    alert("Failed to upload attachments. Please try again.");
+                    return;
+                }
+            }
+
             const response = await fetch(`/api/requests/${requestId}/messages`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    message: messageText,
-                    sender_id: profile.id
+                    message: messageText || (attachments.length > 0 ? `Shared ${attachments.length} attachment(s)` : ''),
+                    sender_id: profile.id,
+                    attachments
                 })
             });
 
             if (!response.ok) {
                 const err = await response.json();
                 console.error('Send failed:', err.error);
-                // Optionally show error to user
             }
-            // Real-time listener will add the message to the list
         } catch (error) {
             console.error('Send error:', error);
         } finally {
@@ -135,6 +207,34 @@ export default function ChatDrawer({ isOpen, onClose, requestId, requestTitle }:
     };
 
     if (!isOpen) return null;
+
+    const renderAttachment = (att: Attachment) => {
+        const isImage = att.type.startsWith('image/');
+
+        if (isImage) {
+            return (
+                <div key={att.url} className="mt-2 rounded-lg overflow-hidden border border-white/10 group/img relative cursor-pointer" onClick={() => window.open(att.url, '_blank')}>
+                    <img src={att.url} alt={att.name} className="max-w-full h-auto max-h-60 object-cover" />
+                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                        <Download size={20} className="text-white" />
+                    </div>
+                </div>
+            );
+        }
+
+        return (
+            <div key={att.url} className="mt-2 flex items-center gap-3 p-3 bg-black/20 rounded-xl border border-white/5 hover:border-[#279da6]/30 transition-all cursor-pointer group/file" onClick={() => window.open(att.url, '_blank')}>
+                <div className="w-10 h-10 rounded-lg bg-[#279da6]/10 flex items-center justify-center text-[#279da6]">
+                    {att.type.includes('pdf') ? <FileText size={20} /> : <FileIcon size={20} />}
+                </div>
+                <div className="flex-1 min-w-0">
+                    <p className="text-[11px] font-bold text-iron truncate">{att.name}</p>
+                    <p className="text-[9px] font-medium text-storm-gray uppercase tracking-widest">Click to download</p>
+                </div>
+                <Download size={14} className="text-storm-gray group-hover:text-[#279da6]" />
+            </div>
+        );
+    };
 
     return (
         <div className="fixed inset-0 z-[60] flex justify-end animate-fade-in">
@@ -178,7 +278,7 @@ export default function ChatDrawer({ isOpen, onClose, requestId, requestTitle }:
                             <p className="text-[10px] font-medium text-storm-gray max-w-[200px]">Send the first message to start the discussion about this request.</p>
                         </div>
                     ) : (
-                        messages.map((msg, index) => {
+                        messages.map((msg: Message, index: number) => {
                             const isMe = msg.sender_id === profile?.id;
                             const showAvatar = index === 0 || messages[index - 1].sender_id !== msg.sender_id;
 
@@ -196,10 +296,24 @@ export default function ChatDrawer({ isOpen, onClose, requestId, requestTitle }:
                                         </div>
                                     )}
                                     <div className={`max-w-[85%] px-4 py-3 rounded-2xl text-sm font-medium leading-relaxed group relative ${isMe
-                                            ? 'bg-[#279da6] text-white rounded-tr-none shadow-lg shadow-[#279da6]/10'
-                                            : 'bg-[#18181B] text-iron border border-shark rounded-tl-none'
+                                        ? 'bg-[#279da6] text-white rounded-tr-none shadow-lg shadow-[#279da6]/10'
+                                        : 'bg-[#18181B] text-iron border border-shark rounded-tl-none'
                                         }`}>
-                                        {msg.message}
+                                        <Linkify
+                                            options={{
+                                                target: '_blank',
+                                                className: isMe ? 'text-white underline font-bold' : 'text-[#279da6] underline font-bold'
+                                            }}
+                                        >
+                                            {msg.message}
+                                        </Linkify>
+
+                                        {msg.attachments && msg.attachments.length > 0 && (
+                                            <div className="mt-2 space-y-2">
+                                                {msg.attachments.map(renderAttachment)}
+                                            </div>
+                                        )}
+
                                         <div className={`absolute bottom-[-18px] ${isMe ? 'right-0' : 'left-0'} flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity`}>
                                             <span className="text-[8px] font-bold text-storm-gray uppercase">
                                                 {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
@@ -219,6 +333,37 @@ export default function ChatDrawer({ isOpen, onClose, requestId, requestTitle }:
                 {/* Input Area */}
                 <div className="p-4 bg-[#09090B]/50 backdrop-blur-md border-t border-shark sticky bottom-0">
                     <form onSubmit={handleSendMessage} className="flex flex-col gap-3">
+                        {/* Selected Files Preview */}
+                        {selectedFiles.length > 0 && (
+                            <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-2">
+                                {selectedFiles.map((file: File, idx: number) => (
+                                    <div key={idx} className="relative group/file-preview shrink-0">
+                                        <div className="w-12 h-12 rounded-xl bg-shark/40 border border-shark flex items-center justify-center overflow-hidden">
+                                            {file.type.startsWith('image/') ? (
+                                                <img src={URL.createObjectURL(file)} className="w-full h-full object-cover" />
+                                            ) : (
+                                                <FileIcon size={20} className="text-storm-gray" />
+                                            )}
+                                        </div>
+                                        <button
+                                            type="button"
+                                            onClick={() => removeFile(idx)}
+                                            className="absolute -top-1 -right-1 w-5 h-5 bg-rose-500 text-white rounded-full flex items-center justify-center shadow-lg opacity-0 group-hover/file-preview:opacity-100 transition-opacity"
+                                        >
+                                            <Trash2 size={10} />
+                                        </button>
+                                    </div>
+                                ))}
+                                <button
+                                    type="button"
+                                    onClick={() => fileInputRef.current?.click()}
+                                    className="w-12 h-12 rounded-xl border border-dashed border-shark flex items-center justify-center text-storm-gray hover:text-[#279da6] hover:border-[#279da6]/50 transition-all shrink-0"
+                                >
+                                    <Paperclip size={18} />
+                                </button>
+                            </div>
+                        )}
+
                         <div className="relative group">
                             <textarea
                                 value={newMessage}
@@ -229,19 +374,31 @@ export default function ChatDrawer({ isOpen, onClose, requestId, requestTitle }:
                                         handleSendMessage(e);
                                     }
                                 }}
-                                placeholder="Type a message..."
+                                placeholder={isUploading ? "Uploading files..." : "Type a message..."}
+                                disabled={isUploading}
                                 className="w-full bg-[#18181B] border border-shark/60 rounded-2xl py-3 pl-4 pr-12 text-sm text-iron focus:outline-none focus:border-[#279da6]/50 transition-all font-bold min-h-[52px] max-h-32 resize-none custom-scrollbar"
                             />
                             <button
                                 type="submit"
-                                disabled={!newMessage.trim() || isSending}
+                                disabled={(!newMessage.trim() && selectedFiles.length === 0) || isSending || isUploading}
                                 className="absolute right-2 top-1/2 -translate-y-1/2 p-2 rounded-xl bg-[#279da6] text-white hover:bg-[#279da6]/90 transition-all disabled:opacity-30 disabled:hover:scale-100 hover:scale-105 active:scale-95 shadow-lg shadow-[#279da6]/20"
                             >
                                 {isSending ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} />}
                             </button>
                         </div>
+                        <input
+                            type="file"
+                            multiple
+                            ref={fileInputRef}
+                            onChange={handleFileSelect}
+                            className="hidden"
+                        />
                         <div className="flex items-center justify-between px-2">
-                            <button type="button" className="flex items-center gap-2 text-storm-gray hover:text-white transition-colors">
+                            <button
+                                type="button"
+                                onClick={() => fileInputRef.current?.click()}
+                                className="flex items-center gap-2 text-storm-gray hover:text-white transition-colors"
+                            >
                                 <Paperclip size={14} />
                                 <span className="text-[10px] font-bold uppercase tracking-widest">Attach files</span>
                             </button>
@@ -250,6 +407,6 @@ export default function ChatDrawer({ isOpen, onClose, requestId, requestTitle }:
                     </form>
                 </div>
             </div>
-        </div>
+        </div >
     );
 }

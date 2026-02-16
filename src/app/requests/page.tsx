@@ -216,7 +216,7 @@ export default function RequestsPage() {
                                                                     client: '',
                                                                     organization: '',
                                                                     assigned_to: '',
-                                                                    status: '',
+                                                                    status: '', // Original line
                                                                     priority: '',
                                                                     request_number: '',
                                                                     due_date: ''

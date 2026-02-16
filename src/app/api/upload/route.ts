@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
-import { writeFile, mkdir } from 'fs/promises';
-import { join } from 'path';
 import { v4 as uuidv4 } from 'uuid';
+import { createServiceClient } from '@/lib/supabase';
 
 export async function POST(request: Request) {
     try {
@@ -12,24 +11,30 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: "No file uploaded" }, { status: 400 });
         }
 
-        const bytes = await file.arrayBuffer();
-        const buffer = Buffer.from(bytes);
-
-        // Define path
+        const supabase = createServiceClient();
         const fileExtension = file.name.split('.').pop();
         const fileName = `${uuidv4()}.${fileExtension}`;
-        const relativePath = `/attachments/${fileName}`;
-        const uploadDir = join(process.cwd(), 'public', 'attachments');
-        const fullPath = join(uploadDir, fileName);
+        const filePath = `${fileName}`;
 
-        // Ensure directory exists
-        await mkdir(uploadDir, { recursive: true });
+        // Upload to Supabase Storage
+        const { data, error } = await supabase.storage
+            .from('chat-attachments')
+            .upload(filePath, file, {
+                cacheControl: '3600',
+                upsert: false
+            });
 
-        // Write file
-        await writeFile(fullPath, buffer);
+        if (error) {
+            throw error;
+        }
+
+        // Get public URL
+        const { data: { publicUrl } } = supabase.storage
+            .from('chat-attachments')
+            .getPublicUrl(filePath);
 
         return NextResponse.json({
-            url: relativePath,
+            url: publicUrl,
             name: file.name,
             type: file.type
         });
