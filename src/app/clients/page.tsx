@@ -213,379 +213,389 @@ export default function ClientsPage() {
             <Sidebar isCollapsed={isSidebarCollapsed} />
 
             <div className="flex-1 flex flex-col min-w-0 bg-[#09090B] relative">
-                <Header
-                    onToggleSidebar={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-                    label="Clients"
-                    labelIcon={<Users size={16} className="text-santas-gray" />}
-                    tabs={clientCategories}
-                    activeTab={activeTab}
-                    setActiveTab={setActiveTab}
-                />
+                <div className="flex-1 flex flex-col min-w-0 bg-[#121214] rounded-t-2xl overflow-hidden border-t border-l border-r border-shark mt-6 mr-6">
+                    <Header
+                        onToggleSidebar={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+                        label="Clients"
+                        labelIcon={<Users size={16} className="text-santas-gray" />}
+                        tabs={clientCategories}
+                        activeTab={activeTab}
+                        setActiveTab={setActiveTab}
+                    />
 
-                <main className="flex-1 overflow-y-auto custom-scrollbar bg-[#121214]">
-                    <div className="p-6">
-                        <div className="bg-[#18181B] border border-shark rounded-2xl p-6 min-h-[calc(100vh-160px)] shadow-2xl">
+                    <main className="flex-1 overflow-y-auto custom-scrollbar">
+                        <div className="px-6 pb-6 pt-2">
+                            <div className="bg-[#18181B] border border-shark rounded-2xl p-6 min-h-[calc(100vh-160px)] shadow-2xl">
 
-                            {/* Toolbar */}
-                            <div className="flex items-center justify-between mb-6">
-                                <div className="relative w-80">
-                                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-santas-gray" size={16} />
-                                    <input
-                                        type="text"
-                                        placeholder="Search for Clients"
-                                        className="w-full bg-[#09090B] border border-shark/50 rounded-lg py-2 pl-10 pr-4 text-xs text-iron placeholder:text-storm-gray focus:outline-none focus:border-[#279da6]/40 transition-all"
-                                    />
+                                {/* Toolbar */}
+                                <div className="flex items-center justify-between mb-6">
+                                    <div className="relative w-80">
+                                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-santas-gray" size={16} />
+                                        <input
+                                            type="text"
+                                            placeholder="Search for Clients"
+                                            className="w-full bg-[#09090B] border border-shark/50 rounded-lg py-2 pl-10 pr-4 text-xs text-iron placeholder:text-storm-gray focus:outline-none focus:border-[#279da6]/40 transition-all"
+                                        />
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <button className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-shark bg-shark/20 text-[11px] font-bold text-santas-gray hover:text-white transition-all">
+                                            <CalendarIcon size={14} className="text-storm-gray" />
+                                            <span>14-2-2026</span>
+                                        </button>
+                                        <button className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-shark bg-shark/20 text-[11px] font-bold text-santas-gray hover:text-white transition-all">
+                                            <Filter size={14} />
+                                            <span>Filters</span>
+                                        </button>
+                                        <button
+                                            onClick={() => setIsModalOpen(true)}
+                                            className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#279da6] text-white text-xs font-bold hover:bg-[#279da6]/90 transition-all shadow-lg hover:shadow-[#279da6]/20"
+                                        >
+                                            <Plus size={14} />
+                                            <span>Add New</span>
+                                        </button>
+                                    </div>
                                 </div>
-                                <div className="flex items-center gap-2">
-                                    <button className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-shark bg-shark/20 text-[11px] font-bold text-santas-gray hover:text-white transition-all">
-                                        <CalendarIcon size={14} className="text-storm-gray" />
-                                        <span>14-2-2026</span>
-                                    </button>
-                                    <button className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-shark bg-shark/20 text-[11px] font-bold text-santas-gray hover:text-white transition-all">
-                                        <Filter size={14} />
-                                        <span>Filters</span>
-                                    </button>
-                                    <button
-                                        onClick={() => setIsModalOpen(true)}
-                                        className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#279da6] text-white text-xs font-bold hover:bg-[#279da6]/90 transition-all shadow-lg hover:shadow-[#279da6]/20"
-                                    >
-                                        <Plus size={14} />
-                                        <span>Add New</span>
-                                    </button>
-                                </div>
-                            </div>
 
-                            {/* Clients Table */}
-                            <div className="border border-shark/60 rounded-xl bg-black/20">
-                                <div className="overflow-visible">
-                                    <table className="w-full text-left border-collapse table-auto text-xs">
-                                        <thead>
-                                            <tr className="border-b border-shark text-storm-gray text-[10px] uppercase font-bold bg-shark/20">
-                                                <th className="px-5 py-4 w-10 border-r border-shark/60"><input type="checkbox" /></th>
-                                                <th className="px-6 py-4 border-r border-shark/60">User</th>
-                                                <th className="px-6 py-4 border-r border-shark/60">Email</th>
-                                                <th className="px-6 py-4 border-r border-shark/60">Organization</th>
-                                                <th className="px-6 py-4 border-r border-shark/60">Status</th>
-                                                <th className="px-6 py-4 border-r border-shark/60">Last Login</th>
-                                                <th className="px-6 py-4 w-10"></th>
-                                            </tr>
-                                        </thead>
-                                        <tbody className="divide-y divide-shark/60">
-                                            {isLoading ? (
-                                                <tr>
-                                                    <td colSpan={7} className="px-6 py-12 text-center text-storm-gray font-medium">
-                                                        <div className="flex items-center justify-center gap-2">
-                                                            <Loader2 size={16} className="animate-spin text-[#279da6]" />
-                                                            Loading clients...
-                                                        </div>
-                                                    </td>
+                                {/* Clients Table */}
+                                <div className="border border-shark/60 rounded-xl bg-black/20">
+                                    <div className="overflow-visible">
+                                        <table className="w-full text-left border-collapse table-auto text-xs">
+                                            <thead>
+                                                <tr className="border-b border-shark text-storm-gray text-[10px] uppercase font-bold bg-shark/20">
+                                                    <th className="px-5 py-4 w-10 border-r border-shark/60"><input type="checkbox" /></th>
+                                                    <th className="px-6 py-4 border-r border-shark/60">User</th>
+                                                    <th className="px-6 py-4 border-r border-shark/60">Email</th>
+                                                    <th className="px-6 py-4 border-r border-shark/60">Organization</th>
+                                                    <th className="px-6 py-4 border-r border-shark/60">Status</th>
+                                                    <th className="px-6 py-4 border-r border-shark/60">Last Login</th>
+                                                    <th className="px-6 py-4 w-10"></th>
                                                 </tr>
-                                            ) : clients.length === 0 ? (
-                                                <tr>
-                                                    <td colSpan={7} className="px-6 py-12 text-center text-storm-gray font-medium uppercase tracking-widest opacity-40">
-                                                        No clients found. Add one to get started.
-                                                    </td>
-                                                </tr>
-                                            ) : (
-                                                clients.map((client) => (
-                                                    <tr key={client.id} className="hover:bg-shark/10 transition-colors group">
-                                                        <td className="px-5 py-4 border-r border-shark/60"><input type="checkbox" /></td>
-                                                        <td className="px-6 py-4 border-r border-shark/60">
-                                                            <div className="flex items-center gap-3">
-                                                                <div className="w-8 h-8 rounded-full bg-shark/80 border border-white/5 overflow-hidden flex items-center justify-center text-[10px] text-white bg-gradient-to-br from-[#279da6]/20 to-transparent">
-                                                                    {client.name.split(' ').map(n => n[0]).join('')}
-                                                                </div>
-                                                                <span className="text-iron font-medium">{client.name}</span>
+                                            </thead>
+                                            <tbody className="divide-y divide-shark/60">
+                                                {isLoading ? (
+                                                    <tr>
+                                                        <td colSpan={7} className="px-6 py-12 text-center text-storm-gray font-medium">
+                                                            <div className="flex items-center justify-center gap-2">
+                                                                <Loader2 size={16} className="animate-spin text-[#279da6]" />
+                                                                Loading clients...
                                                             </div>
-                                                        </td>
-                                                        <td className="px-6 py-4 text-santas-gray border-r border-shark/60">{client.email}</td>
-                                                        <td className="px-6 py-4 text-santas-gray border-r border-shark/60 font-bold uppercase tracking-tight">{client.organization}</td>
-                                                        <td className="px-6 py-4 border-r border-shark/60">
-                                                            <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] font-bold border ${client.status === 'Active'
-                                                                ? 'bg-green-500/5 text-green-500 border-green-500/10'
-                                                                : 'bg-yellow-500/5 text-yellow-500 border-yellow-500/10'
-                                                                }`}>
-                                                                <div className={`w-1.5 h-1.5 rounded-full ${client.status === 'Active' ? 'bg-green-500' : 'bg-yellow-500'}`} />
-                                                                {client.status}
-                                                            </div>
-                                                        </td>
-                                                        <td className="px-6 py-4 text-storm-gray border-r border-shark/60 font-medium">{client.lastLogin}</td>
-                                                        <td className="px-6 py-4 relative group/actions">
-                                                            <button
-                                                                onClick={(e) => {
-                                                                    e.stopPropagation();
-                                                                    setActiveDropdown(activeDropdown === client.id ? null : client.id);
-                                                                }}
-                                                                className={`w-8 h-8 flex items-center justify-center rounded-lg transition-all hover:bg-shark ${activeDropdown === client.id ? 'bg-shark text-[#279da6]' : 'text-storm-gray'}`}
-                                                            >
-                                                                <MoreHorizontal size={14} />
-                                                            </button>
-
-                                                            {/* Dropdown Menu */}
-                                                            {activeDropdown === client.id && (
-                                                                <div
-                                                                    className="absolute right-0 top-full mt-2 z-[100] w-48 bg-[#18181B] border border-shark rounded-xl shadow-2xl overflow-hidden py-1 animate-scale-in origin-top-right"
-                                                                    onMouseLeave={() => setActiveDropdown(null)}
-                                                                >
-                                                                    <button
-                                                                        onClick={() => router.push(`/clients/${client.id}`)}
-                                                                        className="w-full flex items-center gap-3 px-4 py-2 text-[11px] font-bold text-santas-gray hover:text-white hover:bg-[#279da6]/10 transition-all"
-                                                                    >
-                                                                        <Eye size={14} className="text-[#279da6]" />
-                                                                        <span>View Details</span>
-                                                                    </button>
-                                                                    <button
-                                                                        onClick={() => handleEditClick(client)}
-                                                                        className="w-full flex items-center gap-3 px-4 py-2 text-[11px] font-bold text-santas-gray hover:text-white hover:bg-[#279da6]/10 transition-all"
-                                                                    >
-                                                                        <Edit2 size={14} className="text-[#279da6]" />
-                                                                        <span>Edit Account</span>
-                                                                    </button>
-                                                                    <button className="w-full flex items-center gap-3 px-4 py-2 text-[11px] font-bold text-santas-gray hover:text-white hover:bg-[#279da6]/10 transition-all">
-                                                                        <UserCog size={14} className="text-[#279da6]" />
-                                                                        <span>Impersonate</span>
-                                                                    </button>
-                                                                    <button className="w-full flex items-center gap-3 px-4 py-2 text-[11px] font-bold text-santas-gray hover:text-white hover:bg-[#279da6]/10 transition-all">
-                                                                        <Building size={14} className="text-[#279da6]" />
-                                                                        <span>Change Organization</span>
-                                                                    </button>
-                                                                    <div className="h-px bg-shark my-1" />
-                                                                    <button
-                                                                        onClick={() => handleDeleteClick(client)}
-                                                                        className="w-full flex items-center gap-3 px-4 py-2 text-[11px] font-bold text-rose-500 hover:text-rose-400 hover:bg-rose-500/10 transition-all"
-                                                                    >
-                                                                        <Trash2 size={14} />
-                                                                        <span>Delete Client</span>
-                                                                    </button>
-                                                                </div>
-                                                            )}
                                                         </td>
                                                     </tr>
-                                                ))
-                                            )}
-                                        </tbody>
-                                    </table>
+                                                ) : clients.length === 0 ? (
+                                                    <tr>
+                                                        <td colSpan={7} className="px-6 py-12 text-center text-storm-gray font-medium uppercase tracking-widest opacity-40">
+                                                            No clients found. Add one to get started.
+                                                        </td>
+                                                    </tr>
+                                                ) : (
+                                                    clients.map((client) => (
+                                                        <tr key={client.id} className="hover:bg-shark/10 transition-colors group">
+                                                            <td className="px-5 py-4 border-r border-shark/60"><input type="checkbox" /></td>
+                                                            <td
+                                                                className="px-6 py-4 border-r border-shark/60 cursor-pointer hover:bg-white/5 transition-colors group/cell"
+                                                                onClick={() => router.push(`/clients/${client.id}`)}
+                                                            >
+                                                                <div className="flex items-center gap-3">
+                                                                    <div className="w-8 h-8 rounded-full bg-shark/80 border border-white/5 overflow-hidden flex items-center justify-center text-[10px] text-white bg-gradient-to-br from-[#279da6]/20 to-transparent group-hover/cell:scale-110 transition-transform">
+                                                                        {client.name.split(' ').map(n => n[0]).join('')}
+                                                                    </div>
+                                                                    <span className="text-iron font-medium group-hover/cell:text-[#279da6] transition-colors">{client.name}</span>
+                                                                </div>
+                                                            </td>
+                                                            <td
+                                                                className="px-6 py-4 text-santas-gray border-r border-shark/60 cursor-pointer hover:bg-white/5 transition-colors group-hover/cell:text-iron"
+                                                                onClick={() => router.push(`/clients/${client.id}`)}
+                                                            >
+                                                                {client.email}
+                                                            </td>
+                                                            <td className="px-6 py-4 text-santas-gray border-r border-shark/60 font-bold uppercase tracking-tight">{client.organization}</td>
+                                                            <td className="px-6 py-4 border-r border-shark/60">
+                                                                <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] font-bold border ${client.status === 'Active'
+                                                                    ? 'bg-green-500/5 text-green-500 border-green-500/10'
+                                                                    : 'bg-yellow-500/5 text-yellow-500 border-yellow-500/10'
+                                                                    }`}>
+                                                                    <div className={`w-1.5 h-1.5 rounded-full ${client.status === 'Active' ? 'bg-green-500' : 'bg-yellow-500'}`} />
+                                                                    {client.status}
+                                                                </div>
+                                                            </td>
+                                                            <td className="px-6 py-4 text-storm-gray border-r border-shark/60 font-medium">{client.lastLogin}</td>
+                                                            <td className="px-6 py-4 relative group/actions">
+                                                                <button
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        setActiveDropdown(activeDropdown === client.id ? null : client.id);
+                                                                    }}
+                                                                    className={`w-8 h-8 flex items-center justify-center rounded-lg transition-all hover:bg-shark ${activeDropdown === client.id ? 'bg-shark text-[#279da6]' : 'text-storm-gray'}`}
+                                                                >
+                                                                    <MoreHorizontal size={14} />
+                                                                </button>
+
+                                                                {/* Dropdown Menu */}
+                                                                {activeDropdown === client.id && (
+                                                                    <div
+                                                                        className="absolute right-0 top-full mt-2 z-[100] w-48 bg-[#18181B] border border-shark rounded-xl shadow-2xl overflow-hidden py-1 animate-scale-in origin-top-right"
+                                                                        onMouseLeave={() => setActiveDropdown(null)}
+                                                                    >
+                                                                        <button
+                                                                            onClick={() => router.push(`/clients/${client.id}`)}
+                                                                            className="w-full flex items-center gap-3 px-4 py-2 text-[11px] font-bold text-santas-gray hover:text-white hover:bg-[#279da6]/10 transition-all"
+                                                                        >
+                                                                            <Eye size={14} className="text-[#279da6]" />
+                                                                            <span>View Details</span>
+                                                                        </button>
+                                                                        <button
+                                                                            onClick={() => handleEditClick(client)}
+                                                                            className="w-full flex items-center gap-3 px-4 py-2 text-[11px] font-bold text-santas-gray hover:text-white hover:bg-[#279da6]/10 transition-all"
+                                                                        >
+                                                                            <Edit2 size={14} className="text-[#279da6]" />
+                                                                            <span>Edit Account</span>
+                                                                        </button>
+                                                                        <button className="w-full flex items-center gap-3 px-4 py-2 text-[11px] font-bold text-santas-gray hover:text-white hover:bg-[#279da6]/10 transition-all">
+                                                                            <UserCog size={14} className="text-[#279da6]" />
+                                                                            <span>Impersonate</span>
+                                                                        </button>
+                                                                        <button className="w-full flex items-center gap-3 px-4 py-2 text-[11px] font-bold text-santas-gray hover:text-white hover:bg-[#279da6]/10 transition-all">
+                                                                            <Building size={14} className="text-[#279da6]" />
+                                                                            <span>Change Organization</span>
+                                                                        </button>
+                                                                        <div className="h-px bg-shark my-1" />
+                                                                        <button
+                                                                            onClick={() => handleDeleteClick(client)}
+                                                                            className="w-full flex items-center gap-3 px-4 py-2 text-[11px] font-bold text-rose-500 hover:text-rose-400 hover:bg-rose-500/10 transition-all"
+                                                                        >
+                                                                            <Trash2 size={14} />
+                                                                            <span>Delete Client</span>
+                                                                        </button>
+                                                                    </div>
+                                                                )}
+                                                            </td>
+                                                        </tr>
+                                                    ))
+                                                )}
+                                            </tbody>
+                                        </table>
+                                    </div>
                                 </div>
                             </div>
                         </div>
-                    </div>
-                </main>
+                    </main>
 
-                {/* --- Create Client Modal --- */}
-                {isModalOpen && (
-                    <div className="fixed inset-0 z-[100] flex items-center justify-center">
-                        <div className="absolute inset-0 bg-black/80 backdrop-blur-sm animate-fade-in" onClick={() => setIsModalOpen(false)} />
+                    {/* --- Create Client Modal --- */}
+                    {isModalOpen && (
+                        <div className="fixed inset-0 z-[100] flex items-center justify-center">
+                            <div className="absolute inset-0 bg-black/80 backdrop-blur-sm animate-fade-in" onClick={() => setIsModalOpen(false)} />
 
-                        <div className="relative bg-[#18181B] border border-shark w-full max-w-md rounded-2xl shadow-2xl overflow-hidden animate-slide-up mx-4">
-                            <form onSubmit={handleSubmit}>
-                                <div className="flex items-center justify-between px-6 py-4 border-b border-shark">
-                                    <h3 className="text-lg font-bold text-iron">Client Information</h3>
-                                    <button type="button" onClick={() => setIsModalOpen(false)} className="p-1.5 text-santas-gray hover:text-white hover:bg-shark rounded-lg">
-                                        <X size={18} />
-                                    </button>
-                                </div>
-
-                                <div className="p-6 space-y-5">
-                                    <div className="space-y-1.5">
-                                        <label className="text-[11px] font-bold text-santas-gray uppercase tracking-wider">Client Name *</label>
-                                        <input
-                                            required
-                                            type="text"
-                                            placeholder="John Doe"
-                                            value={formData.name}
-                                            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                                            className="w-full bg-[#09090B] border border-shark/60 rounded-xl py-2.5 px-4 text-sm text-iron focus:outline-none focus:border-[#279da6]/60"
-                                        />
+                            <div className="relative bg-[#18181B] border border-shark w-full max-w-md rounded-2xl shadow-2xl overflow-hidden animate-slide-up mx-4">
+                                <form onSubmit={handleSubmit}>
+                                    <div className="flex items-center justify-between px-6 py-4 border-b border-shark">
+                                        <h3 className="text-lg font-bold text-iron">Client Information</h3>
+                                        <button type="button" onClick={() => setIsModalOpen(false)} className="p-1.5 text-santas-gray hover:text-white hover:bg-shark rounded-lg">
+                                            <X size={18} />
+                                        </button>
                                     </div>
 
-                                    <div className="space-y-1.5">
-                                        <label className="text-[11px] font-bold text-santas-gray uppercase tracking-wider">Company/Organization Name</label>
-                                        <input
-                                            type="text"
-                                            placeholder="ACME Corporation"
-                                            value={formData.organization}
-                                            onChange={(e) => setFormData({ ...formData, organization: e.target.value })}
-                                            className="w-full bg-[#09090B] border border-shark/60 rounded-xl py-2.5 px-4 text-sm text-iron focus:outline-none focus:border-[#279da6]/60"
-                                        />
-                                    </div>
-
-                                    <div className="space-y-1.5">
-                                        <label className="text-[11px] font-bold text-santas-gray uppercase tracking-wider">Email Address *</label>
-                                        <input
-                                            required
-                                            type="email"
-                                            placeholder="john@example.com"
-                                            value={formData.email}
-                                            onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                                            className="w-full bg-[#09090B] border border-shark/60 rounded-xl py-2.5 px-4 text-sm text-iron focus:outline-none focus:border-[#279da6]/60"
-                                        />
-                                    </div>
-
-                                    <div className="space-y-1.5">
-                                        <label className="text-[11px] font-bold text-santas-gray uppercase tracking-wider">Password *</label>
-                                        <div className="relative">
+                                    <div className="p-6 space-y-5">
+                                        <div className="space-y-1.5">
+                                            <label className="text-[11px] font-bold text-santas-gray uppercase tracking-wider">Client Name *</label>
                                             <input
                                                 required
-                                                type={showPassword ? "text" : "password"}
-                                                placeholder="Enter password"
-                                                value={formData.password}
-                                                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                                                type="text"
+                                                placeholder="John Doe"
+                                                value={formData.name}
+                                                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                                                 className="w-full bg-[#09090B] border border-shark/60 rounded-xl py-2.5 px-4 text-sm text-iron focus:outline-none focus:border-[#279da6]/60"
                                             />
-                                            <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-storm-gray hover:text-iron">
-                                                {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-                                            </button>
+                                        </div>
+
+                                        <div className="space-y-1.5">
+                                            <label className="text-[11px] font-bold text-santas-gray uppercase tracking-wider">Company/Organization Name</label>
+                                            <input
+                                                type="text"
+                                                placeholder="ACME Corporation"
+                                                value={formData.organization}
+                                                onChange={(e) => setFormData({ ...formData, organization: e.target.value })}
+                                                className="w-full bg-[#09090B] border border-shark/60 rounded-xl py-2.5 px-4 text-sm text-iron focus:outline-none focus:border-[#279da6]/60"
+                                            />
+                                        </div>
+
+                                        <div className="space-y-1.5">
+                                            <label className="text-[11px] font-bold text-santas-gray uppercase tracking-wider">Email Address *</label>
+                                            <input
+                                                required
+                                                type="email"
+                                                placeholder="john@example.com"
+                                                value={formData.email}
+                                                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                                                className="w-full bg-[#09090B] border border-shark/60 rounded-xl py-2.5 px-4 text-sm text-iron focus:outline-none focus:border-[#279da6]/60"
+                                            />
+                                        </div>
+
+                                        <div className="space-y-1.5">
+                                            <label className="text-[11px] font-bold text-santas-gray uppercase tracking-wider">Password *</label>
+                                            <div className="relative">
+                                                <input
+                                                    required
+                                                    type={showPassword ? "text" : "password"}
+                                                    placeholder="Enter password"
+                                                    value={formData.password}
+                                                    onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                                                    className="w-full bg-[#09090B] border border-shark/60 rounded-xl py-2.5 px-4 text-sm text-iron focus:outline-none focus:border-[#279da6]/60"
+                                                />
+                                                <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-storm-gray hover:text-iron">
+                                                    {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                                                </button>
+                                            </div>
+                                        </div>
+
+                                        <div className="space-y-1.5">
+                                            <label className="text-[11px] font-bold text-santas-gray uppercase tracking-wider">Confirm Password *</label>
+                                            <input
+                                                required
+                                                type="password"
+                                                placeholder="Confirm password"
+                                                value={formData.confirmPassword}
+                                                onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
+                                                className="w-full bg-[#09090B] border border-shark/60 rounded-xl py-2.5 px-4 text-sm text-iron focus:outline-none focus:border-[#279da6]/60"
+                                            />
                                         </div>
                                     </div>
 
-                                    <div className="space-y-1.5">
-                                        <label className="text-[11px] font-bold text-santas-gray uppercase tracking-wider">Confirm Password *</label>
-                                        <input
-                                            required
-                                            type="password"
-                                            placeholder="Confirm password"
-                                            value={formData.confirmPassword}
-                                            onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
-                                            className="w-full bg-[#09090B] border border-shark/60 rounded-xl py-2.5 px-4 text-sm text-iron focus:outline-none focus:border-[#279da6]/60"
-                                        />
+                                    <div className="p-6 bg-[#121214] border-t border-shark flex items-center justify-end gap-3">
+                                        <button type="button" onClick={() => setIsModalOpen(false)} className="px-6 py-2.5 text-xs font-bold text-iron hover:bg-shark rounded-xl transition-all">
+                                            Cancel
+                                        </button>
+                                        <button
+                                            type="submit"
+                                            disabled={isSubmitting}
+                                            className="px-6 py-2.5 text-xs font-bold bg-[#279da6] text-white rounded-xl shadow-lg hover:bg-[#279da6]/90 transition-all flex items-center gap-2 disabled:opacity-50"
+                                        >
+                                            {isSubmitting ? (
+                                                <>
+                                                    <Loader2 size={14} className="animate-spin" />
+                                                    Creating...
+                                                </>
+                                            ) : 'Create Client Account'}
+                                        </button>
                                     </div>
-                                </div>
-
-                                <div className="p-6 bg-[#121214] border-t border-shark flex items-center justify-end gap-3">
-                                    <button type="button" onClick={() => setIsModalOpen(false)} className="px-6 py-2.5 text-xs font-bold text-iron hover:bg-shark rounded-xl transition-all">
-                                        Cancel
-                                    </button>
-                                    <button
-                                        type="submit"
-                                        disabled={isSubmitting}
-                                        className="px-6 py-2.5 text-xs font-bold bg-[#279da6] text-white rounded-xl shadow-lg hover:bg-[#279da6]/90 transition-all flex items-center gap-2 disabled:opacity-50"
-                                    >
-                                        {isSubmitting ? (
-                                            <>
-                                                <Loader2 size={14} className="animate-spin" />
-                                                Creating...
-                                            </>
-                                        ) : 'Create Client Account'}
-                                    </button>
-                                </div>
-                            </form>
-                        </div>
-                    </div>
-                )}
-
-                {/* --- Edit Client Modal --- */}
-                {isEditModalOpen && (
-                    <div className="fixed inset-0 z-[100] flex items-center justify-center">
-                        <div className="absolute inset-0 bg-black/80 backdrop-blur-sm animate-fade-in" onClick={() => setIsEditModalOpen(false)} />
-
-                        <div className="relative bg-[#18181B] border border-shark w-full max-w-md rounded-2xl shadow-2xl overflow-hidden animate-slide-up mx-4">
-                            <form onSubmit={handleEditSubmit}>
-                                <div className="flex items-center justify-between px-6 py-4 border-b border-shark">
-                                    <h3 className="text-lg font-bold text-iron">Edit Client Account</h3>
-                                    <button type="button" onClick={() => setIsEditModalOpen(false)} className="p-1.5 text-santas-gray hover:text-white hover:bg-shark rounded-lg">
-                                        <X size={18} />
-                                    </button>
-                                </div>
-
-                                <div className="p-6 space-y-5">
-                                    <div className="space-y-1.5">
-                                        <label className="text-[11px] font-bold text-santas-gray uppercase tracking-wider">Client Name *</label>
-                                        <input
-                                            required
-                                            type="text"
-                                            value={formData.name}
-                                            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                                            className="w-full bg-[#09090B] border border-shark/60 rounded-xl py-2.5 px-4 text-sm text-iron focus:outline-none focus:border-[#279da6]/60"
-                                        />
-                                    </div>
-
-                                    <div className="space-y-1.5">
-                                        <label className="text-[11px] font-bold text-santas-gray uppercase tracking-wider">Company/Organization Name</label>
-                                        <input
-                                            type="text"
-                                            value={formData.organization}
-                                            onChange={(e) => setFormData({ ...formData, organization: e.target.value })}
-                                            className="w-full bg-[#09090B] border border-shark/60 rounded-xl py-2.5 px-4 text-sm text-iron focus:outline-none focus:border-[#279da6]/60"
-                                        />
-                                    </div>
-
-                                    <div className="space-y-1.5">
-                                        <label className="text-[11px] font-bold text-santas-gray uppercase tracking-wider">Email Address *</label>
-                                        <input
-                                            required
-                                            type="email"
-                                            value={formData.email}
-                                            onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                                            className="w-full bg-[#09090B] border border-shark/60 rounded-xl py-2.5 px-4 text-sm text-iron focus:outline-none focus:border-[#279da6]/60"
-                                        />
-                                    </div>
-                                    <p className="text-[10px] text-storm-gray">Note: Password changes are handled via individual account settings.</p>
-                                </div>
-
-                                <div className="p-6 bg-[#121214] border-t border-shark flex items-center justify-end gap-3">
-                                    <button type="button" onClick={() => setIsEditModalOpen(false)} className="px-6 py-2.5 text-xs font-bold text-iron hover:bg-shark rounded-xl transition-all">
-                                        Cancel
-                                    </button>
-                                    <button
-                                        type="submit"
-                                        disabled={isSubmitting}
-                                        className="px-6 py-2.5 text-xs font-bold bg-[#279da6] text-white rounded-xl shadow-lg hover:bg-[#279da6]/90 transition-all flex items-center gap-2 disabled:opacity-50"
-                                    >
-                                        {isSubmitting ? (
-                                            <>
-                                                <Loader2 size={14} className="animate-spin" />
-                                                Updating...
-                                            </>
-                                        ) : 'Update Account'}
-                                    </button>
-                                </div>
-                            </form>
-                        </div>
-                    </div>
-                )}
-
-                {/* --- Delete Confirmation Modal --- */}
-                {isDeleteModalOpen && (
-                    <div className="fixed inset-0 z-[100] flex items-center justify-center">
-                        <div className="absolute inset-0 bg-black/80 backdrop-blur-sm animate-fade-in" onClick={() => setIsDeleteModalOpen(false)} />
-
-                        <div className="relative bg-[#18181B] border border-shark w-full max-w-sm rounded-3xl shadow-2xl overflow-hidden animate-slide-up mx-4 p-8">
-                            <div className="flex justify-between items-start mb-6">
-                                <div className="w-12 h-12 rounded-2xl bg-rose-500/10 flex items-center justify-center text-rose-500">
-                                    <AlertTriangle size={24} />
-                                </div>
-                                <button
-                                    onClick={() => setIsDeleteModalOpen(false)}
-                                    className="text-storm-gray hover:text-iron transition-colors"
-                                >
-                                    <X size={20} />
-                                </button>
-                            </div>
-
-                            <h2 className="text-xl font-bold text-iron mb-2">Delete Client?</h2>
-                            <p className="text-storm-gray text-sm mb-8 leading-relaxed">
-                                Are you sure you want to delete <span className="text-white font-bold">{selectedClient?.name}</span>? This will permanently remove their access and all associated data.
-                            </p>
-
-                            <div className="flex flex-col gap-3">
-                                <button
-                                    onClick={handleDeleteConfirm}
-                                    disabled={isSubmitting}
-                                    className="w-full bg-rose-600 hover:bg-rose-700 text-white py-3 rounded-xl font-bold text-sm transition-all shadow-lg shadow-rose-600/20 active:scale-[0.98] flex items-center justify-center gap-2 disabled:opacity-50"
-                                >
-                                    {isSubmitting ? <Loader2 size={16} className="animate-spin" /> : null}
-                                    Yes, Delete Account
-                                </button>
-                                <button
-                                    onClick={() => setIsDeleteModalOpen(false)}
-                                    className="w-full bg-shark/50 hover:bg-shark text-iron py-3 rounded-xl font-bold text-sm transition-all active:scale-[0.98]"
-                                >
-                                    Cancel
-                                </button>
+                                </form>
                             </div>
                         </div>
-                    </div>
-                )}
+                    )}
+
+                    {/* --- Edit Client Modal --- */}
+                    {isEditModalOpen && (
+                        <div className="fixed inset-0 z-[100] flex items-center justify-center">
+                            <div className="absolute inset-0 bg-black/80 backdrop-blur-sm animate-fade-in" onClick={() => setIsEditModalOpen(false)} />
+
+                            <div className="relative bg-[#18181B] border border-shark w-full max-w-md rounded-2xl shadow-2xl overflow-hidden animate-slide-up mx-4">
+                                <form onSubmit={handleEditSubmit}>
+                                    <div className="flex items-center justify-between px-6 py-4 border-b border-shark">
+                                        <h3 className="text-lg font-bold text-iron">Edit Client Account</h3>
+                                        <button type="button" onClick={() => setIsEditModalOpen(false)} className="p-1.5 text-santas-gray hover:text-white hover:bg-shark rounded-lg">
+                                            <X size={18} />
+                                        </button>
+                                    </div>
+
+                                    <div className="p-6 space-y-5">
+                                        <div className="space-y-1.5">
+                                            <label className="text-[11px] font-bold text-santas-gray uppercase tracking-wider">Client Name *</label>
+                                            <input
+                                                required
+                                                type="text"
+                                                value={formData.name}
+                                                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                                                className="w-full bg-[#09090B] border border-shark/60 rounded-xl py-2.5 px-4 text-sm text-iron focus:outline-none focus:border-[#279da6]/60"
+                                            />
+                                        </div>
+
+                                        <div className="space-y-1.5">
+                                            <label className="text-[11px] font-bold text-santas-gray uppercase tracking-wider">Company/Organization Name</label>
+                                            <input
+                                                type="text"
+                                                value={formData.organization}
+                                                onChange={(e) => setFormData({ ...formData, organization: e.target.value })}
+                                                className="w-full bg-[#09090B] border border-shark/60 rounded-xl py-2.5 px-4 text-sm text-iron focus:outline-none focus:border-[#279da6]/60"
+                                            />
+                                        </div>
+
+                                        <div className="space-y-1.5">
+                                            <label className="text-[11px] font-bold text-santas-gray uppercase tracking-wider">Email Address *</label>
+                                            <input
+                                                required
+                                                type="email"
+                                                value={formData.email}
+                                                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                                                className="w-full bg-[#09090B] border border-shark/60 rounded-xl py-2.5 px-4 text-sm text-iron focus:outline-none focus:border-[#279da6]/60"
+                                            />
+                                        </div>
+                                        <p className="text-[10px] text-storm-gray">Note: Password changes are handled via individual account settings.</p>
+                                    </div>
+
+                                    <div className="p-6 bg-[#121214] border-t border-shark flex items-center justify-end gap-3">
+                                        <button type="button" onClick={() => setIsEditModalOpen(false)} className="px-6 py-2.5 text-xs font-bold text-iron hover:bg-shark rounded-xl transition-all">
+                                            Cancel
+                                        </button>
+                                        <button
+                                            type="submit"
+                                            disabled={isSubmitting}
+                                            className="px-6 py-2.5 text-xs font-bold bg-[#279da6] text-white rounded-xl shadow-lg hover:bg-[#279da6]/90 transition-all flex items-center gap-2 disabled:opacity-50"
+                                        >
+                                            {isSubmitting ? (
+                                                <>
+                                                    <Loader2 size={14} className="animate-spin" />
+                                                    Updating...
+                                                </>
+                                            ) : 'Update Account'}
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* --- Delete Confirmation Modal --- */}
+                    {isDeleteModalOpen && (
+                        <div className="fixed inset-0 z-[100] flex items-center justify-center">
+                            <div className="absolute inset-0 bg-black/80 backdrop-blur-sm animate-fade-in" onClick={() => setIsDeleteModalOpen(false)} />
+
+                            <div className="relative bg-[#18181B] border border-shark w-full max-w-sm rounded-3xl shadow-2xl overflow-hidden animate-slide-up mx-4 p-8">
+                                <div className="flex justify-between items-start mb-6">
+                                    <div className="w-12 h-12 rounded-2xl bg-rose-500/10 flex items-center justify-center text-rose-500">
+                                        <AlertTriangle size={24} />
+                                    </div>
+                                    <button
+                                        onClick={() => setIsDeleteModalOpen(false)}
+                                        className="text-storm-gray hover:text-iron transition-colors"
+                                    >
+                                        <X size={20} />
+                                    </button>
+                                </div>
+
+                                <h2 className="text-xl font-bold text-iron mb-2">Delete Client?</h2>
+                                <p className="text-storm-gray text-sm mb-8 leading-relaxed">
+                                    Are you sure you want to delete <span className="text-white font-bold">{selectedClient?.name}</span>? This will permanently remove their access and all associated data.
+                                </p>
+
+                                <div className="flex flex-col gap-3">
+                                    <button
+                                        onClick={handleDeleteConfirm}
+                                        disabled={isSubmitting}
+                                        className="w-full bg-rose-600 hover:bg-rose-700 text-white py-3 rounded-xl font-bold text-sm transition-all shadow-lg shadow-rose-600/20 active:scale-[0.98] flex items-center justify-center gap-2 disabled:opacity-50"
+                                    >
+                                        {isSubmitting ? <Loader2 size={16} className="animate-spin" /> : null}
+                                        Yes, Delete Account
+                                    </button>
+                                    <button
+                                        onClick={() => setIsDeleteModalOpen(false)}
+                                        className="w-full bg-shark/50 hover:bg-shark text-iron py-3 rounded-xl font-bold text-sm transition-all active:scale-[0.98]"
+                                    >
+                                        Cancel
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </div>
             </div>
         </div>
     );

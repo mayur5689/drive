@@ -105,10 +105,10 @@ export default function Sidebar({ isCollapsed }: SidebarProps) {
 
     return (
         <>
-            <aside className={`flex flex-col bg-[#09090B] border-r border-[#1C1C1F] transition-all duration-300 ease-in-out ${isCollapsed ? 'w-20' : 'w-64'}`}>
+            <aside className={`flex flex-col bg-[#09090B] transition-all duration-300 ease-in-out ${isCollapsed ? 'w-20' : 'w-64'}`}>
                 {/* Brand Header */}
-                <div className="p-6 mb-2 flex items-center gap-3">
-                    <div className="relative w-8 h-8 flex-shrink-0">
+                <div className={`${isCollapsed ? 'p-4 justify-center' : 'p-6 gap-3'} mb-2 flex items-center`}>
+                    <div className="relative w-12 h-12 flex-shrink-0">
                         <Image
                             src="/images/Artboard 7@2x.png"
                             alt="Aneeverse Logo"

@@ -40,7 +40,7 @@ const Header: React.FC<HeaderProps> = ({
     }, [theme]);
 
     return (
-        <header className="h-16 border-b border-shark flex items-center justify-between px-6 bg-[#09090B] z-30 shrink-0">
+        <header className="h-16 flex items-center justify-between px-6 z-30 shrink-0">
             {/* Left side: Sidebar Toggle + Category Label + Tabs */}
             <div className="flex items-center gap-4 flex-1 overflow-hidden">
                 <button

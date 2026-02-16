@@ -75,7 +75,7 @@ export async function POST(request: Request) {
 export async function PATCH(request: Request) {
     try {
         const body = await request.json();
-        const { id, name, organization, email } = body;
+        const { id, name, organization, email, password, oldEmail } = body;
 
         if (!id) {
             return NextResponse.json({ error: "Missing client ID" }, { status: 400 });
@@ -84,33 +84,49 @@ export async function PATCH(request: Request) {
         const serviceClient = createServiceClient();
 
         // 1. Update the 'clients' table
+        const updateData: any = {};
+        if (name) updateData.name = name;
+        if (organization) updateData.organization = organization;
+        if (email) updateData.email = email;
+
         const { data: clientData, error: clientError } = await serviceClient
             .from('clients')
-            .update({ name, organization, email })
+            .update(updateData)
             .eq('id', id)
             .select()
             .single();
 
         if (clientError) throw clientError;
 
-        // 2. Find the Auth user by current email and update metadata/email if changed
+        // 2. Find the Auth user by current or old email and update metadata/email/password
         const { data: usersData, error: listError } = await serviceClient.auth.admin.listUsers();
         if (listError) throw listError;
 
-        const authUser = usersData.users.find(u => u.email === (email || clientData.email));
+        // Try searching by oldEmail first if provided, then email, then the email from DB
+        const authUser = usersData.users.find(u =>
+            u.email === (oldEmail || email || clientData.email)
+        );
 
         if (authUser) {
-            await serviceClient.auth.admin.updateUserById(authUser.id, {
-                email: email || undefined,
-                user_metadata: { full_name: name || authUser.user_metadata.full_name }
-            });
+            const authUpdateData: any = {};
+            if (email) authUpdateData.email = email;
+            if (password) authUpdateData.password = password;
+            if (name) authUpdateData.user_metadata = { full_name: name };
 
-            // Note: If email changed, the 'profiles' table should update automatically 
-            // if you have a trigger, or we can update it manually here.
-            await serviceClient
-                .from('profiles')
-                .update({ email: email || undefined, full_name: name || undefined })
-                .eq('id', authUser.id);
+            const { error: updateAuthError } = await serviceClient.auth.admin.updateUserById(authUser.id, authUpdateData);
+            if (updateAuthError) throw updateAuthError;
+
+            // Update 'profiles' table manually
+            const profileUpdateData: any = {};
+            if (email) profileUpdateData.email = email;
+            if (name) profileUpdateData.full_name = name;
+
+            if (Object.keys(profileUpdateData).length > 0) {
+                await serviceClient
+                    .from('profiles')
+                    .update(profileUpdateData)
+                    .eq('id', authUser.id);
+            }
         }
 
         return NextResponse.json({
