@@ -16,6 +16,7 @@ import {
     BarChart2,
     Settings,
     LogOut,
+    FolderOpen,
     MoreHorizontal,
     AlertTriangle,
     X,
@@ -99,6 +100,7 @@ export default function Sidebar({ isCollapsed }: SidebarProps) {
     const menuItems = [
         { name: 'Overview', icon: Home, path: '/' },
         { name: 'Requests', icon: MessageSquare, path: '/requests' },
+        { name: 'Files', icon: FolderOpen, path: '/files' },
         { name: 'Clients', icon: Users, path: '/clients', section: 'Users', adminOnly: true },
         { name: 'Team', icon: UserPlus, path: '/team', section: 'Users', adminOnly: true },
     ];

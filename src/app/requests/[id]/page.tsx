@@ -348,19 +348,23 @@ export default function RequestDetailsPage() {
         const formData = new FormData();
         formData.append('file', file);
         formData.append('requestId', id as string);
+        formData.append('senderId', displayProfile.id);
 
         try {
-            // We'll assume a local upload API point or Supabase storage
-            // Implementation for now using a mock-ready upload endpoint
             const response = await fetch('/api/upload', {
                 method: 'POST',
                 body: formData
             });
 
             if (response.ok) {
-                const { url, name, type } = await response.json();
+                const data = await response.json();
                 // Send a special message with the attachment
-                handleSendMessage(undefined, [{ url, name, type }]);
+                handleSendMessage(undefined, [{
+                    url: data.url,
+                    name: data.name,
+                    type: data.type,
+                    ...(data.drive_file_id ? { drive_file_id: data.drive_file_id } : {})
+                }]);
             } else {
                 alert("Upload failed");
             }

@@ -25,6 +25,7 @@ interface Attachment {
     name: string;
     url: string;
     type: string;
+    drive_file_id?: string;
 }
 
 interface Message {
@@ -137,6 +138,8 @@ export default function ChatDrawer({ isOpen, onClose, requestId, requestTitle }:
         for (const file of files) {
             const formData = new FormData();
             formData.append('file', file);
+            formData.append('requestId', requestId);
+            if (profile?.id) formData.append('senderId', profile.id);
 
             try {
                 const response = await fetch('/api/upload', {
@@ -149,7 +152,8 @@ export default function ChatDrawer({ isOpen, onClose, requestId, requestTitle }:
                     uploadedAttachments.push({
                         name: data.name,
                         url: data.url,
-                        type: data.type
+                        type: data.type,
+                        ...(data.drive_file_id ? { drive_file_id: data.drive_file_id } : {})
                     });
                 }
             } catch (error) {

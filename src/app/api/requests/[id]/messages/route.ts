@@ -36,9 +36,13 @@ export async function POST(
         console.log('API POST MESSAGES BODY:', JSON.stringify(body, null, 2));
         const { message, sender_id, attachments } = body;
 
-        if (!message || !sender_id) {
+        // Allow empty message if attachments are present
+        const hasAttachments = attachments && attachments.length > 0;
+        if ((!message && !hasAttachments) || !sender_id) {
             return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
         }
+
+        const finalMessage = message || (hasAttachments ? '📎 File attached' : '');
 
         const supabase = createServiceClient();
         const { data, error } = await supabase
@@ -47,7 +51,7 @@ export async function POST(
                 {
                     request_id: id,
                     sender_id,
-                    message,
+                    message: finalMessage,
                     attachments: attachments || []
                 }
             ])

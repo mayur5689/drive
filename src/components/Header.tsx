@@ -17,9 +17,9 @@ interface HeaderProps {
     onToggleSidebar: () => void;
     label: string;
     labelIcon?: React.ReactNode;
-    tabs: string[];
-    activeTab: string;
-    setActiveTab: (tab: string) => void;
+    tabs?: string[];
+    activeTab?: string;
+    setActiveTab?: (tab: string) => void;
     onCreate?: () => void;
 }
 
@@ -63,20 +63,22 @@ const Header: React.FC<HeaderProps> = ({
                 </div>
 
                 {/* Dynamic Sub-Navigation */}
-                <div className="flex items-center bg-black/40 border border-shark p-1 rounded-xl overflow-x-auto no-scrollbar ml-2">
-                    {tabs.map((tab) => (
-                        <button
-                            key={tab}
-                            onClick={() => setActiveTab(tab)}
-                            className={`px-4 py-1.5 rounded-lg text-[11px] font-bold transition-all whitespace-nowrap ${activeTab === tab
-                                ? 'bg-[#1E1E22] text-[#279da6] border border-[#279da6]/20 shadow-lg'
-                                : 'text-santas-gray hover:text-iron hover:bg-white/5'
-                                }`}
-                        >
-                            {tab}
-                        </button>
-                    ))}
-                </div>
+                {tabs && tabs.length > 0 && (
+                    <div className="flex items-center bg-black/40 border border-shark p-1 rounded-xl overflow-x-auto no-scrollbar ml-2">
+                        {tabs.map((tab) => (
+                            <button
+                                key={tab}
+                                onClick={() => setActiveTab?.(tab)}
+                                className={`px-4 py-1.5 rounded-lg text-[11px] font-bold transition-all whitespace-nowrap ${activeTab === tab
+                                    ? 'bg-[#1E1E22] text-[#279da6] border border-[#279da6]/20 shadow-lg'
+                                    : 'text-santas-gray hover:text-iron hover:bg-white/5'
+                                    }`}
+                            >
+                                {tab}
+                            </button>
+                        ))}
+                    </div>
+                )}
 
                 {/* Impersonation Warning */}
                 <ImpersonationWarning />

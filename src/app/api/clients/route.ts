@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { supabase, createServiceClient } from '@/lib/supabase';
+import { getOrCreateFolder, getRootFolderId } from '@/lib/googleDrive';
 
 export async function GET() {
     try {
@@ -69,6 +70,14 @@ export async function POST(request: Request) {
             // Rollback auth user if table insert fails (optional but good practice)
             await serviceClient.auth.admin.deleteUser(authData.user.id);
             throw tableError;
+        }
+
+        // Auto-create Google Drive folder for this client
+        const folderName = organization || name;
+        try {
+            await getOrCreateFolder(getRootFolderId(), folderName);
+        } catch (driveErr) {
+            console.warn('Could not create Drive folder for client:', driveErr);
         }
 
         return NextResponse.json({
