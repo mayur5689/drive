@@ -21,7 +21,11 @@ import {
     X,
     ChevronDown,
     ChevronUp,
-    Loader2
+    Loader2,
+    ChevronsUpDown,
+    Sparkles,
+    BadgeCheck,
+    Bell
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 
@@ -64,6 +68,7 @@ export default function Sidebar({ isCollapsed }: SidebarProps) {
     const router = useRouter();
     const { profile, signOut } = useAuth();
     const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+    const [showProfileMenu, setShowProfileMenu] = useState(false);
     const [isLoggingOut, setIsLoggingOut] = useState(false);
     const [isUsersExpanded, setIsUsersExpanded] = useState(pathname.includes('/clients') || pathname.includes('/team'));
 
@@ -72,31 +77,15 @@ export default function Sidebar({ isCollapsed }: SidebarProps) {
         setIsLoggingOut(true);
 
         try {
-            // Attempt to sign out via Supabase with a 2-second timeout
-            // We don't want to wait forever for a network request if the user wants to leave
             await Promise.race([
                 signOut(),
                 new Promise((_, reject) => setTimeout(() => reject(new Error('Sign out timeout')), 2000))
             ]);
         } catch (error) {
-            console.error('Sign out took too long or failed, forcing local cleanup:', error);
+            console.error('Sign out error:', error);
         } finally {
-            // ALWAYS clear storage and redirect, even if sign out fails or times out
             window.localStorage.clear();
             window.sessionStorage.clear();
-
-            // Clear specific Supabase cookies as a fallback
-            try {
-                document.cookie.split(";").forEach((c) => {
-                    document.cookie = c
-                        .replace(/^ +/, "")
-                        .replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/");
-                });
-            } catch (err) {
-                console.error('Cookie cleanup error:', err);
-            }
-
-            // Hard redirect to login to ensure fresh state
             window.location.replace('/login');
         }
     };
@@ -106,19 +95,11 @@ export default function Sidebar({ isCollapsed }: SidebarProps) {
     const menuItems = [
         { name: 'Overview', icon: Home, path: '/' },
         { name: 'Requests', icon: MessageSquare, path: '/requests' },
-        // { name: 'Calendar', icon: Calendar, path: '/calendar', section: 'Apps', adminOnly: true },
-        // { name: 'Widgets', icon: Box, path: '/widgets', section: 'Apps', adminOnly: true },
-        // { name: 'Timeline', icon: Clock, path: '/timeline', section: 'Apps', adminOnly: true },
         { name: 'Clients', icon: Users, path: '/clients', section: 'Users', adminOnly: true },
         { name: 'Team', icon: UserPlus, path: '/team', section: 'Users', adminOnly: true },
-        // { name: 'Invoices', icon: CreditCard, path: '/invoices', section: 'Management', adminOnly: true },
-        // { name: 'Reports', icon: BarChart2, path: '/reports', section: 'Management', adminOnly: true },
-        // { name: 'Settings', icon: Settings, path: '/settings', section: 'Management', adminOnly: true },
     ];
 
-    // Filter items based on role
     const filteredItems = menuItems.filter(item => !item.adminOnly || isAdmin);
-
     const isUsersActive = pathname.includes('/clients') || pathname.includes('/team');
 
     return (
@@ -143,13 +124,11 @@ export default function Sidebar({ isCollapsed }: SidebarProps) {
                 </div>
 
                 {/* Navigation */}
-                <div className="flex-1 px-4 py-2 flex flex-col gap-1 overflow-y-auto no-scrollbar scroll-smooth">
-                    {/* Primary Items */}
+                <div className="flex-1 px-4 py-2 flex flex-col gap-1 overflow-y-auto no-scrollbar">
                     {filteredItems.filter(item => !item.section).map((item) => (
                         <SidebarItem key={item.name} item={item} isCollapsed={isCollapsed} isActive={pathname === item.path} />
                     ))}
 
-                    {/* Expandable Users Section */}
                     {isAdmin && (
                         <div className="flex flex-col gap-1">
                             <button
@@ -171,16 +150,8 @@ export default function Sidebar({ isCollapsed }: SidebarProps) {
                                 )}
                             </button>
 
-                            {!isCollapsed && isUsersExpanded && (
-                                <div className="flex flex-col gap-1 ml-4 pl-4 border-l border-shark/40 mt-1 animate-fade-in">
-                                    {filteredItems.filter(item => item.section === 'Users').map((item) => (
-                                        <SidebarItem key={item.name} item={item} isCollapsed={isCollapsed} isActive={pathname === item.path} />
-                                    ))}
-                                </div>
-                            )}
-
-                            {isCollapsed && isUsersExpanded && (
-                                <div className="flex flex-col gap-1 mt-1">
+                            {isUsersExpanded && (
+                                <div className={`flex flex-col gap-1 ${isCollapsed ? '' : 'ml-4 pl-4 border-l border-shark/40'} mt-1`}>
                                     {filteredItems.filter(item => item.section === 'Users').map((item) => (
                                         <SidebarItem key={item.name} item={item} isCollapsed={isCollapsed} isActive={pathname === item.path} />
                                     ))}
@@ -191,35 +162,99 @@ export default function Sidebar({ isCollapsed }: SidebarProps) {
                 </div>
 
                 {/* User Footer */}
-                <div className="p-4 border-t border-shark">
-                    <div className={`bg-[#121214] border border-shark/40 p-3 rounded-2xl flex items-center justify-between gap-2 group/profile hover:border-[#279da6]/30 transition-all ${isCollapsed ? 'flex-col p-2' : ''}`}>
-                        <div className="flex items-center gap-3 overflow-hidden">
-                            <div className="w-9 h-9 rounded-full bg-shark relative shrink-0 ring-2 ring-transparent group-hover/profile:ring-[#279da6]/20 transition-all overflow-hidden flex items-center justify-center text-xs font-bold text-white bg-gradient-to-br from-[#279da6]/20 to-transparent">
-                                {profile?.full_name?.split(' ').map((n: string) => n[0]).join('') || profile?.email?.[0].toUpperCase() || 'U'}
-                            </div>
+                <div className="p-4 mt-auto relative">
+                    {showProfileMenu && (
+                        <div className="absolute bottom-full left-4 right-4 mb-2 bg-[#121214] border border-shark/60 rounded-2xl shadow-2xl z-50 overflow-hidden animate-slide-up">
                             {!isCollapsed && (
-                                <div className="flex flex-col min-w-0">
-                                    <p className="text-[11px] font-bold text-iron truncate leading-none mb-1">
-                                        {profile?.full_name || 'User Account'}
-                                    </p>
-                                    <p className="text-[9px] text-storm-gray font-medium truncate uppercase tracking-tighter">
-                                        {profile?.role?.replace('_', ' ') || 'Guest'}
-                                    </p>
+                                <div className="p-4 border-b border-shark/40 flex items-center gap-3">
+                                    <div className="w-10 h-10 rounded-full bg-shark flex items-center justify-center text-sm font-black text-white bg-gradient-to-br from-[#279da6]/30 to-transparent ring-1 ring-white/5 relative overflow-hidden">
+                                        {profile?.avatar_url ? (
+                                            <Image
+                                                src={profile.avatar_url}
+                                                alt="Avatar"
+                                                fill
+                                                unoptimized
+                                                className="object-cover"
+                                            />
+                                        ) : (
+                                            profile?.full_name?.split(' ').map((n: string) => n[0]).join('') || profile?.email?.[0].toUpperCase() || 'U'
+                                        )}
+                                    </div>
+                                    <div className="flex flex-col min-w-0">
+                                        <p className="text-xs font-black text-white truncate">
+                                            {profile?.full_name || (profile?.role === 'super_admin' ? 'Super Admin' : 'User Account')}
+                                        </p>
+                                        <p className="text-[10px] text-storm-gray font-bold truncate tracking-tight">{profile?.email}</p>
+                                    </div>
                                 </div>
                             )}
+
+                            <div className="p-2 space-y-1">
+                                <button
+                                    onClick={() => {
+                                        setShowProfileMenu(false);
+                                        router.push('/account');
+                                    }}
+                                    className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-bold text-iron hover:bg-shark transition-all text-left group"
+                                >
+                                    <BadgeCheck size={16} className="text-storm-gray group-hover:text-[#279da6]" />
+                                    <span>Account</span>
+                                </button>
+                                <button className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-bold text-iron hover:bg-shark transition-all text-left group">
+                                    <CreditCard size={16} className="text-storm-gray group-hover:text-[#279da6]" />
+                                    <span>Billing</span>
+                                </button>
+                                <button className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-bold text-iron hover:bg-shark transition-all text-left group">
+                                    <Bell size={16} className="text-storm-gray group-hover:text-[#279da6]" />
+                                    <span>Notifications</span>
+                                </button>
+                                <div className="h-px bg-shark/40 mx-2 my-1" />
+                                <button
+                                    onClick={() => {
+                                        setShowProfileMenu(false);
+                                        setShowLogoutConfirm(true);
+                                    }}
+                                    className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-bold text-rose-500 hover:bg-rose-500/10 transition-all text-left"
+                                >
+                                    <LogOut size={16} />
+                                    <span>Log out</span>
+                                </button>
+                            </div>
                         </div>
-                        <button
-                            onClick={() => setShowLogoutConfirm(true)}
-                            className={`p-2 hover:bg-rose-500/10 hover:text-rose-500 text-storm-gray rounded-xl transition-all ${isCollapsed ? 'mt-1 w-full flex justify-center' : ''}`}
-                            title="Sign Out"
-                        >
-                            <LogOut size={16} />
-                        </button>
-                    </div>
+                    )}
+
+                    <button
+                        onClick={() => setShowProfileMenu(!showProfileMenu)}
+                        className={`w-full p-2 rounded-2xl flex items-center gap-3 hover:bg-shark/40 transition-all group/profile ${showProfileMenu ? 'bg-shark/40' : ''} ${isCollapsed ? 'justify-center' : ''}`}
+                    >
+                        <div className="w-9 h-9 rounded-full bg-shark relative shrink-0 overflow-hidden flex items-center justify-center text-xs font-black text-white bg-gradient-to-br from-[#279da6]/20 to-transparent group-hover/profile:ring-2 group-hover/profile:ring-[#279da6]/30 transition-all">
+                            {profile?.avatar_url ? (
+                                <Image
+                                    src={profile.avatar_url}
+                                    alt="Avatar"
+                                    fill
+                                    unoptimized
+                                    className="object-cover"
+                                />
+                            ) : (
+                                profile?.full_name?.split(' ').map((n: string) => n[0]).join('') || profile?.email?.[0].toUpperCase() || 'U'
+                            )}
+                        </div>
+                        {!isCollapsed && (
+                            <div className="flex flex-col min-w-0 flex-1 text-left">
+                                <p className="text-[11px] font-black text-iron truncate leading-none mb-1">
+                                    {profile?.full_name || (profile?.role === 'super_admin' ? 'Super Admin' : 'User Account')}
+                                </p>
+                                <p className="text-[10px] text-storm-gray font-bold truncate tracking-tight">
+                                    {profile?.email}
+                                </p>
+                            </div>
+                        )}
+                        {!isCollapsed && <ChevronsUpDown size={14} className="text-storm-gray group-hover/profile:text-iron" />}
+                    </button>
                 </div>
             </aside>
 
-            {/* Logout Confirmation Modal */}
             {showLogoutConfirm && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
                     <div className="bg-[#18181B] border border-shark rounded-3xl p-8 max-w-sm w-full shadow-2xl animate-slide-up">
@@ -227,35 +262,17 @@ export default function Sidebar({ isCollapsed }: SidebarProps) {
                             <div className="w-12 h-12 rounded-2xl bg-rose-500/10 flex items-center justify-center text-rose-500">
                                 <AlertTriangle size={24} />
                             </div>
-                            <button
-                                onClick={() => setShowLogoutConfirm(false)}
-                                className="text-storm-gray hover:text-iron transition-colors"
-                            >
+                            <button onClick={() => setShowLogoutConfirm(false)} className="text-storm-gray hover:text-white transition-colors">
                                 <X size={20} />
                             </button>
                         </div>
-
                         <h2 className="text-xl font-bold text-iron mb-2">Sign out?</h2>
-                        <p className="text-storm-gray text-sm mb-8 leading-relaxed">
-                            Are you sure you want to sign out of your session? You'll need to login again to access your dashboard.
-                        </p>
-
+                        <p className="text-storm-gray text-sm mb-8">Are you sure you want to sign out? You'll need to login again to access your dashboard.</p>
                         <div className="flex flex-col gap-3">
-                            <button
-                                onClick={handleSignOut}
-                                disabled={isLoggingOut}
-                                className="w-full bg-rose-600 hover:bg-rose-700 text-white py-3 rounded-xl font-bold text-sm transition-all shadow-lg shadow-rose-600/20 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                            >
-                                {isLoggingOut ? <Loader2 size={16} className="animate-spin" /> : null}
-                                {isLoggingOut ? 'Signing out...' : 'Yes, Sign Out'}
+                            <button onClick={handleSignOut} disabled={isLoggingOut} className="w-full bg-rose-600 hover:bg-rose-700 text-white py-3 rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-2">
+                                {isLoggingOut ? <Loader2 size={16} className="animate-spin" /> : 'Yes, Sign Out'}
                             </button>
-                            <button
-                                onClick={() => setShowLogoutConfirm(false)}
-                                disabled={isLoggingOut}
-                                className="w-full bg-shark/50 hover:bg-shark text-iron py-3 rounded-xl font-bold text-sm transition-all active:scale-[0.98] disabled:opacity-50"
-                            >
-                                Cancel
-                            </button>
+                            <button onClick={() => setShowLogoutConfirm(false)} disabled={isLoggingOut} className="w-full bg-shark/50 hover:bg-shark text-iron py-3 rounded-xl font-bold text-sm transition-all">Cancel</button>
                         </div>
                     </div>
                 </div>
