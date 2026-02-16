@@ -17,6 +17,7 @@ interface HeaderProps {
     tabs: string[];
     activeTab: string;
     setActiveTab: (tab: string) => void;
+    onCreate?: () => void;
 }
 
 const Header: React.FC<HeaderProps> = ({
@@ -25,7 +26,8 @@ const Header: React.FC<HeaderProps> = ({
     labelIcon,
     tabs,
     activeTab,
-    setActiveTab
+    setActiveTab,
+    onCreate
 }) => {
     const [theme, setTheme] = useState<'dark' | 'light'>('dark');
 
@@ -75,7 +77,10 @@ const Header: React.FC<HeaderProps> = ({
 
             {/* Right side: New + Theme + Notification */}
             <div className="flex items-center gap-3 ml-4">
-                <button className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-santas-gray hover:text-white transition-colors group">
+                <button
+                    onClick={onCreate}
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-santas-gray hover:text-white transition-colors group"
+                >
                     <Plus size={16} className="group-hover:text-white" />
                     <span>new</span>
                 </button>

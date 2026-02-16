@@ -3,14 +3,25 @@ import { supabase, createServiceClient } from '@/lib/supabase';
 
 export async function GET() {
     try {
-        const { data, error } = await supabase
-            .from('clients')
-            .select('*')
-            .order('created_at', { ascending: false });
+        // Fetch from both tables to bridge the gap
+        const [clientsRes, profilesRes] = await Promise.all([
+            supabase.from('clients').select('*').order('created_at', { ascending: false }),
+            supabase.from('profiles').select('id, email, full_name, role').eq('role', 'client')
+        ]);
 
-        if (error) throw error;
+        if (clientsRes.error) throw clientsRes.error;
+        if (profilesRes.error) throw profilesRes.error;
 
-        return NextResponse.json(data);
+        // Merge by email
+        const mergedData = clientsRes.data.map(client => {
+            const profile = profilesRes.data.find(p => p.email.toLowerCase() === client.email.toLowerCase());
+            return {
+                ...client,
+                profile_id: profile?.id || null
+            };
+        });
+
+        return NextResponse.json(mergedData);
     } catch (error: any) {
         return NextResponse.json({ error: error.message }, { status: 500 });
     }

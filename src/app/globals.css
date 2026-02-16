@@ -90,12 +90,28 @@ body {
   }
 }
 
+@keyframes zoom-in {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
 .animate-fade-in {
-  animation: fade-in 0.8s ease-out forwards;
+  animation: fade-in 0.4s ease-out forwards;
 }
 
 .animate-slide-up {
-  animation: slide-up 0.8s ease-out forwards;
+  animation: slide-up 0.5s ease-out forwards;
+}
+
+.animate-zoom-in {
+  animation: zoom-in 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
 input[type="checkbox"] {
