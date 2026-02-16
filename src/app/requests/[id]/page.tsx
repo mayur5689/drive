@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import Image from 'next/image';
 import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
 import {
@@ -42,6 +43,7 @@ interface Message {
     sender: {
         full_name: string;
         role: string;
+        avatar_url?: string | null;
     };
 }
 
@@ -469,12 +471,32 @@ export default function RequestDetailsPage() {
                                             const isMe = msg.sender_id === profile?.id;
                                             return (
                                                 <div key={msg.id} className={`flex gap-4 ${isMe ? 'flex-row-reverse' : ''}`}>
-                                                    <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 border border-white/5 shadow-lg relative ${isMe ? 'bg-[#279da6] text-white overflow-hidden' : 'bg-shark text-[#279da6]'
+                                                    <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 border border-white/5 shadow-lg relative overflow-hidden ${isMe ? 'bg-[#279da6] text-white' : 'bg-shark text-[#279da6]'
                                                         }`}>
                                                         {isMe ? (
-                                                            <span className="font-black text-xs">{profile?.full_name?.split(' ').map(n => n[0]).join('')}</span>
+                                                            profile?.avatar_url ? (
+                                                                <Image
+                                                                    src={profile.avatar_url}
+                                                                    alt={profile.full_name || 'User'}
+                                                                    fill
+                                                                    unoptimized
+                                                                    className="object-cover"
+                                                                />
+                                                            ) : (
+                                                                <span className="font-black text-xs">{profile?.full_name?.split(' ').map(n => n[0]).join('')}</span>
+                                                            )
                                                         ) : (
-                                                            <span className="font-black text-xs">{msg.sender?.full_name?.split(' ').map(n => n[0]).join('')}</span>
+                                                            msg.sender?.avatar_url ? (
+                                                                <Image
+                                                                    src={msg.sender.avatar_url}
+                                                                    alt={msg.sender.full_name || 'User'}
+                                                                    fill
+                                                                    unoptimized
+                                                                    className="object-cover"
+                                                                />
+                                                            ) : (
+                                                                <span className="font-black text-xs">{msg.sender?.full_name?.split(' ').map(n => n[0]).join('')}</span>
+                                                            )
                                                         )}
                                                     </div>
                                                     <div className={`max-w-[80%] ${isMe ? 'text-right' : ''}`}>

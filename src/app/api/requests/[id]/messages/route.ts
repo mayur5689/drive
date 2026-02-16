@@ -13,7 +13,7 @@ export async function GET(
             .from('request_messages')
             .select(`
                 *,
-                sender:sender_id (full_name, role)
+                sender:sender_id (full_name, role, avatar_url)
             `)
             .eq('request_id', id)
             .order('created_at', { ascending: true });
@@ -53,7 +53,7 @@ export async function POST(
             ])
             .select(`
                 *,
-                sender:sender_id (full_name, role)
+                sender:sender_id (full_name, role, avatar_url)
             `)
             .single();
 
