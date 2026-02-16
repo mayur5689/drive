@@ -83,20 +83,35 @@ export async function PATCH(request: Request) {
 
         const serviceClient = createServiceClient();
 
-        // 1. Update the 'clients' table
+        // 1. Get current client data or update it
         const updateData: any = {};
         if (name) updateData.name = name;
         if (organization) updateData.organization = organization;
         if (email) updateData.email = email;
 
-        const { data: clientData, error: clientError } = await serviceClient
-            .from('clients')
-            .update(updateData)
-            .eq('id', id)
-            .select()
-            .single();
+        let clientData;
+        if (Object.keys(updateData).length > 0) {
+            const { data, error: clientError } = await serviceClient
+                .from('clients')
+                .update(updateData)
+                .eq('id', id)
+                .select()
+                .maybeSingle();
 
-        if (clientError) throw clientError;
+            if (clientError) throw clientError;
+            if (!data) throw new Error("Client not found");
+            clientData = data;
+        } else {
+            const { data, error: fetchError } = await serviceClient
+                .from('clients')
+                .select('*')
+                .eq('id', id)
+                .maybeSingle();
+
+            if (fetchError) throw fetchError;
+            if (!data) throw new Error("Client not found");
+            clientData = data;
+        }
 
         // 2. Find the Auth user by current or old email and update metadata/email/password
         const { data: usersData, error: listError } = await serviceClient.auth.admin.listUsers();

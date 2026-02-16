@@ -20,7 +20,8 @@ import {
     AlertTriangle,
     X,
     ChevronDown,
-    ChevronUp
+    ChevronUp,
+    Loader2
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 
@@ -63,28 +64,40 @@ export default function Sidebar({ isCollapsed }: SidebarProps) {
     const router = useRouter();
     const { profile, signOut } = useAuth();
     const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+    const [isLoggingOut, setIsLoggingOut] = useState(false);
     const [isUsersExpanded, setIsUsersExpanded] = useState(pathname.includes('/clients') || pathname.includes('/team'));
 
     const handleSignOut = async () => {
+        if (isLoggingOut) return;
+        setIsLoggingOut(true);
+
         try {
-            // Attempt to sign out via Supabase
-            await signOut();
+            // Attempt to sign out via Supabase with a 2-second timeout
+            // We don't want to wait forever for a network request if the user wants to leave
+            await Promise.race([
+                signOut(),
+                new Promise((_, reject) => setTimeout(() => reject(new Error('Sign out timeout')), 2000))
+            ]);
         } catch (error) {
-            console.error('Sign out error:', error);
+            console.error('Sign out took too long or failed, forcing local cleanup:', error);
         } finally {
-            // ALWAYS clear storage and redirect, even if sign out fails
+            // ALWAYS clear storage and redirect, even if sign out fails or times out
             window.localStorage.clear();
             window.sessionStorage.clear();
 
-            // Clear specific Supabase cookies as a fallback if possible
-            document.cookie.split(";").forEach((c) => {
-                document.cookie = c
-                    .replace(/^ +/, "")
-                    .replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/");
-            });
+            // Clear specific Supabase cookies as a fallback
+            try {
+                document.cookie.split(";").forEach((c) => {
+                    document.cookie = c
+                        .replace(/^ +/, "")
+                        .replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/");
+                });
+            } catch (err) {
+                console.error('Cookie cleanup error:', err);
+            }
 
-            // Hard redirect to login
-            window.location.href = '/login';
+            // Hard redirect to login to ensure fresh state
+            window.location.replace('/login');
         }
     };
 
@@ -230,13 +243,16 @@ export default function Sidebar({ isCollapsed }: SidebarProps) {
                         <div className="flex flex-col gap-3">
                             <button
                                 onClick={handleSignOut}
-                                className="w-full bg-rose-600 hover:bg-rose-700 text-white py-3 rounded-xl font-bold text-sm transition-all shadow-lg shadow-rose-600/20 active:scale-[0.98]"
+                                disabled={isLoggingOut}
+                                className="w-full bg-rose-600 hover:bg-rose-700 text-white py-3 rounded-xl font-bold text-sm transition-all shadow-lg shadow-rose-600/20 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                             >
-                                Yes, Sign Out
+                                {isLoggingOut ? <Loader2 size={16} className="animate-spin" /> : null}
+                                {isLoggingOut ? 'Signing out...' : 'Yes, Sign Out'}
                             </button>
                             <button
                                 onClick={() => setShowLogoutConfirm(false)}
-                                className="w-full bg-shark/50 hover:bg-shark text-iron py-3 rounded-xl font-bold text-sm transition-all active:scale-[0.98]"
+                                disabled={isLoggingOut}
+                                className="w-full bg-shark/50 hover:bg-shark text-iron py-3 rounded-xl font-bold text-sm transition-all active:scale-[0.98] disabled:opacity-50"
                             >
                                 Cancel
                             </button>

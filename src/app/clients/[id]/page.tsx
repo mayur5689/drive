@@ -23,7 +23,10 @@ import {
     PanelLeft,
     Users,
     Eye,
-    EyeOff
+    EyeOff,
+    CheckCircle2,
+    AlertCircle,
+    X as CloseIcon
 } from 'lucide-react';
 
 interface Client {
@@ -72,6 +75,15 @@ export default function ClientDetailPage() {
     const [settingsConfirmPassword, setSettingsConfirmPassword] = useState('');
     const [isUpdating, setIsUpdating] = useState(false);
     const [showSettingsPassword, setShowSettingsPassword] = useState(false);
+    const [status, setStatus] = useState<{ type: 'success' | 'error', message: string } | null>(null);
+
+    // Auto-hide status after 5 seconds
+    useEffect(() => {
+        if (status) {
+            const timer = setTimeout(() => setStatus(null), 5000);
+            return () => clearTimeout(timer);
+        }
+    }, [status]);
 
     useEffect(() => {
         if (client) {
@@ -84,7 +96,7 @@ export default function ClientDetailPage() {
         if (!client) return;
 
         if (settingsPassword && settingsPassword !== settingsConfirmPassword) {
-            alert("Passwords do not match!");
+            setStatus({ type: 'error', message: "Passwords do not match!" });
             return;
         }
 
@@ -97,24 +109,23 @@ export default function ClientDetailPage() {
                     id: client.id,
                     email: settingsEmail !== client.email ? settingsEmail : undefined,
                     password: settingsPassword || undefined,
-                    oldEmail: client.email // Help find the auth user if email changes
+                    oldEmail: client.email
                 })
             });
 
             if (response.ok) {
-                alert("Settings updated successfully!");
+                setStatus({ type: 'success', message: "Settings updated successfully!" });
                 setSettingsPassword('');
                 setSettingsConfirmPassword('');
-                // Refresh client data
                 const updatedClient = { ...client, email: settingsEmail };
                 setClient(updatedClient);
             } else {
                 const err = await response.json();
-                alert(`Error: ${err.error}`);
+                setStatus({ type: 'error', message: err.error });
             }
         } catch (error) {
             console.error('Update failed:', error);
-            alert("Failed to update settings.");
+            setStatus({ type: 'error', message: "Failed to update settings." });
         } finally {
             setIsUpdating(false);
         }
@@ -200,7 +211,22 @@ export default function ClientDetailPage() {
                         </div>
                     </div>
 
-                    <main className="flex-1 overflow-y-auto custom-scrollbar">
+                    <main className="flex-1 overflow-y-auto custom-scrollbar relative">
+                        {/* Status Notification */}
+                        {status && (
+                            <div className="absolute top-4 left-1/2 -translate-x-1/2 z-50 animate-slide-up">
+                                <div className={`flex items-center gap-3 px-6 py-3 rounded-2xl border shadow-2xl backdrop-blur-md ${status.type === 'success'
+                                    ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
+                                    : 'bg-rose-500/10 border-rose-500/20 text-rose-400'
+                                    }`}>
+                                    {status.type === 'success' ? <CheckCircle2 size={18} /> : <AlertCircle size={18} />}
+                                    <span className="text-xs font-bold uppercase tracking-tight">{status.message}</span>
+                                    <button onClick={() => setStatus(null)} className="ml-2 hover:opacity-70">
+                                        <CloseIcon size={14} />
+                                    </button>
+                                </div>
+                            </div>
+                        )}
                         <div className="px-8 pb-8 pt-0">
                             {activeTab === 'Overview' && (
                                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 animate-fade-in">
