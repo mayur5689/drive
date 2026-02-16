@@ -29,6 +29,7 @@ import {
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/context/AuthContext';
+import ImpersonationWarning from '@/components/ImpersonationWarning';
 
 interface Message {
     id: string;
@@ -79,7 +80,8 @@ interface Profile {
 export default function RequestDetailsPage() {
     const { id } = useParams();
     const router = useRouter();
-    const { profile } = useAuth();
+    const { profile, viewAsProfile, isImpersonating } = useAuth();
+    const displayProfile = viewAsProfile || profile;
     const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
     const [request, setRequest] = useState<RequestDetails | null>(null);
     const [messages, setMessages] = useState<Message[]>([]);
@@ -191,7 +193,7 @@ export default function RequestDetailsPage() {
 
     const handleSendMessage = async (e?: React.FormEvent, attachments: any[] = []) => {
         if (e) e.preventDefault();
-        if ((!newMessage.trim() && attachments.length === 0) || !profile || isSending) return;
+        if ((!newMessage.trim() && attachments.length === 0) || !displayProfile || isSending) return;
 
         const messageText = newMessage.trim();
         setIsSending(true);
@@ -202,14 +204,14 @@ export default function RequestDetailsPage() {
         const tempMessage: Message = {
             id: optimisticId,
             request_id: id as string,
-            sender_id: profile.id,
+            sender_id: displayProfile.id,
             message: messageText,
             attachments: attachments,
             is_read: false,
             created_at: new Date().toISOString(),
             sender: {
-                full_name: profile.full_name || 'You',
-                role: profile.role || 'user'
+                full_name: displayProfile.full_name || 'You',
+                role: displayProfile.role || 'user'
             }
         };
 
@@ -222,7 +224,7 @@ export default function RequestDetailsPage() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     message: messageText,
-                    sender_id: profile.id,
+                    sender_id: displayProfile.id,
                     attachments
                 })
             });
@@ -247,7 +249,7 @@ export default function RequestDetailsPage() {
 
     const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
-        if (!file || !profile) return;
+        if (!file || !displayProfile) return;
 
         setIsUploading(true);
         const formData = new FormData();
@@ -345,11 +347,11 @@ export default function RequestDetailsPage() {
     }
 
     return (
-        <div className="flex h-screen bg-[#09090B] text-iron font-sans overflow-hidden">
+        <div className={`flex h-screen bg-[#09090B] text-iron font-sans overflow-hidden transition-all duration-500 ${isImpersonating ? 'p-1.5' : ''}`} style={isImpersonating ? { backgroundColor: '#0f2b1a' } : undefined}>
             <Sidebar isCollapsed={isSidebarCollapsed} />
 
             <div className="flex-1 flex flex-col min-w-0 bg-[#09090B] relative">
-                <div className="flex-1 flex flex-col min-w-0 bg-[#121214] rounded-t-2xl overflow-hidden border-t border-l border-r border-shark mt-6 mr-6">
+                <div className={`flex-1 flex flex-col min-w-0 bg-[#121214] rounded-t-2xl overflow-hidden border-t border-l border-r mt-6 mr-6 transition-all duration-500 ${isImpersonating ? 'border-[#22c55e]/60 shadow-[0_0_15px_rgba(34,197,94,0.15),0_0_40px_rgba(34,197,94,0.08),inset_0_0_20px_rgba(34,197,94,0.03)]' : 'border-shark'}`}>
 
                     {/* Header */}
                     <div className="h-16 border-b border-shark flex items-center justify-between px-6 bg-shark/5">
@@ -373,6 +375,9 @@ export default function RequestDetailsPage() {
                                         </span>
                                     </div>
                                 </div>
+                            </div>
+                            <div className="ml-4">
+                                <ImpersonationWarning />
                             </div>
                         </div>
                         <div className="flex items-center gap-3">
@@ -700,6 +705,6 @@ export default function RequestDetailsPage() {
                     </div>
                 </div>
             </div>
-        </div>
+        </div >
     );
 }

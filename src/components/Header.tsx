@@ -7,8 +7,11 @@ import {
     Moon,
     Sun,
     Plus,
-    ListFilter
+    ListFilter,
+    Shield
 } from 'lucide-react';
+import { useAuth } from '@/context/AuthContext';
+import ImpersonationWarning from '@/components/ImpersonationWarning';
 
 interface HeaderProps {
     onToggleSidebar: () => void;
@@ -29,6 +32,7 @@ const Header: React.FC<HeaderProps> = ({
     setActiveTab,
     onCreate
 }) => {
+    const { isImpersonating, viewAsProfile, stopImpersonating } = useAuth();
     const [theme, setTheme] = useState<'dark' | 'light'>('dark');
 
     // Theme toggle effect
@@ -73,6 +77,9 @@ const Header: React.FC<HeaderProps> = ({
                         </button>
                     ))}
                 </div>
+
+                {/* Impersonation Warning */}
+                <ImpersonationWarning />
             </div>
 
             {/* Right side: New + Theme + Notification */}

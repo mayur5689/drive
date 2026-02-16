@@ -66,11 +66,13 @@ interface SidebarProps {
 export default function Sidebar({ isCollapsed }: SidebarProps) {
     const pathname = usePathname();
     const router = useRouter();
-    const { profile, signOut } = useAuth();
+    const { profile, viewAsProfile, isImpersonating, signOut } = useAuth();
     const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
     const [showProfileMenu, setShowProfileMenu] = useState(false);
     const [isLoggingOut, setIsLoggingOut] = useState(false);
     const [isUsersExpanded, setIsUsersExpanded] = useState(pathname.includes('/clients') || pathname.includes('/team'));
+
+    const displayProfile = viewAsProfile || profile;
 
     const handleSignOut = async () => {
         if (isLoggingOut) return;
@@ -90,7 +92,7 @@ export default function Sidebar({ isCollapsed }: SidebarProps) {
         }
     };
 
-    const isAdmin = profile?.role === 'super_admin' || profile?.role === 'admin';
+    const isAdmin = displayProfile?.role === 'super_admin' || displayProfile?.role === 'admin';
 
     const menuItems = [
         { name: 'Overview', icon: Home, path: '/' },
@@ -168,23 +170,23 @@ export default function Sidebar({ isCollapsed }: SidebarProps) {
                             {!isCollapsed && (
                                 <div className="p-4 border-b border-shark/40 flex items-center gap-3">
                                     <div className="w-10 h-10 rounded-full bg-shark flex items-center justify-center text-sm font-black text-white bg-gradient-to-br from-[#279da6]/30 to-transparent ring-1 ring-white/5 relative overflow-hidden">
-                                        {profile?.avatar_url ? (
+                                        {displayProfile?.avatar_url ? (
                                             <Image
-                                                src={profile.avatar_url}
+                                                src={displayProfile.avatar_url}
                                                 alt="Avatar"
                                                 fill
                                                 unoptimized
                                                 className="object-cover"
                                             />
                                         ) : (
-                                            profile?.full_name?.split(' ').map((n: string) => n[0]).join('') || profile?.email?.[0].toUpperCase() || 'U'
+                                            displayProfile?.full_name?.split(' ').map((n: string) => n[0]).join('') || displayProfile?.email?.[0].toUpperCase() || 'U'
                                         )}
                                     </div>
                                     <div className="flex flex-col min-w-0">
                                         <p className="text-xs font-black text-white truncate">
-                                            {profile?.full_name || (profile?.role === 'super_admin' ? 'Super Admin' : 'User Account')}
+                                            {displayProfile?.full_name || (displayProfile?.role === 'super_admin' ? 'Super Admin' : 'User Account')}
                                         </p>
-                                        <p className="text-[10px] text-storm-gray font-bold truncate tracking-tight">{profile?.email}</p>
+                                        <p className="text-[10px] text-storm-gray font-bold truncate tracking-tight">{displayProfile?.email}</p>
                                     </div>
                                 </div>
                             )}
@@ -228,25 +230,25 @@ export default function Sidebar({ isCollapsed }: SidebarProps) {
                         className={`w-full p-2 rounded-2xl flex items-center gap-3 hover:bg-shark/40 transition-all group/profile ${showProfileMenu ? 'bg-shark/40' : ''} ${isCollapsed ? 'justify-center' : ''}`}
                     >
                         <div className="w-9 h-9 rounded-full bg-shark relative shrink-0 overflow-hidden flex items-center justify-center text-xs font-black text-white bg-gradient-to-br from-[#279da6]/20 to-transparent group-hover/profile:ring-2 group-hover/profile:ring-[#279da6]/30 transition-all">
-                            {profile?.avatar_url ? (
+                            {displayProfile?.avatar_url ? (
                                 <Image
-                                    src={profile.avatar_url}
+                                    src={displayProfile.avatar_url}
                                     alt="Avatar"
                                     fill
                                     unoptimized
                                     className="object-cover"
                                 />
                             ) : (
-                                profile?.full_name?.split(' ').map((n: string) => n[0]).join('') || profile?.email?.[0].toUpperCase() || 'U'
+                                displayProfile?.full_name?.split(' ').map((n: string) => n[0]).join('') || displayProfile?.email?.[0].toUpperCase() || 'U'
                             )}
                         </div>
                         {!isCollapsed && (
                             <div className="flex flex-col min-w-0 flex-1 text-left">
                                 <p className="text-[11px] font-black text-iron truncate leading-none mb-1">
-                                    {profile?.full_name || (profile?.role === 'super_admin' ? 'Super Admin' : 'User Account')}
+                                    {displayProfile?.full_name || (displayProfile?.role === 'super_admin' ? 'Super Admin' : 'User Account')}
                                 </p>
                                 <p className="text-[10px] text-storm-gray font-bold truncate tracking-tight">
-                                    {profile?.email}
+                                    {displayProfile?.email}
                                 </p>
                             </div>
                         )}

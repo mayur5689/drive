@@ -15,9 +15,14 @@ interface Profile {
 interface AuthContextType {
     user: User | null;
     profile: Profile | null;
+    impersonatedProfile: Profile | null;
+    isImpersonating: boolean;
+    viewAsProfile: Profile | null;
     isLoading: boolean;
     signOut: () => Promise<void>;
     refreshProfile: () => Promise<void>;
+    impersonate: (targetProfile: Profile) => void;
+    stopImpersonating: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -25,9 +30,20 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
     const [user, setUser] = useState<User | null>(null);
     const [profile, setProfile] = useState<Profile | null>(null);
+    const [impersonatedProfile, setImpersonatedProfile] = useState<Profile | null>(null);
     const [isLoading, setIsLoading] = useState(true);
 
     useEffect(() => {
+        // Load impersonation state from session storage if exists
+        const stored = sessionStorage.getItem('impersonated_profile');
+        if (stored) {
+            try {
+                setImpersonatedProfile(JSON.parse(stored));
+            } catch (e) {
+                sessionStorage.removeItem('impersonated_profile');
+            }
+        }
+
         // Check active sessions
         const getSession = async () => {
             const { data: { session } } = await supabase.auth.getSession();
@@ -50,6 +66,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 } else {
                     setUser(null);
                     setProfile(null);
+                    setImpersonatedProfile(null);
+                    sessionStorage.removeItem('impersonated_profile');
                 }
                 setIsLoading(false);
             }
@@ -82,8 +100,34 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
     };
 
+    const impersonate = (targetProfile: Profile) => {
+        if (profile?.role === 'super_admin' || profile?.role === 'admin') {
+            setImpersonatedProfile(targetProfile);
+            sessionStorage.setItem('impersonated_profile', JSON.stringify(targetProfile));
+        }
+    };
+
+    const stopImpersonating = () => {
+        setImpersonatedProfile(null);
+        sessionStorage.removeItem('impersonated_profile');
+    };
+
+    const isImpersonating = !!impersonatedProfile;
+    const viewAsProfile = impersonatedProfile || profile;
+
     return (
-        <AuthContext.Provider value={{ user, profile, isLoading, signOut, refreshProfile }}>
+        <AuthContext.Provider value={{
+            user,
+            profile,
+            impersonatedProfile,
+            isImpersonating,
+            viewAsProfile,
+            isLoading,
+            signOut,
+            refreshProfile,
+            impersonate,
+            stopImpersonating
+        }}>
             {children}
         </AuthContext.Provider>
     );

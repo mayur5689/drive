@@ -19,9 +19,11 @@ import {
     Camera
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import ImpersonationWarning from '@/components/ImpersonationWarning';
 
 export default function AccountPage() {
-    const { profile, refreshProfile } = useAuth();
+    const { profile, viewAsProfile, isImpersonating, refreshProfile } = useAuth();
+    const displayProfile = viewAsProfile || profile;
     const router = useRouter();
     const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
     const [isUpdating, setIsUpdating] = useState(false);
@@ -38,12 +40,12 @@ export default function AccountPage() {
     const [showPassword, setShowPassword] = useState(false);
 
     useEffect(() => {
-        if (profile) {
-            setFullName(profile.full_name || '');
-            setEmail(profile.email || '');
-            setAvatarUrl(profile.avatar_url || '');
+        if (displayProfile) {
+            setFullName(displayProfile.full_name || '');
+            setEmail(displayProfile.email || '');
+            setAvatarUrl(displayProfile.avatar_url || '');
         }
-    }, [profile]);
+    }, [displayProfile]);
 
     // Auto-hide status after 5 seconds
     useEffect(() => {
@@ -55,7 +57,7 @@ export default function AccountPage() {
 
     const handleUpdateAccount = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!profile) return;
+        if (!displayProfile) return;
 
         if (password && password !== confirmPassword) {
             setStatus({ type: 'error', message: "Passwords do not match!" });
@@ -68,12 +70,12 @@ export default function AccountPage() {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    id: profile.id,
-                    fullName: fullName !== profile.full_name ? fullName : undefined,
-                    email: email !== profile.email ? email : undefined,
+                    id: displayProfile.id,
+                    fullName: fullName !== displayProfile.full_name ? fullName : undefined,
+                    email: email !== displayProfile.email ? email : undefined,
                     password: password || undefined,
-                    avatarUrl: avatarUrl !== profile.avatar_url ? avatarUrl : undefined,
-                    oldEmail: profile.email
+                    avatarUrl: avatarUrl !== displayProfile.avatar_url ? avatarUrl : undefined,
+                    oldEmail: displayProfile.email
                 })
             });
 
@@ -96,7 +98,7 @@ export default function AccountPage() {
 
     const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
-        if (!file || !profile) return;
+        if (!file || !displayProfile) return;
 
         // Check if file is an image
         if (!file.type.startsWith('image/')) {
@@ -127,7 +129,7 @@ export default function AccountPage() {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    id: profile.id,
+                    id: displayProfile.id,
                     avatarUrl: newAvatarUrl
                 })
             });
@@ -147,11 +149,11 @@ export default function AccountPage() {
     };
 
     return (
-        <div className="flex h-screen bg-[#09090B] text-iron font-sans overflow-hidden">
+        <div className={`flex h-screen bg-[#09090B] text-iron font-sans overflow-hidden transition-all duration-500 ${isImpersonating ? 'p-1.5' : ''}`} style={isImpersonating ? { backgroundColor: '#0f2b1a' } : undefined}>
             <Sidebar isCollapsed={isSidebarCollapsed} />
 
-            <div className="flex-1 flex flex-col min-w-0 bg-[#09090B]">
-                <div className="flex-1 flex flex-col min-w-0 bg-[#121214] rounded-t-2xl overflow-hidden border-t border-l border-r border-shark mt-6 mr-6 relative">
+            <div className="flex-1 flex flex-col min-w-0 bg-[#09090B] relative">
+                <div className={`flex-1 flex flex-col min-w-0 bg-[#121214] rounded-t-2xl overflow-hidden border-t border-l border-r mt-6 mr-6 relative transition-all duration-500 ${isImpersonating ? 'border-[#22c55e]/60 shadow-[0_0_15px_rgba(34,197,94,0.15),0_0_40px_rgba(34,197,94,0.08),inset_0_0_20px_rgba(34,197,94,0.03)]' : 'border-shark'}`}>
 
                     {/* Header */}
                     <div className="h-16 flex items-center justify-between px-8 bg-black/20 shrink-0 border-b border-shark/40">
@@ -169,6 +171,7 @@ export default function AccountPage() {
                                 Account Settings
                             </h1>
                         </div>
+                        <ImpersonationWarning />
                     </div>
 
                     <main className="flex-1 overflow-y-auto custom-scrollbar p-12">
@@ -208,7 +211,7 @@ export default function AccountPage() {
                                                 className="object-cover"
                                             />
                                         ) : (
-                                            profile?.full_name?.split(' ').map((n: string) => n[0]).join('') || profile?.email?.[0].toUpperCase() || 'U'
+                                            displayProfile?.full_name?.split(' ').map((n: string) => n[0]).join('') || displayProfile?.email?.[0].toUpperCase() || 'U'
                                         )}
 
                                         {/* Hover Overlay */}
@@ -233,12 +236,12 @@ export default function AccountPage() {
                                     </div>
                                     <div className="space-y-2">
                                         <h2 className="text-3xl font-black text-white tracking-tighter uppercase leading-none">
-                                            {profile?.full_name || (profile?.role === 'super_admin' ? 'Super Admin' : 'User Account')}
+                                            {displayProfile?.full_name || (displayProfile?.role === 'super_admin' ? 'Super Admin' : 'User Account')}
                                         </h2>
                                         <div className="flex items-center gap-3">
-                                            <p className="text-[10px] font-black text-storm-gray uppercase tracking-[0.2em]">{profile?.role?.replace('_', ' ') || 'Guest Account'}</p>
+                                            <p className="text-[10px] font-black text-storm-gray uppercase tracking-[0.2em]">{displayProfile?.role?.replace('_', ' ') || 'Guest Account'}</p>
                                             <div className="w-1 h-1 rounded-full bg-[#279da6]" />
-                                            <p className="text-[10px] font-black text-[#279da6] uppercase tracking-[0.2em]">{profile?.email}</p>
+                                            <p className="text-[10px] font-black text-[#279da6] uppercase tracking-[0.2em]">{displayProfile?.email}</p>
                                         </div>
                                     </div>
                                 </div>

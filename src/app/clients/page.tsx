@@ -26,6 +26,7 @@ import {
     ExternalLink
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { useAuth } from '@/context/AuthContext';
 
 interface ClientItem {
     id: string;
@@ -39,6 +40,7 @@ interface ClientItem {
 
 export default function ClientsPage() {
     const router = useRouter();
+    const { impersonate, isImpersonating } = useAuth();
     const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
     const [activeTab, setActiveTab] = useState('All Clients');
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -209,11 +211,11 @@ export default function ClientsPage() {
     };
 
     return (
-        <div className="flex h-screen bg-[#09090B] text-iron font-sans overflow-hidden">
+        <div className={`flex h-screen bg-[#09090B] text-iron font-sans overflow-hidden transition-all duration-500 ${isImpersonating ? 'p-1.5' : ''}`} style={isImpersonating ? { backgroundColor: '#0f2b1a' } : undefined}>
             <Sidebar isCollapsed={isSidebarCollapsed} />
 
             <div className="flex-1 flex flex-col min-w-0 bg-[#09090B] relative">
-                <div className="flex-1 flex flex-col min-w-0 bg-[#121214] rounded-t-2xl overflow-hidden border-t border-l border-r border-shark mt-6 mr-6">
+                <div className={`flex-1 flex flex-col min-w-0 bg-[#121214] rounded-t-2xl overflow-hidden border-t border-l border-r mt-6 mr-6 transition-all duration-500 ${isImpersonating ? 'border-[#22c55e]/60 shadow-[0_0_15px_rgba(34,197,94,0.15),0_0_40px_rgba(34,197,94,0.08),inset_0_0_20px_rgba(34,197,94,0.03)]' : 'border-shark'}`}>
                     <Header
                         onToggleSidebar={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
                         label="Clients"
@@ -342,7 +344,18 @@ export default function ClientsPage() {
                                                                             <Edit2 size={14} className="text-[#279da6]" />
                                                                             <span>Edit Account</span>
                                                                         </button>
-                                                                        <button className="w-full flex items-center gap-3 px-4 py-2 text-[11px] font-bold text-santas-gray hover:text-white hover:bg-[#279da6]/10 transition-all">
+                                                                        <button
+                                                                            onClick={() => {
+                                                                                impersonate({
+                                                                                    id: client.id,
+                                                                                    email: client.email,
+                                                                                    full_name: client.name,
+                                                                                    role: 'client'
+                                                                                });
+                                                                                setActiveDropdown(null);
+                                                                            }}
+                                                                            className="w-full flex items-center gap-3 px-4 py-2 text-[11px] font-bold text-santas-gray hover:text-white hover:bg-[#279da6]/10 transition-all"
+                                                                        >
                                                                             <UserCog size={14} className="text-[#279da6]" />
                                                                             <span>Impersonate</span>
                                                                         </button>
