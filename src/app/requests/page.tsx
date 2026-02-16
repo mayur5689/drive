@@ -43,11 +43,13 @@ interface Profile {
 
 export default function RequestsPage() {
     const router = useRouter();
-    const { isImpersonating } = useAuth();
+    const { isImpersonating, profile, viewAsProfile } = useAuth();
+    const displayProfile = viewAsProfile || profile;
     const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
     const [activeTab, setActiveTab] = useState('All');
     const [requests, setRequests] = useState<RequestItem[]>([]);
     const [profiles, setProfiles] = useState<Profile[]>([]);
+    const [teamMembers, setTeamMembers] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [selectedRequest, setSelectedRequest] = useState<RequestItem | null>(null);
     const [isChatOpen, setIsChatOpen] = useState(false);
@@ -70,9 +72,10 @@ export default function RequestsPage() {
     const fetchRequests = async () => {
         setIsLoading(true);
         try {
-            const [reqRes, profRes] = await Promise.all([
+            const [reqRes, profRes, teamRes] = await Promise.all([
                 fetch('/api/requests'),
-                fetch('/api/profiles')
+                fetch('/api/profiles'),
+                fetch('/api/team')
             ]);
 
             if (reqRes.ok) {
@@ -84,6 +87,11 @@ export default function RequestsPage() {
                 const data = await profRes.json();
                 setProfiles(data);
             }
+
+            if (teamRes.ok) {
+                const data = await teamRes.json();
+                setTeamMembers(data);
+            }
         } catch (error) {
             console.error('Failed to fetch data:', error);
         } finally {
@@ -93,7 +101,7 @@ export default function RequestsPage() {
 
     useEffect(() => {
         fetchRequests();
-    }, []);
+    }, []);;
 
     const handleOpenChat = (request: RequestItem) => {
         setSelectedRequest(request);
@@ -135,7 +143,14 @@ export default function RequestsPage() {
         }
     };
 
-    const filteredRequests = requests.filter(req => {
+    // For team_member role, only show their assigned requests (unless they are admin)
+    const isTeamMember = displayProfile?.role === 'team_member';
+    const isTeamAdmin = displayProfile?.team_role === 'admin';
+    const visibleRequests = (isTeamMember && !isTeamAdmin)
+        ? requests.filter(req => req.assigned_to === displayProfile?.id)
+        : requests;
+
+    const filteredRequests = visibleRequests.filter(req => {
         // Search query
         const searchLower = searchQuery.toLowerCase();
         const matchesSearch = !searchQuery ||
@@ -408,8 +423,8 @@ export default function RequestsPage() {
                                                                         className="bg-transparent text-[11px] font-bold text-iron focus:outline-none cursor-pointer hover:text-white transition-all appearance-none"
                                                                     >
                                                                         <option value="" className="bg-[#121214]">Unassigned</option>
-                                                                        {profiles.map(p => (
-                                                                            <option key={p.id} value={p.id} className="bg-[#121214]">{p.full_name}</option>
+                                                                        {teamMembers.filter((tm: any) => tm.profile_id).map((tm: any) => (
+                                                                            <option key={tm.id} value={tm.profile_id} className="bg-[#121214]">{tm.name}</option>
                                                                         ))}
                                                                     </select>
                                                                 </div>

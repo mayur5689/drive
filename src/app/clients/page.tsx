@@ -407,7 +407,7 @@ export default function ClientsPage() {
                                             <input
                                                 required
                                                 type="text"
-                                                placeholder="John Doe"
+                                                placeholder="Enter client name"
                                                 value={formData.name}
                                                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                                                 className="w-full bg-[#09090B] border border-shark/60 rounded-xl py-2.5 px-4 text-sm text-iron focus:outline-none focus:border-[#279da6]/60"
@@ -418,7 +418,7 @@ export default function ClientsPage() {
                                             <label className="text-[11px] font-bold text-santas-gray uppercase tracking-wider">Company/Organization Name</label>
                                             <input
                                                 type="text"
-                                                placeholder="ACME Corporation"
+                                                placeholder="Organization name"
                                                 value={formData.organization}
                                                 onChange={(e) => setFormData({ ...formData, organization: e.target.value })}
                                                 className="w-full bg-[#09090B] border border-shark/60 rounded-xl py-2.5 px-4 text-sm text-iron focus:outline-none focus:border-[#279da6]/60"
@@ -430,7 +430,7 @@ export default function ClientsPage() {
                                             <input
                                                 required
                                                 type="email"
-                                                placeholder="john@example.com"
+                                                placeholder="email@example.com"
                                                 value={formData.email}
                                                 onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                                                 className="w-full bg-[#09090B] border border-shark/60 rounded-xl py-2.5 px-4 text-sm text-iron focus:outline-none focus:border-[#279da6]/60"

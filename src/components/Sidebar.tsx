@@ -92,7 +92,9 @@ export default function Sidebar({ isCollapsed }: SidebarProps) {
         }
     };
 
-    const isAdmin = displayProfile?.role === 'super_admin' || displayProfile?.role === 'admin';
+    const isAdmin = displayProfile?.role === 'super_admin' ||
+        displayProfile?.role === 'admin' ||
+        (displayProfile?.role === 'team_member' && displayProfile?.team_role === 'admin');
 
     const menuItems = [
         { name: 'Overview', icon: Home, path: '/' },

@@ -7,9 +7,10 @@ import { supabase } from '@/lib/supabase';
 interface Profile {
     id: string;
     email: string;
-    role: 'super_admin' | 'admin' | 'client';
+    role: 'super_admin' | 'admin' | 'client' | 'team_member';
     full_name: string;
     avatar_url?: string;
+    team_role?: string; // stores 'admin', 'editor', or 'viewer'
 }
 
 interface AuthContextType {
@@ -86,7 +87,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             .single();
 
         if (!error && data) {
-            setProfile(data as Profile);
+            let profileData = data as Profile;
+
+            // If team member, fetch their sub-role from team_members table
+            if (profileData.role === 'team_member') {
+                const { data: teamData } = await supabase
+                    .from('team_members')
+                    .select('position')
+                    .eq('profile_id', userId)
+                    .maybeSingle();
+
+                if (teamData) {
+                    profileData.team_role = teamData.position || 'viewer';
+                }
+            }
+
+            setProfile(profileData);
         }
     };
 
