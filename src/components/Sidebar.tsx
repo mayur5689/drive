@@ -5,7 +5,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname, useRouter } from 'next/navigation';
 import {
-    LayoutGrid,
+    Home,
     MessageSquare,
     Calendar,
     Box,
@@ -18,7 +18,9 @@ import {
     LogOut,
     MoreHorizontal,
     AlertTriangle,
-    X
+    X,
+    ChevronDown,
+    ChevronUp
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 
@@ -38,7 +40,7 @@ const SidebarItem: React.FC<SidebarItemProps> = ({ item, isActive, isCollapsed }
     return (
         <Link
             href={item.path}
-            className={`flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-bold transition-all relative group ${isActive ? 'text-[#279da6] bg-[#279da6]/5' : 'text-storm-gray hover:text-iron hover:bg-shark/20'
+            className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-bold transition-all relative group ${isActive ? 'text-[#279da6] bg-[#279da6]/5' : 'text-storm-gray hover:text-iron hover:bg-shark/20'
                 } ${isCollapsed ? 'justify-center px-0' : ''}`}
         >
             {isActive && (
@@ -61,6 +63,7 @@ export default function Sidebar({ isCollapsed }: SidebarProps) {
     const router = useRouter();
     const { profile, signOut } = useAuth();
     const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+    const [isUsersExpanded, setIsUsersExpanded] = useState(pathname.includes('/clients') || pathname.includes('/team'));
 
     const handleSignOut = async () => {
         try {
@@ -88,20 +91,22 @@ export default function Sidebar({ isCollapsed }: SidebarProps) {
     const isAdmin = profile?.role === 'super_admin' || profile?.role === 'admin';
 
     const menuItems = [
-        { name: 'Overview', icon: LayoutGrid, path: '/' },
+        { name: 'Overview', icon: Home, path: '/' },
         { name: 'Requests', icon: MessageSquare, path: '/requests' },
-        { name: 'Calendar', icon: Calendar, path: '/calendar', section: 'Apps', adminOnly: true },
-        { name: 'Widgets', icon: Box, path: '/widgets', section: 'Apps', adminOnly: true },
-        { name: 'Timeline', icon: Clock, path: '/timeline', section: 'Apps', adminOnly: true },
+        // { name: 'Calendar', icon: Calendar, path: '/calendar', section: 'Apps', adminOnly: true },
+        // { name: 'Widgets', icon: Box, path: '/widgets', section: 'Apps', adminOnly: true },
+        // { name: 'Timeline', icon: Clock, path: '/timeline', section: 'Apps', adminOnly: true },
         { name: 'Clients', icon: Users, path: '/clients', section: 'Users', adminOnly: true },
         { name: 'Team', icon: UserPlus, path: '/team', section: 'Users', adminOnly: true },
-        { name: 'Invoices', icon: CreditCard, path: '/invoices', section: 'Management', adminOnly: true },
-        { name: 'Reports', icon: BarChart2, path: '/reports', section: 'Management', adminOnly: true },
-        { name: 'Settings', icon: Settings, path: '/settings', section: 'Management', adminOnly: true },
+        // { name: 'Invoices', icon: CreditCard, path: '/invoices', section: 'Management', adminOnly: true },
+        // { name: 'Reports', icon: BarChart2, path: '/reports', section: 'Management', adminOnly: true },
+        // { name: 'Settings', icon: Settings, path: '/settings', section: 'Management', adminOnly: true },
     ];
 
     // Filter items based on role
     const filteredItems = menuItems.filter(item => !item.adminOnly || isAdmin);
+
+    const isUsersActive = pathname.includes('/clients') || pathname.includes('/team');
 
     return (
         <>
@@ -125,66 +130,49 @@ export default function Sidebar({ isCollapsed }: SidebarProps) {
                 </div>
 
                 {/* Navigation */}
-                <div className="flex-1 px-4 py-2 flex flex-col gap-8 overflow-y-auto no-scrollbar scroll-smooth">
-                    {/* Dashboards Section */}
-                    <div>
-                        {!isCollapsed && (
-                            <h3 className="text-[10px] font-black text-storm-gray uppercase tracking-[0.2em] mb-4 px-3 opacity-50">
-                                Dashboards
-                            </h3>
-                        )}
-                        <nav className="flex flex-col gap-1">
-                            {filteredItems.filter(item => !item.section).map((item) => (
-                                <SidebarItem key={item.name} item={item} isCollapsed={isCollapsed} isActive={pathname === item.path} />
-                            ))}
-                        </nav>
-                    </div>
+                <div className="flex-1 px-4 py-2 flex flex-col gap-1 overflow-y-auto no-scrollbar scroll-smooth">
+                    {/* Primary Items */}
+                    {filteredItems.filter(item => !item.section).map((item) => (
+                        <SidebarItem key={item.name} item={item} isCollapsed={isCollapsed} isActive={pathname === item.path} />
+                    ))}
 
-                    {/* Users Section - Only if Admin */}
+                    {/* Expandable Users Section */}
                     {isAdmin && (
-                        <div>
-                            {!isCollapsed && (
-                                <h3 className="text-[10px] font-black text-storm-gray uppercase tracking-[0.2em] mb-4 px-3 opacity-50">
-                                    Users
-                                </h3>
-                            )}
-                            <nav className="flex flex-col gap-1">
-                                {filteredItems.filter(item => item.section === 'Users').map((item) => (
-                                    <SidebarItem key={item.name} item={item} isCollapsed={isCollapsed} isActive={pathname === item.path} />
-                                ))}
-                            </nav>
-                        </div>
-                    )}
+                        <div className="flex flex-col gap-1">
+                            <button
+                                onClick={() => setIsUsersExpanded(!isUsersExpanded)}
+                                className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-bold transition-all relative group ${isUsersActive ? 'text-[#279da6] bg-[#279da6]/5' : 'text-storm-gray hover:text-iron hover:bg-shark/20'
+                                    } ${isCollapsed ? 'justify-center px-0' : ''}`}
+                            >
+                                {isUsersActive && (
+                                    <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-5 bg-[#279da6] rounded-r-full shadow-[0_0_15px_rgba(39,157,166,0.5)]" />
+                                )}
+                                <span className={`flex items-center justify-center shrink-0 ${isUsersActive ? 'text-[#279da6]' : 'text-storm-gray'}`}>
+                                    <Users size={18} strokeWidth={isUsersActive ? 2.5 : 2} />
+                                </span>
+                                {!isCollapsed && (
+                                    <>
+                                        <span className="truncate flex-1 text-left">Users</span>
+                                        {isUsersExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                                    </>
+                                )}
+                            </button>
 
-                    {/* Apps Section - Only if Admin */}
-                    {isAdmin && (
-                        <div>
-                            {!isCollapsed && (
-                                <h3 className="text-[10px] font-black text-storm-gray uppercase tracking-[0.2em] mb-4 px-3 opacity-50">
-                                    Apps
-                                </h3>
+                            {!isCollapsed && isUsersExpanded && (
+                                <div className="flex flex-col gap-1 ml-4 pl-4 border-l border-shark/40 mt-1 animate-fade-in">
+                                    {filteredItems.filter(item => item.section === 'Users').map((item) => (
+                                        <SidebarItem key={item.name} item={item} isCollapsed={isCollapsed} isActive={pathname === item.path} />
+                                    ))}
+                                </div>
                             )}
-                            <nav className="flex flex-col gap-1">
-                                {filteredItems.filter(item => item.section === 'Apps').map((item) => (
-                                    <SidebarItem key={item.name} item={item} isCollapsed={isCollapsed} isActive={pathname === item.path} />
-                                ))}
-                            </nav>
-                        </div>
-                    )}
 
-                    {/* Management Section - Only if Admin */}
-                    {isAdmin && (
-                        <div>
-                            {!isCollapsed && (
-                                <h3 className="text-[10px] font-black text-storm-gray uppercase tracking-[0.2em] mb-4 px-3 opacity-50">
-                                    Management
-                                </h3>
+                            {isCollapsed && isUsersExpanded && (
+                                <div className="flex flex-col gap-1 mt-1">
+                                    {filteredItems.filter(item => item.section === 'Users').map((item) => (
+                                        <SidebarItem key={item.name} item={item} isCollapsed={isCollapsed} isActive={pathname === item.path} />
+                                    ))}
+                                </div>
                             )}
-                            <nav className="flex flex-col gap-1">
-                                {filteredItems.filter(item => item.section === 'Management').map((item) => (
-                                    <SidebarItem key={item.name} item={item} isCollapsed={isCollapsed} isActive={pathname === item.path} />
-                                ))}
-                            </nav>
                         </div>
                     )}
                 </div>
