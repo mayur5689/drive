@@ -33,6 +33,7 @@ export async function POST(
     try {
         const { id } = await params;
         const body = await request.json();
+        console.log('API POST MESSAGES BODY:', JSON.stringify(body, null, 2));
         const { message, sender_id, attachments } = body;
 
         if (!message || !sender_id) {
@@ -56,7 +57,10 @@ export async function POST(
             `)
             .single();
 
-        if (error) throw error;
+        if (error) {
+            console.error('API POST MESSAGES ERROR:', error);
+            throw error;
+        }
 
         return NextResponse.json(data);
     } catch (error: any) {

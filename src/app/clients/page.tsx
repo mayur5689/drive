@@ -30,6 +30,7 @@ import { useAuth } from '@/context/AuthContext';
 
 interface ClientItem {
     id: string;
+    profile_id?: string | null;
     name: string;
     email: string;
     organization: string;
@@ -76,6 +77,7 @@ export default function ClientsPage() {
                 // Map snake_case from DB to camelCase for UI
                 const mappedData = data.map((c: any) => ({
                     id: c.id,
+                    profile_id: c.profile_id,
                     name: c.name,
                     email: c.email,
                     organization: c.organization,
@@ -347,7 +349,7 @@ export default function ClientsPage() {
                                                                         <button
                                                                             onClick={() => {
                                                                                 impersonate({
-                                                                                    id: client.id,
+                                                                                    id: client.profile_id || client.id,
                                                                                     email: client.email,
                                                                                     full_name: client.name,
                                                                                     role: 'client'

@@ -96,6 +96,32 @@ export default function RequestDetailsPage() {
     const fileInputRef = useRef<HTMLInputElement>(null);
     const dateInputRef = useRef<HTMLInputElement>(null);
     const messagesEndRef = useRef<HTMLDivElement>(null);
+    const editorRef = useRef<HTMLDivElement>(null);
+
+    // WYSIWYG formatting helpers
+    const execFormat = (command: string, value?: string) => {
+        document.execCommand(command, false, value);
+        editorRef.current?.focus();
+        // Sync state for send button disabled check
+        handleEditorInput();
+    };
+
+    const handleInsertLink = () => {
+        const url = prompt('Enter URL:');
+        if (url) {
+            document.execCommand('createLink', false, url);
+            editorRef.current?.focus();
+            handleEditorInput();
+        }
+    };
+
+    const handleEditorInput = () => {
+        const text = editorRef.current?.textContent?.trim() || '';
+        setNewMessage(text); // Keep in sync for disabled state checks
+    };
+
+    // Check if a message is HTML (new format) vs plain text (old format)
+    const isHtmlContent = (text: string) => /<[a-z][\s\S]*>/i.test(text);
 
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -193,11 +219,16 @@ export default function RequestDetailsPage() {
 
     const handleSendMessage = async (e?: React.FormEvent, attachments: any[] = []) => {
         if (e) e.preventDefault();
-        if ((!newMessage.trim() && attachments.length === 0) || !displayProfile || isSending) return;
+        const editorHtml = editorRef.current?.innerHTML || '';
+        const textContent = editorRef.current?.textContent?.trim() || '';
 
-        const messageText = newMessage.trim();
+        if ((!textContent && attachments.length === 0) || !displayProfile || isSending) return;
+
+        // Use HTML content for the message (preserves formatting)
+        const messageContent = textContent ? editorHtml : '';
         setIsSending(true);
         setNewMessage('');
+        if (editorRef.current) editorRef.current.innerHTML = '';
 
         // Optimistic message
         const optimisticId = `temp-${Date.now()}`;
@@ -205,7 +236,7 @@ export default function RequestDetailsPage() {
             id: optimisticId,
             request_id: id as string,
             sender_id: displayProfile.id,
-            message: messageText,
+            message: messageContent,
             attachments: attachments,
             is_read: false,
             created_at: new Date().toISOString(),
@@ -223,7 +254,7 @@ export default function RequestDetailsPage() {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    message: messageText,
+                    message: messageContent,
                     sender_id: displayProfile.id,
                     attachments
                 })
@@ -232,7 +263,8 @@ export default function RequestDetailsPage() {
             if (!response.ok) {
                 // Remove optimistic message on error
                 setMessages(prev => prev.filter(m => m.id !== optimisticId));
-                setNewMessage(messageText); // Restore input
+                if (editorRef.current) editorRef.current.innerHTML = messageContent;
+                setNewMessage(textContent);
             } else {
                 const finalMsg = await response.json();
                 // Replace temp message with server message
@@ -241,7 +273,8 @@ export default function RequestDetailsPage() {
         } catch (error) {
             console.error('Error sending message:', error);
             setMessages(prev => prev.filter(m => m.id !== optimisticId));
-            setNewMessage(messageText);
+            if (editorRef.current) editorRef.current.innerHTML = messageContent;
+            setNewMessage(textContent);
         } finally {
             setIsSending(false);
         }
@@ -457,26 +490,36 @@ export default function RequestDetailsPage() {
                                                             ? 'bg-[#279da6] text-white rounded-tr-none'
                                                             : 'bg-shark text-iron rounded-tl-none border border-white/5'
                                                             }`}>
-                                                            {/* Simple Markdown-lite formatter */}
-                                                            {msg.message.split('\n').map((line, i) => (
-                                                                <div key={i}>
-                                                                    {line.split(/(\*\*.*?\*\*|\*.*?\*|__.*?__|_.*?_)/).map((part, j) => {
-                                                                        if (part.startsWith('**') && part.endsWith('**')) {
-                                                                            return <strong key={j}>{part.slice(2, -2)}</strong>;
-                                                                        }
-                                                                        if (part.startsWith('*') && part.endsWith('*')) {
-                                                                            return <em key={j}>{part.slice(1, -1)}</em>;
-                                                                        }
-                                                                        if (part.startsWith('__') && part.endsWith('__')) {
-                                                                            return <u key={j}>{part.slice(2, -2)}</u>;
-                                                                        }
-                                                                        if (part.startsWith('_') && part.endsWith('_')) {
-                                                                            return <em key={j}>{part.slice(1, -1)}</em>;
-                                                                        }
-                                                                        return part;
-                                                                    })}
-                                                                </div>
-                                                            ))}
+                                                            {/* Rich text message renderer — supports HTML (new) and plain text with markdown (old) */}
+                                                            {isHtmlContent(msg.message) ? (
+                                                                <div
+                                                                    className="prose prose-sm prose-invert max-w-none [&_a]:text-[#279da6] [&_a]:underline [&_a]:font-bold"
+                                                                    dangerouslySetInnerHTML={{ __html: msg.message }}
+                                                                />
+                                                            ) : (
+                                                                msg.message.split('\n').map((line, i) => (
+                                                                    <div key={i}>
+                                                                        {line.split(/(\*\*.*?\*\*|__.*?__|\*.*?\*|_.*?_|https?:\/\/[^\s]+)/).map((part, j) => {
+                                                                            if (part.startsWith('**') && part.endsWith('**')) {
+                                                                                return <strong key={j}>{part.slice(2, -2)}</strong>;
+                                                                            }
+                                                                            if (part.startsWith('__') && part.endsWith('__')) {
+                                                                                return <u key={j}>{part.slice(2, -2)}</u>;
+                                                                            }
+                                                                            if (part.startsWith('*') && part.endsWith('*') && part.length > 2) {
+                                                                                return <em key={j}>{part.slice(1, -1)}</em>;
+                                                                            }
+                                                                            if (part.startsWith('_') && part.endsWith('_') && part.length > 2) {
+                                                                                return <em key={j}>{part.slice(1, -1)}</em>;
+                                                                            }
+                                                                            if (/^https?:\/\/[^\s]+$/.test(part)) {
+                                                                                return <a key={j} href={part} target="_blank" rel="noopener noreferrer" className={`underline font-bold ${isMe ? 'text-white/90' : 'text-[#279da6]'}`}>{part}</a>;
+                                                                            }
+                                                                            return part;
+                                                                        })}
+                                                                    </div>
+                                                                ))
+                                                            )}
                                                             {msg.attachments && msg.attachments.length > 0 && (
                                                                 <div className="mt-3 space-y-2">
                                                                     {msg.attachments.map((at, idx) => (
@@ -523,26 +566,28 @@ export default function RequestDetailsPage() {
                                     <div className="bg-shark/30 border border-shark/60 rounded-2xl overflow-hidden shadow-inner focus-within:border-[#279da6]/50 transition-all">
                                         {/* Formatting Bar */}
                                         <div className="flex items-center gap-1 p-2 bg-shark/20 border-b border-shark/40">
-                                            <button className="p-1.5 hover:bg-shark rounded text-storm-gray hover:text-white transition-all"><Bold size={14} /></button>
-                                            <button className="p-1.5 hover:bg-shark rounded text-storm-gray hover:text-white transition-all"><Italic size={14} /></button>
-                                            <button className="p-1.5 hover:bg-shark rounded text-storm-gray hover:text-white transition-all"><Underline size={14} /></button>
+                                            <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => execFormat('bold')} title="Bold" className="p-1.5 hover:bg-shark rounded text-storm-gray hover:text-white transition-all"><Bold size={14} /></button>
+                                            <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => execFormat('italic')} title="Italic" className="p-1.5 hover:bg-shark rounded text-storm-gray hover:text-white transition-all"><Italic size={14} /></button>
+                                            <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => execFormat('underline')} title="Underline" className="p-1.5 hover:bg-shark rounded text-storm-gray hover:text-white transition-all"><Underline size={14} /></button>
                                             <div className="w-px h-4 bg-shark mx-1"></div>
-                                            <button className="p-1.5 hover:bg-shark rounded text-storm-gray hover:text-white transition-all"><List size={14} /></button>
-                                            <button className="p-1.5 hover:bg-shark rounded text-storm-gray hover:text-white transition-all"><LinkIcon size={14} /></button>
+                                            <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => execFormat('insertUnorderedList')} title="List" className="p-1.5 hover:bg-shark rounded text-storm-gray hover:text-white transition-all"><List size={14} /></button>
+                                            <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={handleInsertLink} title="Insert Link" className="p-1.5 hover:bg-shark rounded text-storm-gray hover:text-white transition-all"><LinkIcon size={14} /></button>
                                             <div className="flex-1"></div>
-                                            <button className="p-1.5 hover:bg-shark rounded text-storm-gray hover:text-white transition-all"><Smile size={14} /></button>
+                                            <button type="button" className="p-1.5 hover:bg-shark rounded text-storm-gray hover:text-white transition-all"><Smile size={14} /></button>
                                         </div>
-                                        <textarea
-                                            value={newMessage}
-                                            onChange={(e) => setNewMessage(e.target.value)}
+                                        <div
+                                            ref={editorRef}
+                                            contentEditable
+                                            suppressContentEditableWarning
+                                            onInput={handleEditorInput}
                                             onKeyDown={(e) => {
                                                 if (e.key === 'Enter' && !e.shiftKey) {
                                                     e.preventDefault();
                                                     handleSendMessage();
                                                 }
                                             }}
-                                            placeholder="Write your message here..."
-                                            className="w-full bg-transparent border-none text-iron placeholder:text-storm-gray p-4 text-sm focus:outline-none min-h-[120px] resize-none"
+                                            data-placeholder="Write your message here..."
+                                            className="w-full bg-transparent text-iron p-4 text-sm focus:outline-none min-h-[120px] empty:before:content-[attr(data-placeholder)] empty:before:text-storm-gray empty:before:pointer-events-none [&_a]:text-[#279da6] [&_a]:underline"
                                         />
                                         <div className="flex items-center justify-between p-3 bg-shark/10">
                                             <input
