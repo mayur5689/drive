@@ -1,4 +1,6 @@
 import { NextResponse } from 'next/server';
+import { cookies } from 'next/headers';
+import { createServerClient } from '@supabase/ssr';
 import { createServiceClient } from '@/lib/supabase';
 import { ensureFolderPath } from '@/lib/googleDrive';
 
@@ -85,11 +87,25 @@ export async function POST(request: Request) {
         }
 
         const supabase = createServiceClient();
+
+        // 1. Calculate the next request number for this specific client
+        const { count, error: countErr } = await supabase
+            .from('requests')
+            .select('*', { count: 'exact', head: true })
+            .eq('client_id', client_id);
+
+        if (countErr) throw countErr;
+
+        const nextNum = (count || 0) + 1;
+        const prefix = nextNum.toString().padStart(2, '0');
+        const numberedTitle = `${prefix}-${title}`;
+
+        // 2. Insert the request with the numbered title
         const { data, error } = await supabase
             .from('requests')
             .insert([
                 {
-                    title,
+                    title: numberedTitle,
                     description,
                     client_id,
                     priority: priority || 'Medium',
@@ -120,8 +136,8 @@ export async function POST(request: Request) {
 
                 const clientName = client?.organization || client?.name || profile?.full_name || 'Unknown';
 
-                // Create the folder structure: Client -> Request
-                await ensureFolderPath(clientName, title, 'production', client?.drive_folder_id);
+                // Create the folder structure using the numbered title
+                await ensureFolderPath(clientName, numberedTitle, 'production', client?.drive_folder_id);
             } catch (err) {
                 console.warn('Could not create Drive folder for request:', err);
             }
@@ -129,6 +145,7 @@ export async function POST(request: Request) {
 
         return NextResponse.json(data);
     } catch (error: any) {
+        console.error('Create Request Error:', error);
         return NextResponse.json({ error: error.message }, { status: 500 });
     }
 }
@@ -169,6 +186,42 @@ export async function DELETE(request: Request) {
         }
 
         const supabase = createServiceClient();
+
+        // 1. Get user session for authorization check
+        const { data: { session }, error: authErr } = await supabase.auth.getSession();
+
+        // Note: For service client, session might be null. 
+        // We should actually use the request cookies to check the session of the calling user.
+        const cookieStore = await cookies();
+        const clientSupabase = createServerClient(
+            process.env.NEXT_PUBLIC_SUPABASE_URL!,
+            process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+            {
+                cookies: {
+                    get(name: string) {
+                        return cookieStore.get(name)?.value;
+                    },
+                },
+            }
+        );
+
+        const { data: { user } } = await clientSupabase.auth.getUser();
+        if (!user) {
+            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+        }
+
+        // 2. Fetch user profile to check role
+        const { data: profile } = await supabase
+            .from('profiles')
+            .select('role')
+            .eq('id', user.id)
+            .single();
+
+        if (profile?.role !== 'super_admin') {
+            return NextResponse.json({ error: "Forbidden: Only Super Admins can delete requests" }, { status: 403 });
+        }
+
+        // 3. Delete the request
         const { error } = await supabase
             .from('requests')
             .delete()
@@ -178,6 +231,7 @@ export async function DELETE(request: Request) {
 
         return NextResponse.json({ success: true });
     } catch (error: any) {
+        console.error('Delete Request Error:', error);
         return NextResponse.json({ error: error.message }, { status: 500 });
     }
 }

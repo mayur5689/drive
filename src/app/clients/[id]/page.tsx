@@ -109,7 +109,7 @@ export default function ClientDetailPage() {
         if (client) {
             setSettingsEmail(client.email);
             setFolderInput(client.drive_folder_id || '');
-            if (client.drive_folder_id) {
+            if (client.drive_folder_id && !isDriveBrowsing) {
                 // Validate to get name + auto-browse
                 (async () => {
                     try {
@@ -118,11 +118,13 @@ export default function ClientDetailPage() {
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({ folderId: client.drive_folder_id })
                         });
-                        const data = await res.json();
-                        if (data.valid) {
-                            setLinkedFolderName(data.folderName);
-                            // Auto-browse into the linked folder
-                            browseDriveFolder(data.folderId || client.drive_folder_id!, data.folderName);
+                        if (res.ok) {
+                            const data = await res.json();
+                            if (data.valid) {
+                                setLinkedFolderName(data.folderName);
+                                // Auto-browse into the linked folder
+                                browseDriveFolder(data.folderId || client.drive_folder_id!, data.folderName);
+                            }
                         }
                     } catch (e) {
                         console.error('Validate error:', e);
@@ -288,6 +290,37 @@ export default function ClientDetailPage() {
         } finally {
             setIsDriveUploading(false);
             if (driveFileInputRef.current) driveFileInputRef.current.value = '';
+        }
+    };
+
+    const handleCreateClientFolder = async () => {
+        if (!client) return;
+        setIsSavingFolder(true);
+        setFolderStatus(null);
+        try {
+            const res = await fetch('/api/clients/drive-create', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    clientId: client.id,
+                    clientName: client.name,
+                    organization: client.organization
+                })
+            });
+            const data = await res.json();
+            if (res.ok) {
+                setLinkedFolderName(data.folderName);
+                setFolderInput(data.folderId);
+                setClient({ ...client, drive_folder_id: data.folderId });
+                setFolderStatus({ type: 'success', message: `Folder "${data.folderName}" created and linked!` });
+                browseDriveFolder(data.folderId, data.folderName);
+            } else {
+                setFolderStatus({ type: 'error', message: data.error });
+            }
+        } catch (e: any) {
+            setFolderStatus({ type: 'error', message: e.message });
+        } finally {
+            setIsSavingFolder(false);
         }
     };
 
@@ -631,87 +664,48 @@ export default function ClientDetailPage() {
                             )}
 
                             {activeTab === 'Folder' && (
-                                <div className="animate-fade-in space-y-6">
-                                    {/* Folder Link Section */}
-                                    {!isDriveBrowsing && (
-                                        <div className="max-w-2xl">
-                                            <div className="bg-[#18181B] border border-shark rounded-3xl p-8 shadow-2xl space-y-8">
-                                                <div className="flex items-center gap-4">
-                                                    <div className="w-12 h-12 rounded-2xl bg-[#279da6]/10 flex items-center justify-center text-[#279da6]">
-                                                        <HardDrive size={24} />
-                                                    </div>
-                                                    <div>
-                                                        <h2 className="text-xl font-black text-iron tracking-tight uppercase">Google Drive Folder</h2>
-                                                        <p className="text-xs font-bold text-santas-gray uppercase tracking-widest">Link a Drive folder for {client.name}</p>
-                                                    </div>
+                                <div className="animate-fade-in space-y-6 flex flex-col h-full min-h-[500px]">
+                                    {/* No Drive Linked - Empty State */}
+                                    {!isDriveBrowsing && !isDriveLoading && (
+                                        <div className="flex-1 flex flex-col items-center justify-center p-12 bg-[#18181B] border border-shark rounded-3xl shadow-2xl relative overflow-hidden group">
+                                            {/* Decorative Background */}
+                                            <div className="absolute -top-24 -right-24 w-64 h-64 bg-[#279da6]/5 rounded-full blur-[100px] group-hover:bg-[#279da6]/10 transition-all duration-700" />
+                                            <div className="absolute -bottom-24 -left-24 w-64 h-64 bg-[#279da6]/5 rounded-full blur-[100px] group-hover:bg-[#279da6]/10 transition-all duration-700 delay-150" />
+
+                                            <div className="relative flex flex-col items-center text-center max-w-sm">
+                                                <div className="w-24 h-24 rounded-[32px] bg-[#279da6]/10 border border-[#279da6]/20 flex items-center justify-center text-[#279da6] mb-8 group-hover:scale-110 group-hover:rotate-12 transition-all duration-500 shadow-[0_0_30px_rgba(39,157,166,0.1)]">
+                                                    <HardDrive size={40} />
                                                 </div>
 
-                                                {/* Current Linked Folder */}
-                                                {linkedFolderName && (
-                                                    <div className="flex items-center gap-4 p-5 bg-[#279da6]/5 border border-[#279da6]/20 rounded-2xl">
-                                                        <div className="w-10 h-10 rounded-xl bg-[#279da6]/10 flex items-center justify-center">
-                                                            <FolderOpen size={18} className="text-[#279da6]" />
-                                                        </div>
-                                                        <div className="flex-1 min-w-0">
-                                                            <p className="text-sm font-bold text-white truncate">{linkedFolderName}</p>
-                                                            <p className="text-[10px] font-bold text-storm-gray tracking-tight truncate">{client.drive_folder_id}</p>
-                                                        </div>
-                                                        <button
-                                                            onClick={() => browseDriveFolder(client.drive_folder_id!, linkedFolderName)}
-                                                            className="px-4 py-2 bg-[#279da6]/10 text-[#279da6] rounded-xl text-xs font-black uppercase tracking-widest hover:bg-[#279da6]/20 transition-all"
-                                                        >
-                                                            Browse
-                                                        </button>
-                                                        <button
-                                                            onClick={handleRemoveClientFolder}
-                                                            disabled={isSavingFolder}
-                                                            className="p-2 hover:bg-rose-500/10 rounded-xl text-storm-gray hover:text-rose-400 transition-all"
-                                                            title="Remove folder link"
-                                                        >
-                                                            <Trash2 size={16} />
-                                                        </button>
-                                                    </div>
-                                                )}
+                                                <h2 className="text-2xl font-black text-white tracking-tight uppercase mb-4">No Drive Linked</h2>
+                                                <p className="text-storm-gray text-sm font-bold leading-relaxed mb-10 uppercase tracking-widest opacity-60">
+                                                    Connect a Google Drive folder to manage {client.name}'s project files directly from this dashboard.
+                                                </p>
 
-                                                {/* Input */}
-                                                <div className="space-y-3">
-                                                    <label className="text-[9px] font-black text-storm-gray uppercase tracking-[0.25em] ml-2">Folder ID or Google Drive URL</label>
-                                                    <div className="relative">
-                                                        <Link2 className="absolute left-4 top-1/2 -translate-y-1/2 text-storm-gray" size={16} />
-                                                        <input
-                                                            type="text"
-                                                            value={folderInput}
-                                                            onChange={(e) => setFolderInput(e.target.value)}
-                                                            className="w-full bg-[#09090B] border border-shark/60 rounded-2xl py-3 pl-12 pr-4 text-sm text-iron focus:outline-none focus:border-[#279da6]/60 transition-all font-bold"
-                                                            placeholder="Paste folder ID or https://drive.google.com/drive/folders/..."
-                                                        />
-                                                    </div>
+                                                <div className="flex flex-col gap-4 w-full">
+                                                    <button
+                                                        onClick={handleCreateClientFolder}
+                                                        disabled={isSavingFolder}
+                                                        className="w-full flex items-center justify-center gap-3 py-4 rounded-2xl bg-[#279da6] text-white font-black text-[10px] uppercase tracking-[0.2em] shadow-xl shadow-[#279da6]/20 hover:bg-[#279da6]/90 hover:-translate-y-0.5 transition-all"
+                                                    >
+                                                        {isSavingFolder ? <Loader2 size={16} className="animate-spin" /> : <FolderPlus size={16} />}
+                                                        {isSavingFolder ? 'Creating Folder...' : 'Create New Folder'}
+                                                    </button>
+
+                                                    <button
+                                                        onClick={() => setActiveTab('Settings')}
+                                                        className="w-full py-4 rounded-2xl bg-shark/40 border border-shark hover:bg-shark text-iron font-black text-[10px] uppercase tracking-[0.2em] transition-all"
+                                                    >
+                                                        Link Existing Folder
+                                                    </button>
                                                 </div>
 
-                                                {folderStatus && (
-                                                    <div className={`flex items-center gap-3 px-5 py-3 rounded-xl border text-xs font-bold uppercase tracking-tight ${folderStatus.type === 'success'
-                                                        ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
-                                                        : 'bg-rose-500/10 border-rose-500/20 text-rose-400'
-                                                        }`}>
-                                                        {folderStatus.type === 'success' ? <CheckCircle2 size={14} /> : <AlertCircle size={14} />}
+                                                {folderStatus?.type === 'error' && (
+                                                    <div className="mt-8 p-4 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400 text-[10px] font-black uppercase tracking-tight flex items-center gap-2">
+                                                        <AlertCircle size={14} />
                                                         {folderStatus.message}
                                                     </div>
                                                 )}
-
-                                                <div className="flex items-center gap-4">
-                                                    <button
-                                                        type="button"
-                                                        onClick={handleSaveClientFolder}
-                                                        disabled={isValidatingFolder || isSavingFolder || !folderInput.trim()}
-                                                        className="px-8 py-3 bg-[#279da6] text-white rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-[#279da6]/90 transition-all shadow-lg shadow-[#279da6]/20 disabled:opacity-50 flex items-center gap-2"
-                                                    >
-                                                        {(isValidatingFolder || isSavingFolder) ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
-                                                        {isValidatingFolder ? 'Validating...' : isSavingFolder ? 'Saving...' : 'Validate & Link'}
-                                                    </button>
-                                                    <p className="text-[9px] text-storm-gray/60 font-bold lowercase italic opacity-80">
-                                                        must be accessible by the root Drive account
-                                                    </p>
-                                                </div>
                                             </div>
                                         </div>
                                     )}
@@ -722,17 +716,6 @@ export default function ClientDetailPage() {
                                             {/* Breadcrumbs + Actions */}
                                             <div className="flex items-center justify-between">
                                                 <div className="flex items-center gap-2 text-sm flex-1 min-w-0">
-                                                    <button
-                                                        onClick={() => {
-                                                            setIsDriveBrowsing(false);
-                                                            setDriveItems([]);
-                                                            setDriveBreadcrumbs([]);
-                                                            setCurrentDriveFolderId(null);
-                                                        }}
-                                                        className="p-1.5 hover:bg-shark/40 rounded-lg text-storm-gray hover:text-white transition-all shrink-0"
-                                                    >
-                                                        <ArrowLeft size={16} />
-                                                    </button>
                                                     {driveBreadcrumbs.map((crumb, i) => (
                                                         <React.Fragment key={crumb.id}>
                                                             {i > 0 && <ChevronRight size={14} className="text-storm-gray shrink-0" />}
@@ -1008,6 +991,90 @@ export default function ClientDetailPage() {
                                                 </button>
                                             </div>
                                         </form>
+                                    </div>
+
+                                    {/* Google Drive Management Section */}
+                                    <div className="bg-[#18181B] border border-shark rounded-3xl p-8 shadow-2xl mt-8 relative overflow-hidden group">
+                                        <div className="absolute -top-24 -right-24 w-48 h-48 bg-[#279da6]/5 rounded-full blur-[80px] group-hover:bg-[#279da6]/10 transition-all duration-700" />
+
+                                        <div className="flex items-center gap-4 mb-8 relative">
+                                            <div className="w-12 h-12 rounded-2xl bg-[#279da6]/10 flex items-center justify-center text-[#279da6]">
+                                                <HardDrive size={24} />
+                                            </div>
+                                            <div>
+                                                <h2 className="text-xl font-black text-white tracking-tight uppercase">Drive Storage</h2>
+                                                <p className="text-xs font-bold text-santas-gray uppercase tracking-widest">Linked Google Drive Infrastructure</p>
+                                            </div>
+                                        </div>
+
+                                        <div className="space-y-8 relative">
+                                            {linkedFolderName && (
+                                                <div className="flex items-center gap-4 p-5 bg-[#279da6]/5 border border-[#279da6]/20 rounded-2xl">
+                                                    <div className="w-10 h-10 rounded-xl bg-[#279da6]/10 flex items-center justify-center">
+                                                        <FolderOpen size={18} className="text-[#279da6]" />
+                                                    </div>
+                                                    <div className="flex-1 min-w-0">
+                                                        <p className="text-sm font-bold text-white truncate">{linkedFolderName}</p>
+                                                        <p className="text-[10px] font-bold text-storm-gray tracking-tight truncate">{client.drive_folder_id}</p>
+                                                    </div>
+                                                    <button
+                                                        onClick={() => { setActiveTab('Folder'); browseDriveFolder(client.drive_folder_id!, linkedFolderName); }}
+                                                        className="px-4 py-2 bg-[#279da6]/10 text-[#279da6] rounded-xl text-xs font-black uppercase tracking-widest hover:bg-[#279da6]/20 transition-all"
+                                                    >
+                                                        Browse
+                                                    </button>
+                                                    <button
+                                                        onClick={handleRemoveClientFolder}
+                                                        disabled={isSavingFolder}
+                                                        className="p-2 hover:bg-rose-500/10 rounded-xl text-storm-gray hover:text-rose-400 transition-all"
+                                                        title="Remove folder link"
+                                                    >
+                                                        <Trash2 size={16} />
+                                                    </button>
+                                                </div>
+                                            )}
+
+                                            <div className="space-y-4">
+                                                <div className="space-y-2">
+                                                    <label className="text-[10px] font-black text-storm-gray uppercase tracking-[0.2em] ml-2">Folder ID or URL</label>
+                                                    <div className="relative">
+                                                        <Link2 className="absolute left-4 top-1/2 -translate-y-1/2 text-[#279da6]" size={16} />
+                                                        <input
+                                                            type="text"
+                                                            value={folderInput}
+                                                            onChange={(e) => setFolderInput(e.target.value)}
+                                                            className="w-full bg-[#09090B] border border-shark/60 rounded-2xl py-3 pl-12 pr-4 text-sm text-iron focus:outline-none focus:border-[#279da6]/60 transition-all font-bold"
+                                                            placeholder="Paste folder ID or Drive URL"
+                                                        />
+                                                    </div>
+                                                </div>
+
+                                                <div className="flex items-center justify-between gap-4">
+                                                    <p className="text-[10px] text-storm-gray font-bold max-w-[340px] leading-relaxed uppercase tracking-tighter italic">
+                                                        Manually override the linked folder. This will change where all project files are stored.
+                                                    </p>
+                                                    <button
+                                                        type="button"
+                                                        onClick={handleSaveClientFolder}
+                                                        disabled={isValidatingFolder || isSavingFolder || !folderInput.trim()}
+                                                        className="px-6 py-3 bg-shark/20 border border-shark hover:bg-shark hover:text-[#279da6] text-storm-gray rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2"
+                                                    >
+                                                        {(isValidatingFolder || isSavingFolder) ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />}
+                                                        {isValidatingFolder ? 'Validating...' : 'Validate & Link'}
+                                                    </button>
+                                                </div>
+
+                                                {folderStatus && activeTab === 'Settings' && (
+                                                    <div className={`mt-4 p-4 rounded-xl border text-[10px] font-black uppercase tracking-tight flex items-center gap-2 ${folderStatus.type === 'success'
+                                                        ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
+                                                        : 'bg-rose-500/10 border-rose-500/20 text-rose-400'
+                                                        }`}>
+                                                        {folderStatus.type === 'success' ? <CheckCircle2 size={14} /> : <AlertCircle size={14} />}
+                                                        {folderStatus.message}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
                             )}
