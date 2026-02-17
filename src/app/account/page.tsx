@@ -21,8 +21,7 @@ import {
     FolderOpen,
     Link2,
     Check,
-    RefreshCw,
-    ShieldCheck
+    RefreshCw
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import ImpersonationWarning from '@/components/ImpersonationWarning';
@@ -507,26 +506,6 @@ export default function AccountPage() {
                                         </p>
                                     </div>
 
-                                    {/* Google Drive Rules Info Box */}
-                                    <div className="mt-8 p-6 bg-[#09090B] border border-shark/40 rounded-3xl space-y-4">
-                                        <h4 className="text-[10px] font-black text-[#279da6] uppercase tracking-[0.2em] flex items-center gap-2">
-                                            <ShieldCheck size={14} /> Drive Integration Rules
-                                        </h4>
-                                        <ul className="space-y-3">
-                                            <li className="flex gap-3 text-[11px] font-bold text-iron">
-                                                <div className="w-1.5 h-1.5 rounded-full bg-[#279da6] mt-1 shrink-0" />
-                                                <span>Folders must be shared with Editor access to your system's Gmail account for the integration to work.</span>
-                                            </li>
-                                            <li className="flex gap-3 text-[11px] font-bold text-iron">
-                                                <div className="w-1.5 h-1.5 rounded-full bg-[#279da6] mt-1 shrink-0" />
-                                                <span>Changing the Global Root only affects new clients. Existing clients will keep their current folder structure.</span>
-                                            </li>
-                                            <li className="flex gap-3 text-[11px] font-bold text-iron">
-                                                <div className="w-1.5 h-1.5 rounded-full bg-[#279da6] mt-1 shrink-0" />
-                                                <span>Individual clients can have their own Drive folders linked from the Client Detail page, which overrides this root setting.</span>
-                                            </li>
-                                        </ul>
-                                    </div>
                                 </div>
                             )}
                         </div>
