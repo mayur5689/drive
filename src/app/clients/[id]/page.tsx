@@ -45,6 +45,7 @@ import {
 
 import { useAuth } from '@/context/AuthContext';
 import ImpersonationWarning from '@/components/ImpersonationWarning';
+import FilePreviewModal from '@/components/FilePreviewModal';
 
 interface Client {
     id: string;
@@ -148,6 +149,7 @@ export default function ClientDetailPage() {
         createdTime: string;
         webViewLink: string;
         webContentLink: string | null;
+        previewUrl?: string | null;
     }
     const [driveItems, setDriveItems] = useState<DriveItem[]>([]);
     const [driveBreadcrumbs, setDriveBreadcrumbs] = useState<{ id: string; name: string }[]>([]);
@@ -164,6 +166,10 @@ export default function ClientDetailPage() {
     const [newFolderName, setNewFolderName] = useState('');
     const [isDriveUploading, setIsDriveUploading] = useState(false);
     const driveFileInputRef = React.useRef<HTMLInputElement>(null);
+
+    // Preview state
+    const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+    const [previewFile, setPreviewFile] = useState<DriveItem | null>(null);
 
     const browseDriveFolder = async (folderId: string, folderName?: string) => {
         setIsDriveLoading(true);
@@ -808,7 +814,7 @@ export default function ClientDetailPage() {
                                                         <div
                                                             key={item.id}
                                                             className="flex items-center gap-4 p-3 rounded-xl hover:bg-shark/30 transition-all group cursor-pointer"
-                                                            onClick={() => item.isFolder ? navigateToDriveSubfolder(item) : window.open(item.webViewLink, '_blank')}
+                                                            onClick={() => item.isFolder ? navigateToDriveSubfolder(item) : (setPreviewFile(item), setIsPreviewOpen(true))}
                                                             onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); setDriveContextItem(item); setDriveContextPos({ x: e.clientX, y: e.clientY }); }}
                                                         >
                                                             {getDriveFileIcon(item.mimeType)}
@@ -1009,6 +1015,23 @@ export default function ClientDetailPage() {
                     </main>
                 </div>
             </div>
+
+            <FilePreviewModal
+                isOpen={isPreviewOpen}
+                onClose={() => { setIsPreviewOpen(false); setPreviewFile(null); }}
+                file={previewFile ? {
+                    name: previewFile.name,
+                    url: previewFile.webViewLink,
+                    previewUrl: previewUrl(previewFile) || undefined,
+                    type: previewFile.mimeType
+                } : null}
+            />
         </div>
     );
+}
+
+// Helper to generate preview URL
+function previewUrl(item: any) {
+    if (item.isFolder) return null;
+    return `/api/drive/view?fileId=${item.id}`;
 }

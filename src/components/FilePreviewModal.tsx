@@ -9,6 +9,7 @@ interface FilePreviewModalProps {
     file: {
         name: string;
         url: string;
+        previewUrl?: string;
         type: string;
         uploaded_by?: string;
         uploaded_at?: string;
@@ -21,6 +22,8 @@ export default function FilePreviewModal({ isOpen, onClose, file }: FilePreviewM
     const isImage = file.type?.startsWith('image/');
     const isPdf = file.type?.includes('pdf');
     const isVideo = file.type?.startsWith('video/');
+
+    const displayUrl = file.previewUrl || file.url;
 
     return (
         <div className="fixed inset-0 z-[70] flex items-center justify-center animate-fade-in">
@@ -85,19 +88,19 @@ export default function FilePreviewModal({ isOpen, onClose, file }: FilePreviewM
                 <div className="flex-1 overflow-auto flex items-center justify-center p-6 bg-[#09090B]/30 min-h-[400px]">
                     {isImage ? (
                         <img
-                            src={file.url}
+                            src={displayUrl}
                             alt={file.name}
                             className="max-w-full max-h-[70vh] object-contain rounded-xl shadow-2xl"
                         />
                     ) : isPdf ? (
                         <iframe
-                            src={file.url}
+                            src={displayUrl}
                             className="w-full h-[70vh] rounded-xl border border-shark"
                             title={file.name}
                         />
                     ) : isVideo ? (
                         <video
-                            src={file.url}
+                            src={displayUrl}
                             controls
                             className="max-w-full max-h-[70vh] rounded-xl shadow-2xl"
                         />

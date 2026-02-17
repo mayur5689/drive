@@ -39,6 +39,7 @@ interface DriveItem {
     createdTime: string;
     webViewLink: string;
     webContentLink: string | null;
+    previewUrl: string | null;
 }
 
 interface DBEnrichment {
@@ -390,7 +391,7 @@ export default function FilesPage() {
                                         <div
                                             key={item.id}
                                             className="group relative flex flex-col items-center gap-4 p-6 rounded-3xl border border-shark/40 hover:border-[#279da6]/30 bg-[#18181B]/40 hover:bg-[#279da6]/5 transition-all cursor-pointer text-center overflow-hidden"
-                                            onClick={() => item.isFolder ? navigateToSubfolder(item) : (setPreviewFile({ ...item, url: item.webViewLink, type: item.mimeType }), setIsPreviewOpen(true))}
+                                            onClick={() => item.isFolder ? navigateToSubfolder(item) : (setPreviewFile({ ...item, url: item.webViewLink, previewUrl: item.previewUrl, type: item.mimeType }), setIsPreviewOpen(true))}
                                         >
                                             {/* Glow Background */}
                                             <div className="absolute inset-0 bg-gradient-to-b from-white/[0.02] to-transparent pointer-events-none" />

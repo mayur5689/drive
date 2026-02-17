@@ -33,6 +33,9 @@ export async function GET(request: Request) {
                 ? `https://drive.google.com/file/d/${item.id}/view`
                 : `https://drive.google.com/drive/folders/${item.id}`),
             webContentLink: (item as any).webContentLink || null,
+            previewUrl: item.mimeType !== 'application/vnd.google-apps.folder'
+                ? `/api/drive/view?fileId=${item.id}`
+                : null,
         }));
 
         return NextResponse.json(result);

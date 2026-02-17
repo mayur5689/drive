@@ -326,3 +326,27 @@ export async function listFolderContents(folderId: string): Promise<drive_v3.Sch
     driveCache.set(cacheKey, data);
     return data;
 }
+/**
+ * Get a file's content and metadata from Google Drive.
+ */
+export async function getFile(fileId: string): Promise<{ stream: any; mimeType: string; name: string }> {
+    const drive = getDrive();
+
+    // Get metadata
+    const metadata = await drive.files.get({
+        fileId,
+        fields: 'name, mimeType',
+    });
+
+    // Get content stream
+    const res = await drive.files.get(
+        { fileId, alt: 'media' },
+        { responseType: 'stream' }
+    );
+
+    return {
+        stream: res.data,
+        mimeType: metadata.data.mimeType || 'application/octet-stream',
+        name: metadata.data.name || 'file',
+    };
+}

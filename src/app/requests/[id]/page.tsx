@@ -28,11 +28,15 @@ import {
     Smile,
     Plus,
     X,
-    UserPlus
+    UserPlus,
+    FileText,
+    Image as ImageIcon,
+    Film
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/context/AuthContext';
 import ImpersonationWarning from '@/components/ImpersonationWarning';
+import FilePreviewModal from '@/components/FilePreviewModal';
 
 interface Message {
     id: string;
@@ -125,6 +129,10 @@ export default function RequestDetailsPage() {
     const dateInputRef = useRef<HTMLInputElement>(null);
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const editorRef = useRef<HTMLDivElement>(null);
+
+    // Preview state
+    const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+    const [previewFile, setPreviewFile] = useState<any | null>(null);
 
     // WYSIWYG formatting helpers
     const execFormat = (command: string, value?: string) => {
@@ -666,32 +674,45 @@ export default function RequestDetailsPage() {
                                                                 )}
                                                                 {msg.attachments && msg.attachments.length > 0 && (
                                                                     <div className="mt-3 space-y-2">
-                                                                        {msg.attachments.map((at, idx) => (
-                                                                            <a
-                                                                                key={idx}
-                                                                                href={at.url}
-                                                                                target="_blank"
-                                                                                rel="noopener noreferrer"
-                                                                                className="block group/at"
-                                                                            >
-                                                                                {at.type?.startsWith('image/') ? (
-                                                                                    <div className="relative rounded-lg overflow-hidden border border-white/10 shadow-lg max-w-[240px]">
-                                                                                        <img src={at.url} alt={at.name} className="w-full h-auto" />
-                                                                                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/at:opacity-100 transition-opacity flex items-center justify-center">
-                                                                                            <span className="text-[10px] font-black uppercase text-white">View Full Image</span>
+                                                                        {msg.attachments.map((at, idx) => {
+                                                                            const driveProxyUrl = at.drive_file_id ? `/api/drive/view?fileId=${at.drive_file_id}` : null;
+                                                                            const displayUrl = driveProxyUrl || at.url;
+
+                                                                            return (
+                                                                                <div
+                                                                                    key={idx}
+                                                                                    onClick={(e) => {
+                                                                                        e.preventDefault();
+                                                                                        e.stopPropagation();
+                                                                                        setPreviewFile({
+                                                                                            name: at.name,
+                                                                                            url: at.url,
+                                                                                            previewUrl: driveProxyUrl,
+                                                                                            type: at.type
+                                                                                        });
+                                                                                        setIsPreviewOpen(true);
+                                                                                    }}
+                                                                                    className="block group/at cursor-pointer"
+                                                                                >
+                                                                                    {at.type?.startsWith('image/') ? (
+                                                                                        <div className="relative rounded-lg overflow-hidden border border-white/10 shadow-lg max-w-[240px]">
+                                                                                            <img src={displayUrl} alt={at.name} className="w-full h-auto" />
+                                                                                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/at:opacity-100 transition-opacity flex items-center justify-center">
+                                                                                                <span className="text-[10px] font-black uppercase text-white">View Full Image</span>
+                                                                                            </div>
                                                                                         </div>
-                                                                                    </div>
-                                                                                ) : (
-                                                                                    <div className="flex items-center gap-3 bg-white/5 hover:bg-white/10 p-3 rounded-xl border border-white/10 transition-all max-w-[280px]">
-                                                                                        <Paperclip size={18} className="text-[#279da6]" />
-                                                                                        <div className="min-w-0">
-                                                                                            <p className="text-xs font-bold truncate text-white">{at.name}</p>
-                                                                                            <p className="text-[10px] text-storm-gray font-bold uppercase tracking-widest">Download File</p>
+                                                                                    ) : (
+                                                                                        <div className="flex items-center gap-3 bg-white/5 hover:bg-white/10 p-3 rounded-xl border border-white/10 transition-all max-w-[280px]">
+                                                                                            <Paperclip size={18} className="text-[#279da6]" />
+                                                                                            <div className="min-w-0">
+                                                                                                <p className="text-xs font-bold truncate text-white">{at.name}</p>
+                                                                                                <p className="text-[10px] text-storm-gray font-bold uppercase tracking-widest">View File</p>
+                                                                                            </div>
                                                                                         </div>
-                                                                                    </div>
-                                                                                )}
-                                                                            </a>
-                                                                        ))}
+                                                                                    )}
+                                                                                </div>
+                                                                            );
+                                                                        })}
                                                                     </div>
                                                                 )}
                                                             </div>
@@ -999,6 +1020,12 @@ export default function RequestDetailsPage() {
                         </div>
                     </div>
                 )}
+
+            <FilePreviewModal
+                isOpen={isPreviewOpen}
+                onClose={() => { setIsPreviewOpen(false); setPreviewFile(null); }}
+                file={previewFile}
+            />
         </>
     );
 }
