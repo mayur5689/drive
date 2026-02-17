@@ -26,7 +26,21 @@ import {
     EyeOff,
     CheckCircle2,
     AlertCircle,
-    X as CloseIcon
+    X as CloseIcon,
+    FolderOpen,
+    HardDrive,
+    Link2,
+    Trash2,
+    RefreshCw,
+    Upload,
+    Pencil,
+    FileText,
+    Image as ImageIcon,
+    Film,
+    Plus,
+    MoreHorizontal,
+    File as FileIcon,
+    FolderPlus
 } from 'lucide-react';
 
 import { useAuth } from '@/context/AuthContext';
@@ -39,6 +53,7 @@ interface Client {
     organization: string;
     status: string;
     created_at: string;
+    drive_folder_id?: string | null;
 }
 
 export default function ClientDetailPage() {
@@ -50,7 +65,7 @@ export default function ClientDetailPage() {
     const [client, setClient] = useState<Client | null>(null);
     const [isLoading, setIsLoading] = useState(true);
 
-    const tabs = ['Overview', 'Requests', 'Invoices', 'Settings'];
+    const tabs = ['Overview', 'Requests', 'Invoices', 'Folder', 'Settings'];
 
     useEffect(() => {
         const fetchClient = async () => {
@@ -92,8 +107,271 @@ export default function ClientDetailPage() {
     useEffect(() => {
         if (client) {
             setSettingsEmail(client.email);
+            setFolderInput(client.drive_folder_id || '');
+            if (client.drive_folder_id) {
+                // Validate to get name + auto-browse
+                (async () => {
+                    try {
+                        const res = await fetch('/api/drive/validate', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ folderId: client.drive_folder_id })
+                        });
+                        const data = await res.json();
+                        if (data.valid) {
+                            setLinkedFolderName(data.folderName);
+                            // Auto-browse into the linked folder
+                            browseDriveFolder(data.folderId || client.drive_folder_id!, data.folderName);
+                        }
+                    } catch (e) {
+                        console.error('Validate error:', e);
+                    }
+                })();
+            }
         }
     }, [client]);
+
+    // Folder State
+    const [folderInput, setFolderInput] = useState('');
+    const [linkedFolderName, setLinkedFolderName] = useState('');
+    const [isValidatingFolder, setIsValidatingFolder] = useState(false);
+    const [isSavingFolder, setIsSavingFolder] = useState(false);
+    const [folderStatus, setFolderStatus] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+
+    // Drive Browser State
+    interface DriveItem {
+        id: string;
+        name: string;
+        mimeType: string;
+        isFolder: boolean;
+        size: number | null;
+        createdTime: string;
+        webViewLink: string;
+        webContentLink: string | null;
+    }
+    const [driveItems, setDriveItems] = useState<DriveItem[]>([]);
+    const [driveBreadcrumbs, setDriveBreadcrumbs] = useState<{ id: string; name: string }[]>([]);
+    const [currentDriveFolderId, setCurrentDriveFolderId] = useState<string | null>(null);
+    const [isDriveBrowsing, setIsDriveBrowsing] = useState(false);
+    const [isDriveLoading, setIsDriveLoading] = useState(false);
+    const [driveContextItem, setDriveContextItem] = useState<DriveItem | null>(null);
+    const [driveContextPos, setDriveContextPos] = useState({ x: 0, y: 0 });
+    const [isDriveRenaming, setIsDriveRenaming] = useState(false);
+    const [driveRenameValue, setDriveRenameValue] = useState('');
+    const [isDriveDeleting, setIsDriveDeleting] = useState(false);
+    const [driveDeleteTarget, setDriveDeleteTarget] = useState<DriveItem | null>(null);
+    const [isCreatingFolder, setIsCreatingFolder] = useState(false);
+    const [newFolderName, setNewFolderName] = useState('');
+    const [isDriveUploading, setIsDriveUploading] = useState(false);
+    const driveFileInputRef = React.useRef<HTMLInputElement>(null);
+
+    const browseDriveFolder = async (folderId: string, folderName?: string) => {
+        setIsDriveLoading(true);
+        try {
+            const res = await fetch(`/api/drive/browse?folderId=${folderId}`);
+            if (res.ok) {
+                const items = await res.json();
+                setDriveItems(items);
+                setCurrentDriveFolderId(folderId);
+                setIsDriveBrowsing(true);
+
+                if (folderName && driveBreadcrumbs.length === 0) {
+                    setDriveBreadcrumbs([{ id: folderId, name: folderName }]);
+                }
+            }
+        } catch (e) {
+            console.error('Browse error:', e);
+        } finally {
+            setIsDriveLoading(false);
+        }
+    };
+
+    const navigateToDriveSubfolder = (item: DriveItem) => {
+        setDriveBreadcrumbs(prev => [...prev, { id: item.id, name: item.name }]);
+        browseDriveFolder(item.id);
+    };
+
+    const navigateToDriveBreadcrumb = (index: number) => {
+        const crumb = driveBreadcrumbs[index];
+        setDriveBreadcrumbs(prev => prev.slice(0, index + 1));
+        browseDriveFolder(crumb.id);
+    };
+
+    const refreshDriveFolder = () => {
+        if (currentDriveFolderId) browseDriveFolder(currentDriveFolderId);
+    };
+
+    const handleDriveRename = async () => {
+        if (!driveContextItem || !driveRenameValue.trim()) return;
+        try {
+            const res = await fetch('/api/drive/browse', {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    id: driveContextItem.id,
+                    newName: driveRenameValue.trim(),
+                    isFolder: driveContextItem.isFolder
+                })
+            });
+            if (res.ok) {
+                setIsDriveRenaming(false);
+                setDriveContextItem(null);
+                refreshDriveFolder();
+            } else {
+                const err = await res.json();
+                alert(`Rename failed: ${err.error}`);
+            }
+        } catch (e) {
+            console.error('Rename error:', e);
+        }
+    };
+
+    const handleDriveDelete = async () => {
+        if (!driveDeleteTarget) return;
+        try {
+            const res = await fetch(
+                `/api/drive/browse?id=${driveDeleteTarget.id}&isFolder=${driveDeleteTarget.isFolder}`,
+                { method: 'DELETE' }
+            );
+            if (res.ok) {
+                setDriveDeleteTarget(null);
+                setIsDriveDeleting(false);
+                refreshDriveFolder();
+            } else {
+                const err = await res.json();
+                alert(`Delete failed: ${err.error}`);
+            }
+        } catch (e) {
+            console.error('Delete error:', e);
+        }
+    };
+
+    const handleDriveCreateFolder = async () => {
+        if (!newFolderName.trim() || !currentDriveFolderId) return;
+        try {
+            const res = await fetch('/api/drive/browse', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    parentId: currentDriveFolderId,
+                    folderName: newFolderName.trim()
+                })
+            });
+            if (res.ok) {
+                setIsCreatingFolder(false);
+                setNewFolderName('');
+                refreshDriveFolder();
+            }
+        } catch (e) {
+            console.error('Create folder error:', e);
+        }
+    };
+
+    const handleDriveUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file || !currentDriveFolderId) return;
+        setIsDriveUploading(true);
+        try {
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('parentId', currentDriveFolderId);
+            const res = await fetch('/api/drive/browse', { method: 'POST', body: formData });
+            if (res.ok) refreshDriveFolder();
+        } catch (e) {
+            console.error('Upload error:', e);
+        } finally {
+            setIsDriveUploading(false);
+            if (driveFileInputRef.current) driveFileInputRef.current.value = '';
+        }
+    };
+
+    const handleSaveClientFolder = async () => {
+        if (!folderInput.trim() || !client) return;
+
+        setIsValidatingFolder(true);
+        setFolderStatus(null);
+
+        try {
+            const valRes = await fetch('/api/drive/validate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ folderId: folderInput.trim() })
+            });
+            const valData = await valRes.json();
+
+            if (!valData.valid) {
+                setFolderStatus({ type: 'error', message: valData.error || 'Cannot access this folder' });
+                setIsValidatingFolder(false);
+                return;
+            }
+
+            setIsValidatingFolder(false);
+            setIsSavingFolder(true);
+
+            const saveRes = await fetch('/api/clients', {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id: client.id, drive_folder_id: valData.folderId })
+            });
+
+            if (saveRes.ok) {
+                setLinkedFolderName(valData.folderName);
+                setFolderInput(valData.folderId);
+                setClient({ ...client, drive_folder_id: valData.folderId });
+                setFolderStatus({ type: 'success', message: `Linked to "${valData.folderName}"` });
+                // Auto-browse into the folder
+                browseDriveFolder(valData.folderId, valData.folderName);
+            } else {
+                const err = await saveRes.json();
+                setFolderStatus({ type: 'error', message: err.error });
+            }
+        } catch (e: any) {
+            setFolderStatus({ type: 'error', message: e.message });
+        } finally {
+            setIsValidatingFolder(false);
+            setIsSavingFolder(false);
+        }
+    };
+
+    const handleRemoveClientFolder = async () => {
+        if (!client) return;
+        setIsSavingFolder(true);
+        try {
+            const res = await fetch('/api/clients', {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id: client.id, drive_folder_id: '' })
+            });
+            if (res.ok) {
+                setFolderInput('');
+                setLinkedFolderName('');
+                setIsDriveBrowsing(false);
+                setDriveItems([]);
+                setDriveBreadcrumbs([]);
+                setClient({ ...client, drive_folder_id: null });
+                setFolderStatus({ type: 'success', message: 'Folder link removed. Using default root folder.' });
+            }
+        } catch (e: any) {
+            setFolderStatus({ type: 'error', message: e.message });
+        } finally {
+            setIsSavingFolder(false);
+        }
+    };
+
+    const getDriveFileIcon = (mimeType: string) => {
+        if (mimeType === 'application/vnd.google-apps.folder') return <FolderOpen size={20} className="text-[#279da6]" />;
+        if (mimeType?.startsWith('image/')) return <ImageIcon size={20} className="text-emerald-400" />;
+        if (mimeType?.includes('pdf')) return <FileText size={20} className="text-rose-400" />;
+        if (mimeType?.startsWith('video/')) return <Film size={20} className="text-purple-400" />;
+        return <FileIcon size={20} className="text-blue-400" />;
+    };
+
+    const formatFileSize = (bytes: number | null) => {
+        if (!bytes) return '';
+        if (bytes < 1024) return `${bytes} B`;
+        if (bytes < 1048576) return `${(bytes / 1024).toFixed(1)} KB`;
+        return `${(bytes / 1048576).toFixed(1)} MB`;
+    };
 
     const handleSettingsSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -343,6 +621,305 @@ export default function ClientDetailPage() {
                             {activeTab === 'Invoices' && (
                                 <div className="bg-[#18181B] border border-shark rounded-3xl overflow-hidden min-h-[400px] flex items-center justify-center text-storm-gray uppercase text-[10px] font-black tracking-widest opacity-40 animate-fade-in">
                                     Invoices module coming soon.
+                                </div>
+                            )}
+
+                            {activeTab === 'Folder' && (
+                                <div className="animate-fade-in space-y-6">
+                                    {/* Folder Link Section */}
+                                    {!isDriveBrowsing && (
+                                        <div className="max-w-2xl">
+                                            <div className="bg-[#18181B] border border-shark rounded-3xl p-8 shadow-2xl space-y-8">
+                                                <div className="flex items-center gap-4">
+                                                    <div className="w-12 h-12 rounded-2xl bg-[#279da6]/10 flex items-center justify-center text-[#279da6]">
+                                                        <HardDrive size={24} />
+                                                    </div>
+                                                    <div>
+                                                        <h2 className="text-xl font-black text-iron tracking-tight uppercase">Google Drive Folder</h2>
+                                                        <p className="text-xs font-bold text-santas-gray uppercase tracking-widest">Link a Drive folder for {client.name}</p>
+                                                    </div>
+                                                </div>
+
+                                                {/* Current Linked Folder */}
+                                                {linkedFolderName && (
+                                                    <div className="flex items-center gap-4 p-5 bg-[#279da6]/5 border border-[#279da6]/20 rounded-2xl">
+                                                        <div className="w-10 h-10 rounded-xl bg-[#279da6]/10 flex items-center justify-center">
+                                                            <FolderOpen size={18} className="text-[#279da6]" />
+                                                        </div>
+                                                        <div className="flex-1 min-w-0">
+                                                            <p className="text-sm font-bold text-white truncate">{linkedFolderName}</p>
+                                                            <p className="text-[10px] font-bold text-storm-gray tracking-tight truncate">{client.drive_folder_id}</p>
+                                                        </div>
+                                                        <button
+                                                            onClick={() => browseDriveFolder(client.drive_folder_id!, linkedFolderName)}
+                                                            className="px-4 py-2 bg-[#279da6]/10 text-[#279da6] rounded-xl text-xs font-black uppercase tracking-widest hover:bg-[#279da6]/20 transition-all"
+                                                        >
+                                                            Browse
+                                                        </button>
+                                                        <button
+                                                            onClick={handleRemoveClientFolder}
+                                                            disabled={isSavingFolder}
+                                                            className="p-2 hover:bg-rose-500/10 rounded-xl text-storm-gray hover:text-rose-400 transition-all"
+                                                            title="Remove folder link"
+                                                        >
+                                                            <Trash2 size={16} />
+                                                        </button>
+                                                    </div>
+                                                )}
+
+                                                {/* Input */}
+                                                <div className="space-y-3">
+                                                    <label className="text-[9px] font-black text-storm-gray uppercase tracking-[0.25em] ml-2">Folder ID or Google Drive URL</label>
+                                                    <div className="relative">
+                                                        <Link2 className="absolute left-4 top-1/2 -translate-y-1/2 text-storm-gray" size={16} />
+                                                        <input
+                                                            type="text"
+                                                            value={folderInput}
+                                                            onChange={(e) => setFolderInput(e.target.value)}
+                                                            className="w-full bg-[#09090B] border border-shark/60 rounded-2xl py-3 pl-12 pr-4 text-sm text-iron focus:outline-none focus:border-[#279da6]/60 transition-all font-bold"
+                                                            placeholder="Paste folder ID or https://drive.google.com/drive/folders/..."
+                                                        />
+                                                    </div>
+                                                </div>
+
+                                                {folderStatus && (
+                                                    <div className={`flex items-center gap-3 px-5 py-3 rounded-xl border text-xs font-bold uppercase tracking-tight ${folderStatus.type === 'success'
+                                                        ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
+                                                        : 'bg-rose-500/10 border-rose-500/20 text-rose-400'
+                                                        }`}>
+                                                        {folderStatus.type === 'success' ? <CheckCircle2 size={14} /> : <AlertCircle size={14} />}
+                                                        {folderStatus.message}
+                                                    </div>
+                                                )}
+
+                                                <div className="flex items-center gap-4">
+                                                    <button
+                                                        type="button"
+                                                        onClick={handleSaveClientFolder}
+                                                        disabled={isValidatingFolder || isSavingFolder || !folderInput.trim()}
+                                                        className="px-8 py-3 bg-[#279da6] text-white rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-[#279da6]/90 transition-all shadow-lg shadow-[#279da6]/20 disabled:opacity-50 flex items-center gap-2"
+                                                    >
+                                                        {(isValidatingFolder || isSavingFolder) ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
+                                                        {isValidatingFolder ? 'Validating...' : isSavingFolder ? 'Saving...' : 'Validate & Link'}
+                                                    </button>
+                                                    <p className="text-[9px] text-storm-gray/60 font-bold lowercase italic opacity-80">
+                                                        must be accessible by the root Drive account
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* Drive Browser */}
+                                    {isDriveBrowsing && (
+                                        <div className="bg-[#18181B] border border-shark rounded-3xl p-6 shadow-2xl space-y-4">
+                                            {/* Breadcrumbs + Actions */}
+                                            <div className="flex items-center justify-between">
+                                                <div className="flex items-center gap-2 text-sm flex-1 min-w-0">
+                                                    <button
+                                                        onClick={() => {
+                                                            setIsDriveBrowsing(false);
+                                                            setDriveItems([]);
+                                                            setDriveBreadcrumbs([]);
+                                                            setCurrentDriveFolderId(null);
+                                                        }}
+                                                        className="p-1.5 hover:bg-shark/40 rounded-lg text-storm-gray hover:text-white transition-all shrink-0"
+                                                    >
+                                                        <ArrowLeft size={16} />
+                                                    </button>
+                                                    {driveBreadcrumbs.map((crumb, i) => (
+                                                        <React.Fragment key={crumb.id}>
+                                                            {i > 0 && <ChevronRight size={14} className="text-storm-gray shrink-0" />}
+                                                            <button
+                                                                onClick={() => navigateToDriveBreadcrumb(i)}
+                                                                className={`font-bold transition-all truncate max-w-[150px] ${i === driveBreadcrumbs.length - 1 ? 'text-[#279da6]' : 'text-storm-gray hover:text-iron'}`}
+                                                            >
+                                                                {crumb.name}
+                                                            </button>
+                                                        </React.Fragment>
+                                                    ))}
+                                                </div>
+                                                <div className="flex items-center gap-2 shrink-0">
+                                                    <button
+                                                        onClick={() => setIsCreatingFolder(true)}
+                                                        className="p-2 bg-shark/30 border border-shark hover:border-[#279da6]/30 rounded-xl text-storm-gray hover:text-[#279da6] transition-all"
+                                                        title="New folder"
+                                                    >
+                                                        <FolderPlus size={16} />
+                                                    </button>
+                                                    <input
+                                                        type="file"
+                                                        ref={driveFileInputRef}
+                                                        className="hidden"
+                                                        onChange={handleDriveUpload}
+                                                    />
+                                                    <button
+                                                        onClick={() => driveFileInputRef.current?.click()}
+                                                        disabled={isDriveUploading}
+                                                        className="p-2 bg-[#279da6]/10 border border-[#279da6]/20 rounded-xl text-[#279da6] hover:bg-[#279da6]/20 transition-all disabled:opacity-50"
+                                                        title="Upload file"
+                                                    >
+                                                        {isDriveUploading ? <Loader2 size={16} className="animate-spin" /> : <Upload size={16} />}
+                                                    </button>
+                                                    <button
+                                                        onClick={refreshDriveFolder}
+                                                        className="p-2 bg-shark/30 border border-shark rounded-xl text-storm-gray hover:text-white transition-all"
+                                                        title="Refresh"
+                                                    >
+                                                        <RefreshCw size={16} />
+                                                    </button>
+                                                </div>
+                                            </div>
+
+                                            {/* New Folder Input */}
+                                            {isCreatingFolder && (
+                                                <div className="flex items-center gap-3 p-3 bg-shark/20 border border-shark/40 rounded-xl">
+                                                    <FolderPlus size={16} className="text-[#279da6] shrink-0" />
+                                                    <input
+                                                        type="text"
+                                                        value={newFolderName}
+                                                        onChange={(e) => setNewFolderName(e.target.value)}
+                                                        onKeyDown={(e) => e.key === 'Enter' && handleDriveCreateFolder()}
+                                                        className="flex-1 bg-transparent border-none text-sm text-iron focus:outline-none font-bold"
+                                                        placeholder="New folder name..."
+                                                        autoFocus
+                                                    />
+                                                    <button onClick={handleDriveCreateFolder} className="text-[#279da6] hover:text-white transition-all">
+                                                        <CheckCircle2 size={16} />
+                                                    </button>
+                                                    <button onClick={() => { setIsCreatingFolder(false); setNewFolderName(''); }} className="text-storm-gray hover:text-white transition-all">
+                                                        <CloseIcon size={16} />
+                                                    </button>
+                                                </div>
+                                            )}
+
+                                            {/* Items Grid */}
+                                            {isDriveLoading ? (
+                                                <div className="flex items-center justify-center py-20">
+                                                    <Loader2 size={24} className="animate-spin text-[#279da6]" />
+                                                </div>
+                                            ) : driveItems.length === 0 ? (
+                                                <div className="flex items-center justify-center py-20 text-storm-gray uppercase text-[10px] font-black tracking-widest opacity-40">
+                                                    This folder is empty.
+                                                </div>
+                                            ) : (
+                                                <div className="space-y-1">
+                                                    {driveItems.map(item => (
+                                                        <div
+                                                            key={item.id}
+                                                            className="flex items-center gap-4 p-3 rounded-xl hover:bg-shark/30 transition-all group cursor-pointer"
+                                                            onClick={() => item.isFolder ? navigateToDriveSubfolder(item) : window.open(item.webViewLink, '_blank')}
+                                                            onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); setDriveContextItem(item); setDriveContextPos({ x: e.clientX, y: e.clientY }); }}
+                                                        >
+                                                            {getDriveFileIcon(item.mimeType)}
+                                                            <div className="flex-1 min-w-0">
+                                                                <p className="text-sm font-bold text-iron truncate">{item.name}</p>
+                                                                <p className="text-[10px] text-storm-gray">
+                                                                    {item.isFolder ? 'Folder' : formatFileSize(item.size)}
+                                                                    {item.createdTime && ` · ${new Date(item.createdTime).toLocaleDateString()}`}
+                                                                </p>
+                                                            </div>
+                                                            <div className="opacity-0 group-hover:opacity-100 flex items-center gap-1 transition-opacity">
+                                                                <button
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        setDriveContextItem(item);
+                                                                        setDriveRenameValue(item.name);
+                                                                        setIsDriveRenaming(true);
+                                                                    }}
+                                                                    className="p-1.5 hover:bg-shark rounded-lg text-storm-gray hover:text-white transition-all"
+                                                                    title="Rename"
+                                                                >
+                                                                    <Pencil size={14} />
+                                                                </button>
+                                                                <button
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        setDriveDeleteTarget(item);
+                                                                        setIsDriveDeleting(true);
+                                                                    }}
+                                                                    className="p-1.5 hover:bg-rose-500/10 rounded-lg text-storm-gray hover:text-rose-400 transition-all"
+                                                                    title="Delete"
+                                                                >
+                                                                    <Trash2 size={14} />
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+
+                                    {/* Rename Modal */}
+                                    {isDriveRenaming && driveContextItem && (
+                                        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center" onClick={() => setIsDriveRenaming(false)}>
+                                            <div className="bg-[#18181B] border border-shark rounded-2xl p-6 w-96 shadow-2xl" onClick={e => e.stopPropagation()}>
+                                                <h3 className="text-sm font-black text-iron uppercase tracking-widest mb-4">Rename {driveContextItem.isFolder ? 'Folder' : 'File'}</h3>
+                                                <input
+                                                    type="text"
+                                                    value={driveRenameValue}
+                                                    onChange={(e) => setDriveRenameValue(e.target.value)}
+                                                    onKeyDown={(e) => e.key === 'Enter' && handleDriveRename()}
+                                                    className="w-full bg-[#09090B] border border-shark/60 rounded-xl py-3 px-4 text-sm text-iron focus:outline-none focus:border-[#279da6]/60 transition-all font-bold mb-4"
+                                                    autoFocus
+                                                />
+                                                <div className="flex justify-end gap-3">
+                                                    <button onClick={() => setIsDriveRenaming(false)} className="px-4 py-2 text-xs font-bold text-storm-gray hover:text-white transition-all">Cancel</button>
+                                                    <button onClick={handleDriveRename} className="px-6 py-2 bg-[#279da6] text-white rounded-xl text-xs font-black uppercase tracking-widest">Save</button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* Delete Confirmation */}
+                                    {isDriveDeleting && driveDeleteTarget && (
+                                        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center" onClick={() => setIsDriveDeleting(false)}>
+                                            <div className="bg-[#18181B] border border-shark rounded-2xl p-6 w-96 shadow-2xl" onClick={e => e.stopPropagation()}>
+                                                <h3 className="text-sm font-black text-iron uppercase tracking-widest mb-2">Delete {driveDeleteTarget.isFolder ? 'Folder' : 'File'}</h3>
+                                                <p className="text-xs text-storm-gray mb-6">
+                                                    Are you sure you want to delete <span className="text-white font-bold">"{driveDeleteTarget.name}"</span>?
+                                                    {driveDeleteTarget.isFolder && ' All contents inside will also be deleted.'}
+                                                </p>
+                                                <div className="flex justify-end gap-3">
+                                                    <button onClick={() => setIsDriveDeleting(false)} className="px-4 py-2 text-xs font-bold text-storm-gray hover:text-white transition-all">Cancel</button>
+                                                    <button onClick={handleDriveDelete} className="px-6 py-2 bg-rose-500 text-white rounded-xl text-xs font-black uppercase tracking-widest">Delete</button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* Context Menu */}
+                                    {driveContextItem && !isDriveRenaming && !isDriveDeleting && (
+                                        <>
+                                            <div className="fixed inset-0 z-40" onClick={() => setDriveContextItem(null)} />
+                                            <div
+                                                className="fixed z-50 bg-[#18181B] border border-shark rounded-xl shadow-2xl py-1 w-44"
+                                                style={{ left: driveContextPos.x, top: driveContextPos.y }}
+                                            >
+                                                <button
+                                                    onClick={() => { setDriveRenameValue(driveContextItem.name); setIsDriveRenaming(true); }}
+                                                    className="w-full flex items-center gap-3 px-4 py-2.5 text-xs font-bold text-iron hover:bg-shark/40 transition-all"
+                                                >
+                                                    <Pencil size={14} /> Rename
+                                                </button>
+                                                {!driveContextItem.isFolder && (
+                                                    <button
+                                                        onClick={() => { window.open(driveContextItem.webContentLink || driveContextItem.webViewLink, '_blank'); setDriveContextItem(null); }}
+                                                        className="w-full flex items-center gap-3 px-4 py-2.5 text-xs font-bold text-iron hover:bg-shark/40 transition-all"
+                                                    >
+                                                        <Download size={14} /> Download
+                                                    </button>
+                                                )}
+                                                <button
+                                                    onClick={() => { setDriveDeleteTarget(driveContextItem); setIsDriveDeleting(true); setDriveContextItem(null); }}
+                                                    className="w-full flex items-center gap-3 px-4 py-2.5 text-xs font-bold text-rose-400 hover:bg-rose-500/10 transition-all"
+                                                >
+                                                    <Trash2 size={14} /> Delete
+                                                </button>
+                                            </div>
+                                        </>
+                                    )}
                                 </div>
                             )}
 

@@ -1,27 +1,129 @@
 import { google, drive_v3 } from 'googleapis';
 import { Readable } from 'stream';
+import { createServiceClient } from '@/lib/supabase';
 
 // ─── Auth (OAuth2 — uses your Google account's storage quota) ───
-function getAuth() {
-    const clientId = process.env.GOOGLE_OAUTH_CLIENT_ID;
-    const clientSecret = process.env.GOOGLE_OAUTH_CLIENT_SECRET;
-    const refreshToken = process.env.GOOGLE_OAUTH_REFRESH_TOKEN;
+const clientId = process.env.GOOGLE_OAUTH_CLIENT_ID;
+const clientSecret = process.env.GOOGLE_OAUTH_CLIENT_SECRET;
+const refreshToken = process.env.GOOGLE_OAUTH_REFRESH_TOKEN;
 
-    if (!clientId || !clientSecret || !refreshToken) {
-        throw new Error('Google OAuth2 credentials are not set. Required: GOOGLE_OAUTH_CLIENT_ID, GOOGLE_OAUTH_CLIENT_SECRET, GOOGLE_OAUTH_REFRESH_TOKEN');
+if (!clientId || !clientSecret || !refreshToken) {
+    throw new Error('Google OAuth2 credentials are not set. Required: GOOGLE_OAUTH_CLIENT_ID, GOOGLE_OAUTH_CLIENT_SECRET, GOOGLE_OAUTH_REFRESH_TOKEN');
+}
+
+const oauth2Client = new google.auth.OAuth2(clientId, clientSecret);
+oauth2Client.setCredentials({ refresh_token: refreshToken });
+
+// --- Server-Side TTL Cache ---
+class SimpleCache {
+    private cache = new Map<string, { data: any; expiry: number }>();
+    private ttl: number;
+
+    constructor(ttlSeconds: number) {
+        this.ttl = ttlSeconds * 1000;
     }
 
-    const oauth2Client = new google.auth.OAuth2(clientId, clientSecret);
-    oauth2Client.setCredentials({ refresh_token: refreshToken });
+    get(key: string) {
+        const item = this.cache.get(key);
+        if (!item) return null;
+        if (Date.now() > item.expiry) {
+            this.cache.delete(key);
+            return null;
+        }
+        return item.data;
+    }
 
-    return oauth2Client;
+    set(key: string, data: any) {
+        this.cache.set(key, { data, expiry: Date.now() + this.ttl });
+    }
+
+    invalidate(key: string) {
+        this.cache.delete(key);
+    }
+
+    clear() {
+        this.cache.clear();
+    }
+}
+
+const driveCache = new SimpleCache(60); // 1 minute cache for folder listings
+
+/**
+ * Manually clear the drive cache to force fresh data on the next fetch.
+ */
+export function clearDriveCache() {
+    driveCache.clear();
 }
 
 function getDrive(): drive_v3.Drive {
-    return google.drive({ version: 'v3', auth: getAuth() });
+    return google.drive({ version: 'v3', auth: oauth2Client });
 }
 
-const ROOT_FOLDER_ID = process.env.GOOGLE_DRIVE_ROOT_FOLDER_ID || '';
+// ─── Root Folder Resolution (DB first, env fallback) ───
+
+const ENV_ROOT_FOLDER_ID = process.env.GOOGLE_DRIVE_ROOT_FOLDER_ID || '';
+
+/**
+ * Get the root folder ID. Checks DB (app_settings) first, falls back to env.
+ */
+export async function getRootFolderId(): Promise<string> {
+    try {
+        const supabase = createServiceClient();
+        const { data } = await supabase
+            .from('app_settings')
+            .select('value')
+            .eq('key', 'drive_root_folder_id')
+            .maybeSingle();
+
+        if (data?.value) return data.value;
+    } catch (e) {
+        // DB not yet migrated or table missing — fall back to env
+        console.warn('Could not read root folder from DB, using env fallback:', e);
+    }
+
+    if (!ENV_ROOT_FOLDER_ID) throw new Error('GOOGLE_DRIVE_ROOT_FOLDER_ID is not set');
+    return ENV_ROOT_FOLDER_ID;
+}
+
+// ─── Folder Validation ───
+
+/**
+ * Validate that the OAuth user can access a folder. Returns folder name or error.
+ */
+export async function validateFolderAccess(folderId: string): Promise<{ valid: boolean; folderName?: string; error?: string }> {
+    try {
+        const drive = getDrive();
+        const res = await drive.files.get({
+            fileId: folderId,
+            fields: 'id, name, mimeType',
+        });
+
+        if (res.data.mimeType !== 'application/vnd.google-apps.folder') {
+            return { valid: false, error: 'The ID does not point to a folder' };
+        }
+
+        return { valid: true, folderName: res.data.name || 'Unnamed Folder' };
+    } catch (e: any) {
+        if (e.code === 404 || e.status === 404) {
+            return { valid: false, error: 'Folder not found or access denied' };
+        }
+        return { valid: false, error: e.message || 'Unknown error' };
+    }
+}
+
+/**
+ * List immediate subfolders of a folder.
+ */
+export async function listSubFolders(folderId: string): Promise<drive_v3.Schema$File[]> {
+    const drive = getDrive();
+    const res = await drive.files.list({
+        q: `'${folderId}' in parents and mimeType = 'application/vnd.google-apps.folder' and trashed = false`,
+        fields: 'files(id, name)',
+        pageSize: 100,
+        orderBy: 'name',
+    });
+    return res.data.files || [];
+}
 
 // ─── Folder Operations ───
 
@@ -51,6 +153,8 @@ export async function createFolder(parentId: string, folderName: string): Promis
         },
         fields: 'id',
     });
+    // Invalidate cache on write
+    driveCache.clear();
     return res.data.id!;
 }
 
@@ -65,15 +169,27 @@ export async function getOrCreateFolder(parentId: string, folderName: string): P
 
 /**
  * Build the full folder path: Root > ClientName > RequestTitle > production|distributed
+ * If clientFolderId is provided, uses it instead of Root > ClientName.
  * Returns the target folder ID.
  */
 export async function ensureFolderPath(
     clientName: string,
     requestTitle: string,
-    folder: 'production' | 'distributed'
+    folder: 'production' | 'distributed',
+    clientFolderId?: string | null
 ): Promise<string> {
-    const clientFolderId = await getOrCreateFolder(ROOT_FOLDER_ID, clientName);
-    const requestFolderId = await getOrCreateFolder(clientFolderId, requestTitle);
+    let baseFolderId: string;
+
+    if (clientFolderId) {
+        // Use the client-specific folder directly (skip Root > ClientName)
+        baseFolderId = clientFolderId;
+    } else {
+        // Standard path: Root > ClientName
+        const rootId = await getRootFolderId();
+        baseFolderId = await getOrCreateFolder(rootId, clientName);
+    }
+
+    const requestFolderId = await getOrCreateFolder(baseFolderId, requestTitle);
     const targetFolderId = await getOrCreateFolder(requestFolderId, folder);
     return targetFolderId;
 }
@@ -120,6 +236,9 @@ export async function uploadFileToDrive(
         fields: 'webViewLink, webContentLink',
     });
 
+    // Invalidate cache on write
+    driveCache.clear();
+
     return {
         fileId,
         webViewLink: fileInfo.data.webContentLink || fileInfo.data.webViewLink || `https://drive.google.com/file/d/${fileId}/view`,
@@ -135,6 +254,8 @@ export async function renameFileInDrive(fileId: string, newName: string): Promis
         fileId,
         requestBody: { name: newName },
     });
+    // Invalidate cache on write
+    driveCache.clear();
 }
 
 /**
@@ -143,6 +264,8 @@ export async function renameFileInDrive(fileId: string, newName: string): Promis
 export async function deleteFileFromDrive(fileId: string): Promise<void> {
     const drive = getDrive();
     await drive.files.delete({ fileId });
+    // Invalidate cache on write
+    driveCache.clear();
 }
 
 /**
@@ -158,10 +281,48 @@ export async function listFilesInFolder(folderId: string): Promise<drive_v3.Sche
     return res.data.files || [];
 }
 
+// ─── Folder CRUD ───
+
 /**
- * Get the root folder ID.
+ * Rename a folder in Google Drive.
  */
-export function getRootFolderId(): string {
-    if (!ROOT_FOLDER_ID) throw new Error('GOOGLE_DRIVE_ROOT_FOLDER_ID is not set');
-    return ROOT_FOLDER_ID;
+export async function renameFolderInDrive(folderId: string, newName: string): Promise<void> {
+    const drive = getDrive();
+    await drive.files.update({
+        fileId: folderId,
+        requestBody: { name: newName },
+    });
+    // Invalidate cache on write
+    driveCache.clear();
+}
+
+/**
+ * Delete a folder from Google Drive (moves to trash).
+ */
+export async function deleteFolderFromDrive(folderId: string): Promise<void> {
+    const drive = getDrive();
+    await drive.files.delete({ fileId: folderId });
+    // Invalidate cache on write
+    driveCache.clear();
+}
+
+/**
+ * List ALL items (files + folders) in a parent folder.
+ * Returns them sorted: folders first, then files, both alphabetical.
+ */
+export async function listFolderContents(folderId: string): Promise<drive_v3.Schema$File[]> {
+    const cacheKey = `contents_${folderId}`;
+    const cached = driveCache.get(cacheKey);
+    if (cached) return cached;
+
+    const drive = getDrive();
+    const res = await drive.files.list({
+        q: `'${folderId}' in parents and trashed = false`,
+        fields: 'files(id, name, mimeType, size, createdTime, webViewLink, webContentLink)',
+        pageSize: 1000,
+        orderBy: 'folder,name',
+    });
+    const data = res.data.files || [];
+    driveCache.set(cacheKey, data);
+    return data;
 }

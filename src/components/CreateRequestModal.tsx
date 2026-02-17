@@ -13,7 +13,8 @@ import {
     Loader2,
     User,
     ChevronDown,
-    Plus
+    Plus,
+    Check
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
@@ -45,6 +46,7 @@ export default function CreateRequestModal({ isOpen, onClose, onSuccess }: Creat
     const [title, setTitle] = useState('');
     const [description, setDescription] = useState('');
     const [priority, setPriority] = useState('Medium');
+    const [createFolder, setCreateFolder] = useState(true);
 
     useEffect(() => {
         if (isOpen && step === 1) {
@@ -93,7 +95,8 @@ export default function CreateRequestModal({ isOpen, onClose, onSuccess }: Creat
                     description,
                     client_id: selectedClientId,
                     priority,
-                    status: 'Todo'
+                    status: 'Todo',
+                    create_folder: createFolder
                 })
             });
 
@@ -108,6 +111,7 @@ export default function CreateRequestModal({ isOpen, onClose, onSuccess }: Creat
                 setTitle('');
                 setDescription('');
                 setPriority('Medium');
+                setCreateFolder(true);
             } else {
                 const err = await response.json();
                 alert(`Error: ${err.error}`);
@@ -277,6 +281,16 @@ export default function CreateRequestModal({ isOpen, onClose, onSuccess }: Creat
                                     <div className="absolute right-4 top-1/2 -translate-y-1/2 text-storm-gray pointer-events-none">
                                         <ChevronDown size={18} />
                                     </div>
+                                </div>
+                            </div>
+
+                            <div className="flex items-center gap-3 p-4 bg-[#279da6]/5 border border-[#279da6]/20 rounded-2xl mt-4 group cursor-pointer" onClick={() => setCreateFolder(!createFolder)}>
+                                <div className={`w-5 h-5 rounded flex items-center justify-center border transition-all ${createFolder ? 'bg-[#279da6] border-[#279da6]' : 'border-shark bg-shark/50'}`}>
+                                    {createFolder && <Check className="text-white" size={12} strokeWidth={4} />}
+                                </div>
+                                <div className="flex-1">
+                                    <p className="text-[11px] font-black text-iron uppercase tracking-wider">Create Google Drive folder?</p>
+                                    <p className="text-[9px] font-bold text-storm-gray uppercase tracking-widest leading-relaxed">Automatically sets up a dedicated folder for this request.</p>
                                 </div>
                             </div>
 

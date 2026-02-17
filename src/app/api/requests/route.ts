@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createServiceClient } from '@/lib/supabase';
+import { ensureFolderPath } from '@/lib/googleDrive';
 
 export async function GET(request: Request) {
     try {
@@ -101,6 +102,31 @@ export async function POST(request: Request) {
 
         if (error) throw error;
 
+        // Auto-create Google Drive folder for this request (only if requested)
+        if (body.create_folder !== false) {
+            try {
+                // Fetch client name for folder structure
+                const { data: profile } = await supabase
+                    .from('profiles')
+                    .select('email, full_name')
+                    .eq('id', client_id)
+                    .single();
+
+                const { data: client } = await supabase
+                    .from('clients')
+                    .select('organization, name, drive_folder_id')
+                    .ilike('email', profile?.email || '')
+                    .maybeSingle();
+
+                const clientName = client?.organization || client?.name || profile?.full_name || 'Unknown';
+
+                // Create the folder structure: Client -> Request
+                await ensureFolderPath(clientName, title, 'production', client?.drive_folder_id);
+            } catch (err) {
+                console.warn('Could not create Drive folder for request:', err);
+            }
+        }
+
         return NextResponse.json(data);
     } catch (error: any) {
         return NextResponse.json({ error: error.message }, { status: 500 });
@@ -128,6 +154,29 @@ export async function PATCH(request: Request) {
         if (error) throw error;
 
         return NextResponse.json(data);
+    } catch (error: any) {
+        return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+}
+
+export async function DELETE(request: Request) {
+    try {
+        const { searchParams } = new URL(request.url);
+        const id = searchParams.get('id');
+
+        if (!id) {
+            return NextResponse.json({ error: "Missing ID" }, { status: 400 });
+        }
+
+        const supabase = createServiceClient();
+        const { error } = await supabase
+            .from('requests')
+            .delete()
+            .eq('id', id);
+
+        if (error) throw error;
+
+        return NextResponse.json({ success: true });
     } catch (error: any) {
         return NextResponse.json({ error: error.message }, { status: 500 });
     }

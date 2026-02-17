@@ -16,7 +16,13 @@ import {
     AlertCircle,
     X as CloseIcon,
     ArrowLeft,
-    Camera
+    Camera,
+    HardDrive,
+    FolderOpen,
+    Link2,
+    Check,
+    RefreshCw,
+    ShieldCheck
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import ImpersonationWarning from '@/components/ImpersonationWarning';
@@ -39,6 +45,14 @@ export default function AccountPage() {
     const [avatarUrl, setAvatarUrl] = useState('');
     const [showPassword, setShowPassword] = useState(false);
 
+    // Google Drive Root Folder State (super_admin only)
+    const [rootFolderInput, setRootFolderInput] = useState('');
+    const [currentRootFolderId, setCurrentRootFolderId] = useState('');
+    const [currentRootFolderName, setCurrentRootFolderName] = useState('');
+    const [isValidatingFolder, setIsValidatingFolder] = useState(false);
+    const [isSavingFolder, setIsSavingFolder] = useState(false);
+    const [folderStatus, setFolderStatus] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+
     useEffect(() => {
         if (displayProfile) {
             setFullName(displayProfile.full_name || '');
@@ -46,6 +60,88 @@ export default function AccountPage() {
             setAvatarUrl(displayProfile.avatar_url || '');
         }
     }, [displayProfile]);
+
+    // Fetch current root folder on mount (super_admin only)
+    useEffect(() => {
+        if (displayProfile?.role === 'super_admin') {
+            fetchCurrentRootFolder();
+        }
+    }, [displayProfile?.role]);
+
+    const fetchCurrentRootFolder = async () => {
+        try {
+            const res = await fetch('/api/settings');
+            if (res.ok) {
+                const settings = await res.json();
+                const folderId = settings.drive_root_folder_id;
+                if (folderId) {
+                    setCurrentRootFolderId(folderId);
+                    setRootFolderInput(folderId);
+                    // Validate to get the folder name
+                    const valRes = await fetch('/api/drive/validate', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ folderId })
+                    });
+                    if (valRes.ok) {
+                        const valData = await valRes.json();
+                        if (valData.valid) setCurrentRootFolderName(valData.folderName);
+                    }
+                }
+            }
+        } catch (e) {
+            console.error('Failed to fetch root folder:', e);
+        }
+    };
+
+    const handleSaveRootFolder = async () => {
+        if (!rootFolderInput.trim()) return;
+
+        setIsValidatingFolder(true);
+        setFolderStatus(null);
+
+        try {
+            // First validate
+            const valRes = await fetch('/api/drive/validate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ folderId: rootFolderInput.trim() })
+            });
+            const valData = await valRes.json();
+
+            if (!valData.valid) {
+                setFolderStatus({ type: 'error', message: valData.error || 'Cannot access this folder' });
+                setIsValidatingFolder(false);
+                return;
+            }
+
+            setIsValidatingFolder(false);
+            setIsSavingFolder(true);
+
+            // Save to settings
+            const saveRes = await fetch('/api/settings', {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ key: 'drive_root_folder_id', value: rootFolderInput.trim() })
+            });
+
+            if (saveRes.ok) {
+                const saveData = await saveRes.json();
+                setCurrentRootFolderId(saveData.folderId);
+                setCurrentRootFolderName(saveData.folderName);
+                setRootFolderInput(saveData.folderId);
+                setFolderStatus({ type: 'success', message: `Root folder set to "${saveData.folderName}"` });
+            } else {
+                const err = await saveRes.json();
+                setFolderStatus({ type: 'error', message: err.error });
+            }
+        } catch (e: any) {
+            setFolderStatus({ type: 'error', message: e.message });
+        } finally {
+            setIsValidatingFolder(false);
+            setIsSavingFolder(false);
+        }
+    };
 
     // Auto-hide status after 5 seconds
     useEffect(() => {
@@ -347,6 +443,92 @@ export default function AccountPage() {
                                     </button>
                                 </div>
                             </form>
+
+                            {/* Google Drive Root Folder — Super Admin Only */}
+                            {displayProfile?.role === 'super_admin' && (
+                                <div className="bg-[#18181B] border border-shark/60 rounded-[2.5rem] p-10 space-y-8 animate-fade-in shadow-xl">
+                                    <h3 className="text-[11px] font-black text-storm-gray uppercase tracking-[0.3em] flex items-center gap-3">
+                                        <HardDrive size={14} className="text-[#279da6]" /> Google Drive — Root Folder
+                                    </h3>
+
+                                    {/* Current Folder Display */}
+                                    {currentRootFolderName && (
+                                        <div className="flex items-center gap-4 p-5 bg-[#279da6]/5 border border-[#279da6]/20 rounded-2xl">
+                                            <div className="w-10 h-10 rounded-xl bg-[#279da6]/10 flex items-center justify-center">
+                                                <FolderOpen size={18} className="text-[#279da6]" />
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <p className="text-sm font-bold text-white truncate">{currentRootFolderName}</p>
+                                                <p className="text-[10px] font-bold text-storm-gray tracking-tight truncate">{currentRootFolderId}</p>
+                                            </div>
+                                            <Check size={16} className="text-emerald-400 shrink-0" />
+                                        </div>
+                                    )}
+
+                                    {/* Folder Input */}
+                                    <div className="space-y-3">
+                                        <label className="text-[9px] font-black text-storm-gray uppercase tracking-[0.25em] ml-2">Folder ID or Google Drive URL</label>
+                                        <div className="relative">
+                                            <Link2 className="absolute left-4 top-1/2 -translate-y-1/2 text-storm-gray" size={16} />
+                                            <input
+                                                type="text"
+                                                value={rootFolderInput}
+                                                onChange={(e) => setRootFolderInput(e.target.value)}
+                                                className="w-full bg-[#09090B] border border-shark/50 rounded-2xl py-4 pl-12 pr-4 text-sm text-iron focus:outline-none focus:border-[#279da6]/50 transition-all font-bold"
+                                                placeholder="Paste folder ID or https://drive.google.com/drive/folders/..."
+                                            />
+                                        </div>
+                                    </div>
+
+                                    {/* Folder Status */}
+                                    {folderStatus && (
+                                        <div className={`flex items-center gap-3 px-5 py-3 rounded-xl border text-xs font-bold uppercase tracking-tight ${folderStatus.type === 'success'
+                                            ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
+                                            : 'bg-rose-500/10 border-rose-500/20 text-rose-400'
+                                            }`}>
+                                            {folderStatus.type === 'success' ? <CheckCircle2 size={14} /> : <AlertCircle size={14} />}
+                                            {folderStatus.message}
+                                        </div>
+                                    )}
+
+                                    {/* Save Button */}
+                                    <div className="flex items-center gap-4">
+                                        <button
+                                            type="button"
+                                            onClick={handleSaveRootFolder}
+                                            disabled={isValidatingFolder || isSavingFolder || !rootFolderInput.trim()}
+                                            className="px-8 py-3 bg-[#279da6] hover:bg-[#279da6]/90 text-white rounded-2xl text-[11px] font-black uppercase tracking-[0.2em] transition-all shadow-xl shadow-[#279da6]/30 active:scale-95 disabled:opacity-50 flex items-center gap-3"
+                                        >
+                                            {(isValidatingFolder || isSavingFolder) ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
+                                            {isValidatingFolder ? 'Validating...' : isSavingFolder ? 'Saving...' : 'Validate & Save'}
+                                        </button>
+                                        <p className="text-[9px] text-storm-gray/60 font-bold lowercase italic opacity-80">
+                                            paste any Google Drive folder you have access to
+                                        </p>
+                                    </div>
+
+                                    {/* Google Drive Rules Info Box */}
+                                    <div className="mt-8 p-6 bg-[#09090B] border border-shark/40 rounded-3xl space-y-4">
+                                        <h4 className="text-[10px] font-black text-[#279da6] uppercase tracking-[0.2em] flex items-center gap-2">
+                                            <ShieldCheck size={14} /> Drive Integration Rules
+                                        </h4>
+                                        <ul className="space-y-3">
+                                            <li className="flex gap-3 text-[11px] font-bold text-iron">
+                                                <div className="w-1.5 h-1.5 rounded-full bg-[#279da6] mt-1 shrink-0" />
+                                                <span>Folders must be shared with Editor access to your system's Gmail account for the integration to work.</span>
+                                            </li>
+                                            <li className="flex gap-3 text-[11px] font-bold text-iron">
+                                                <div className="w-1.5 h-1.5 rounded-full bg-[#279da6] mt-1 shrink-0" />
+                                                <span>Changing the Global Root only affects new clients. Existing clients will keep their current folder structure.</span>
+                                            </li>
+                                            <li className="flex gap-3 text-[11px] font-bold text-iron">
+                                                <div className="w-1.5 h-1.5 rounded-full bg-[#279da6] mt-1 shrink-0" />
+                                                <span>Individual clients can have their own Drive folders linked from the Client Detail page, which overrides this root setting.</span>
+                                            </li>
+                                        </ul>
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     </main>
                 </div>

@@ -23,7 +23,8 @@ import {
     Building,
     Trash2,
     AlertTriangle,
-    ExternalLink
+    ExternalLink,
+    Check
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
@@ -62,7 +63,8 @@ export default function ClientsPage() {
         organization: '',
         email: '',
         password: '',
-        confirmPassword: ''
+        confirmPassword: '',
+        create_folder: true
     });
 
     const clientCategories = ['All Clients', 'Leads', 'Ongoing', 'Closed', 'Archived'];
@@ -98,7 +100,7 @@ export default function ClientsPage() {
     }, []);
 
     const resetForm = () => {
-        setFormData({ name: '', organization: '', email: '', password: '', confirmPassword: '' });
+        setFormData({ name: '', organization: '', email: '', password: '', confirmPassword: '', create_folder: true });
         setSelectedClient(null);
     };
 
@@ -141,7 +143,8 @@ export default function ClientsPage() {
             organization: client.organization,
             email: client.email,
             password: '',
-            confirmPassword: ''
+            confirmPassword: '',
+            create_folder: true
         });
         setIsEditModalOpen(true);
         setActiveDropdown(null);
@@ -464,6 +467,16 @@ export default function ClientsPage() {
                                                 onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
                                                 className="w-full bg-[#09090B] border border-shark/60 rounded-xl py-2.5 px-4 text-sm text-iron focus:outline-none focus:border-[#279da6]/60"
                                             />
+                                        </div>
+
+                                        <div className="flex items-center gap-3 p-4 bg-[#279da6]/5 border border-[#279da6]/20 rounded-xl mt-2 group cursor-pointer" onClick={() => setFormData({ ...formData, create_folder: !formData.create_folder })}>
+                                            <div className={`w-5 h-5 rounded flex items-center justify-center border transition-all ${formData.create_folder ? 'bg-[#279da6] border-[#279da6]' : 'border-shark bg-shark/50'}`}>
+                                                {formData.create_folder && <Check className="text-white" size={12} strokeWidth={4} />}
+                                            </div>
+                                            <div className="flex-1">
+                                                <p className="text-[11px] font-bold text-iron">Create Google Drive folder?</p>
+                                                <p className="text-[9px] text-storm-gray">Automatically sets up a dedicated folder in your Root storage.</p>
+                                            </div>
                                         </div>
                                     </div>
 

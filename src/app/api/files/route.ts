@@ -5,11 +5,12 @@ import {
     uploadFileToDrive,
     renameFileInDrive,
     deleteFileFromDrive,
-    getOrCreateFolder,
-    getRootFolderId
+    getRootFolderId,
+    listSubFolders,
+    listFolderContents
 } from '@/lib/googleDrive';
 
-// ─── GET: Build the virtual file tree ───
+// ─── GET: Build the virtual file tree from LIVE DRIVE ───
 export async function GET(request: Request) {
     try {
         const { searchParams } = new URL(request.url);
@@ -17,143 +18,74 @@ export async function GET(request: Request) {
         const callerId = searchParams.get('user_id');
 
         const supabase = createServiceClient();
+        const rootFolderId = await getRootFolderId();
 
-        // 1. Fetch ALL clients
-        const { data: allClients, error: cliErr } = await supabase
-            .from('clients')
-            .select('id, name, organization, email, status');
+        // 1. Fetch live subfolders from the current Drive Root
+        const driveFolders = await listSubFolders(rootFolderId);
 
-        if (cliErr) throw cliErr;
+        // 2. Fetch all clients and requests from DB to enrich the Drive data
+        const { data: allClients } = await supabase.from('clients').select('*');
+        const { data: allRequests } = await supabase.from('requests').select('*');
+        const { data: allProfiles } = await supabase.from('profiles').select('id, email, full_name, role');
 
-        // 2. Fetch all profiles
-        const { data: profiles, error: profErr } = await supabase
-            .from('profiles')
-            .select('id, email, full_name, role');
+        const clientTree: any[] = [];
 
-        if (profErr) throw profErr;
-
-        // 3. Fetch all requests
-        const { data: requests, error: reqErr } = await supabase
-            .from('requests')
-            .select('id, title, client_id, assigned_to');
-
-        if (reqErr) throw reqErr;
-
-        // 4. Fetch all messages with attachments
-        const { data: messages, error: msgErr } = await supabase
-            .from('request_messages')
-            .select('id, request_id, sender_id, attachments, created_at')
-            .not('attachments', 'eq', '[]')
-            .order('created_at', { ascending: true });
-
-        if (msgErr) throw msgErr;
-
-        // ─── Mapping ───
-        const profileMap = new Map<string, any>();
-        (profiles || []).forEach((p: any) => profileMap.set(p.id, p));
-
-        // Profile ID -> Client Record
-        const profileIdToClient = new Map<string, any>();
-        console.log('BUILDING MAPPING - ALL CLIENTS:', allClients?.length);
-        console.log('BUILDING MAPPING - PROFILES:', profiles?.length);
-
-        for (const profile of (profiles || [])) {
-            if (!profile.email) continue;
-            const matchingClient = (allClients || []).find(
-                (c: any) => c.email?.trim().toLowerCase() === profile.email?.trim().toLowerCase()
+        for (const driveFolder of driveFolders) {
+            // Find matching client in DB by name or organization
+            const matchingClient = allClients?.find(c =>
+                (c.organization || c.name) === driveFolder.name
             );
-            if (matchingClient) {
-                profileIdToClient.set(profile.id, matchingClient);
-                console.log(`MAPPED profile ${profile.full_name} (${profile.id}) -> client ${matchingClient.organization || matchingClient.name}`);
-            } else {
-                console.warn(`COULD NOT MAP profile ${profile.full_name} (${profile.email}) to any client`);
-            }
-        }
 
-        const requestMap = new Map<string, any>();
-        (requests || []).forEach((r: any) => requestMap.set(r.id, r));
-
-        // ─── Build Tree ───
-        const clientTree = new Map<number, any>();
-
-        // Init tree with ALL clients
-        for (const client of (allClients || [])) {
-            // Filter if caller is a client
-            if (callerRole === 'client') {
-                const clientProfileId = (profiles || []).find(
-                    (p: any) => p.email?.trim().toLowerCase() === client.email?.trim().toLowerCase()
-                )?.id;
-                if (clientProfileId !== callerId) continue;
+            // Access control: if caller is a client, they only see their own folder
+            if (callerRole === 'client' && matchingClient) {
+                const profile = allProfiles?.find(p => p.email === matchingClient.email);
+                if (profile?.id !== callerId) continue;
             }
 
-            clientTree.set(client.id, {
-                client_id: client.id,
-                client_name: client.organization || client.name,
-                client_full_name: client.name,
-                client_email: client.email,
-                requests: new Map<string, any>()
+            // Fetch live subfolders for this client (Requests)
+            const requestFolders = await listSubFolders(driveFolder.id!);
+            const requestsData: any[] = [];
+
+            for (const reqFolder of requestFolders) {
+                const matchingReq = allRequests?.find(r =>
+                    r.title === reqFolder.name && r.client_id === matchingClient?.id
+                );
+
+                // Team access control: restricted team members only see assigned requests
+                if (callerRole === 'team_member' && matchingReq && matchingReq.assigned_to !== callerId) {
+                    continue;
+                }
+
+                // Fetch files for this request
+                const contents = await listFolderContents(reqFolder.id!);
+                const production = contents.filter(f => f.mimeType !== 'application/vnd.google-apps.folder')
+                    .map(f => ({
+                        drive_file_id: f.id,
+                        name: f.name,
+                        url: f.webViewLink,
+                        type: f.mimeType,
+                        uploaded_at: f.createdTime,
+                        uploaded_by: 'Drive'
+                    }));
+
+                requestsData.push({
+                    request_id: matchingReq?.id || reqFolder.id,
+                    request_title: reqFolder.name,
+                    production: production,
+                    distributed: [] // In live mode, we treat all as production unless we distinguish folders
+                });
+            }
+
+            clientTree.push({
+                client_id: matchingClient?.id || driveFolder.id,
+                client_name: driveFolder.name,
+                client_full_name: matchingClient?.name || driveFolder.name,
+                client_email: matchingClient?.email || '',
+                requests: requestsData
             });
         }
 
-        // Add requests to client nodes
-        for (const req of (requests || [])) {
-            const client = profileIdToClient.get(req.client_id);
-            if (!client || !clientTree.has(client.id)) continue;
-
-            // Team filtering
-            if (callerRole === 'team_member' && req.assigned_to !== callerId) continue;
-
-            const clientEntry = clientTree.get(client.id)!;
-            if (!clientEntry.requests.has(req.id)) {
-                clientEntry.requests.set(req.id, {
-                    request_id: req.id,
-                    request_title: req.title,
-                    production: [],
-                    distributed: []
-                });
-            }
-        }
-
-        // Add files to requests
-        for (const msg of (messages || [])) {
-            const attachments = msg.attachments as any[];
-            if (!attachments || attachments.length === 0) continue;
-
-            const req = requestMap.get(msg.request_id);
-            if (!req) continue;
-
-            const client = profileIdToClient.get(req.client_id);
-            if (!client || !clientTree.has(client.id)) continue;
-
-            const clientEntry = clientTree.get(client.id)!;
-            if (!clientEntry.requests.has(req.id)) continue;
-
-            const senderProfile = profileMap.get(msg.sender_id);
-            const folder = senderProfile?.role === 'client' ? 'distributed' : 'production';
-
-            const reqEntry = clientEntry.requests.get(req.id);
-            for (let i = 0; i < attachments.length; i++) {
-                const att = attachments[i];
-                reqEntry[folder].push({
-                    message_id: msg.id,
-                    attachment_index: i,
-                    name: att.name,
-                    url: att.url,
-                    type: att.type || 'application/octet-stream',
-                    drive_file_id: att.drive_file_id || null,
-                    uploaded_at: msg.created_at,
-                    uploaded_by: senderProfile?.full_name || 'Unknown'
-                });
-            }
-        }
-
-        // Convert to array
-        const result = Array.from(clientTree.values()).map((c: any) => ({
-            ...c,
-            requests: Array.from(c.requests.values())
-        }));
-
-        return NextResponse.json(result);
+        return NextResponse.json(clientTree);
     } catch (error: any) {
         console.error('Files API GET Error:', error);
         return NextResponse.json({ error: error.message }, { status: 500 });
@@ -192,14 +124,14 @@ export async function POST(request: Request) {
 
         const { data: client } = await supabase
             .from('clients')
-            .select('organization, name')
+            .select('organization, name, drive_folder_id')
             .ilike('email', profile?.email || '')
             .maybeSingle();
 
         const clientName = client?.organization || client?.name || profile?.full_name || 'Unknown';
 
-        // Upload to Drive
-        const folderId = await ensureFolderPath(clientName, req.title, folder as any);
+        // Upload to Drive (use client-specific folder if set)
+        const folderId = await ensureFolderPath(clientName, req.title, folder as any, client?.drive_folder_id);
         const { fileId, webViewLink } = await uploadFileToDrive(
             folderId,
             file.name,
