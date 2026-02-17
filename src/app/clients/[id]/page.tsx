@@ -58,15 +58,21 @@ interface Client {
 }
 
 export default function ClientDetailPage() {
-    const { isImpersonating } = useAuth();
+    const { profile, viewAsProfile, isImpersonating } = useAuth();
+    const displayProfile = viewAsProfile || profile;
+    const isSuperAdmin = displayProfile?.role === 'super_admin';
+
+    const tabs = ['Overview', 'Requests', 'Invoices', 'Folder', 'Settings'].filter(tab => {
+        if (tab === 'Folder' && !isSuperAdmin) return false;
+        return true;
+    });
+
     const { id } = useParams();
     const router = useRouter();
     const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
     const [activeTab, setActiveTab] = useState('Overview');
     const [client, setClient] = useState<Client | null>(null);
     const [isLoading, setIsLoading] = useState(true);
-
-    const tabs = ['Overview', 'Requests', 'Invoices', 'Folder', 'Settings'];
 
     useEffect(() => {
         const fetchClient = async () => {

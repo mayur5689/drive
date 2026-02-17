@@ -8,8 +8,52 @@ export async function GET(request: Request) {
     try {
         const { searchParams } = new URL(request.url);
         const id = searchParams.get('id');
+        const impersonateId = searchParams.get('impersonate_id');
+
+        const cookieStore = await cookies();
+        const clientSupabase = createServerClient(
+            process.env.NEXT_PUBLIC_SUPABASE_URL!,
+            process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+            {
+                cookies: {
+                    get(name: string) {
+                        return cookieStore.get(name)?.value;
+                    },
+                },
+            }
+        );
+
+        const { data: { user } } = await clientSupabase.auth.getUser();
+        if (!user) {
+            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+        }
 
         const supabase = createServiceClient();
+
+        // 1. Get the real user's profile
+        const { data: realProfile } = await supabase
+            .from('profiles')
+            .select('role')
+            .eq('id', user.id)
+            .single();
+
+        let activeProfileId = user.id;
+        let activeRole = realProfile?.role;
+
+        // 2. Handle Impersonation
+        if (impersonateId && (realProfile?.role === 'super_admin' || realProfile?.role === 'admin')) {
+            const { data: targetProfile } = await supabase
+                .from('profiles')
+                .select('role')
+                .eq('id', impersonateId)
+                .single();
+
+            if (targetProfile) {
+                activeProfileId = impersonateId;
+                activeRole = targetProfile.role;
+            }
+        }
+
         const query = supabase
             .from('requests')
             .select(`
@@ -17,6 +61,23 @@ export async function GET(request: Request) {
                 client:client_id (id, full_name, email),
                 assignee:assigned_to (id, full_name)
             `);
+
+        // 3. Apply role-based filtering
+        if (activeRole === 'client') {
+            query.eq('client_id', activeProfileId);
+        } else if (activeRole === 'team_member') {
+            // Team members only see assigned requests unless they are admin-role team members
+            const { data: teamData } = await supabase
+                .from('team_members')
+                .select('position')
+                .eq('profile_id', activeProfileId)
+                .maybeSingle();
+
+            if (teamData?.position !== 'admin') {
+                query.eq('assigned_to', activeProfileId);
+            }
+        }
+        // super_admin and admin see everything
 
         if (id) {
             const { data, error } = await query.eq('id', id).single();

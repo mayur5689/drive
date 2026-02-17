@@ -24,7 +24,7 @@ interface RequestItem {
     id: string;
     title: string;
     description: string;
-    client: { full_name: string; email: string; organization?: string } | null;
+    client: { id: string; full_name: string; email: string; organization?: string } | null;
     status: string;
     priority: string;
     assigned_to: string | null;
@@ -72,8 +72,13 @@ export default function RequestsPage() {
     const fetchRequests = async () => {
         setIsLoading(true);
         try {
+            // Include impersonate_id if active
+            const requestsUrl = impersonatedProfile
+                ? `/api/requests?impersonate_id=${impersonatedProfile.id}`
+                : '/api/requests';
+
             const [reqRes, profRes, teamRes] = await Promise.all([
-                fetch('/api/requests'),
+                fetch(requestsUrl),
                 fetch('/api/profiles'),
                 fetch('/api/team')
             ]);
@@ -99,9 +104,11 @@ export default function RequestsPage() {
         }
     };
 
+    const { impersonatedProfile } = useAuth();
+
     useEffect(() => {
         fetchRequests();
-    }, []);;
+    }, [impersonatedProfile]);
 
     const handleOpenChat = (request: RequestItem) => {
         setSelectedRequest(request);
@@ -143,12 +150,20 @@ export default function RequestsPage() {
         }
     };
 
-    // For team_member role, only show their assigned requests (unless they are admin)
+    // Data visibility logic
     const isTeamMember = displayProfile?.role === 'team_member';
     const isTeamAdmin = displayProfile?.team_role === 'admin';
-    const visibleRequests = (isTeamMember && !isTeamAdmin)
-        ? requests.filter(req => req.assigned_to === displayProfile?.id)
-        : requests;
+    const isClient = displayProfile?.role === 'client';
+
+    const visibleRequests = (() => {
+        if (isClient) {
+            return requests.filter(req => req.client?.id === displayProfile?.id);
+        }
+        if (isTeamMember && !isTeamAdmin) {
+            return requests.filter(req => req.assigned_to === displayProfile?.id);
+        }
+        return requests;
+    })();
 
     const filteredRequests = visibleRequests.filter(req => {
         // Search query

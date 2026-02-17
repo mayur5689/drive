@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
 import FilePreviewModal from '@/components/FilePreviewModal';
+import { usePathname, useRouter } from 'next/navigation';
 import {
     FolderOpen,
     ChevronRight,
@@ -48,8 +49,23 @@ interface DBEnrichment {
 }
 
 export default function FilesPage() {
-    const { profile, viewAsProfile, isImpersonating } = useAuth();
+    const { profile, viewAsProfile, isImpersonating, isLoading: isAuthLoading } = useAuth();
+    const router = useRouter();
     const displayProfile = viewAsProfile || profile;
+
+    useEffect(() => {
+        if (!isAuthLoading && displayProfile && displayProfile.role !== 'super_admin') {
+            router.replace('/');
+        }
+    }, [displayProfile, isAuthLoading, router]);
+
+    if (isAuthLoading || (displayProfile && displayProfile.role !== 'super_admin')) {
+        return (
+            <div className="flex items-center justify-center h-screen bg-[#09090B]">
+                <Loader2 size={32} className="animate-spin text-[#279da6]" />
+            </div>
+        );
+    }
     const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
     const [isDriveLoading, setIsDriveLoading] = useState(false);

@@ -1,4 +1,7 @@
 import { NextResponse } from 'next/server';
+import { cookies } from 'next/headers';
+import { createServerClient } from '@supabase/ssr';
+import { createServiceClient } from '@/lib/supabase';
 import {
     listFolderContents,
     createFolder,
@@ -10,9 +13,40 @@ import {
     validateFolderAccess
 } from '@/lib/googleDrive';
 
+async function checkSuperAdmin() {
+    const cookieStore = await cookies();
+    const supabase = createServerClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+        {
+            cookies: {
+                get(name: string) {
+                    return cookieStore.get(name)?.value;
+                },
+            },
+        }
+    );
+
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return false;
+
+    const serviceSupabase = createServiceClient();
+    const { data: profile } = await serviceSupabase
+        .from('profiles')
+        .select('role')
+        .eq('id', user.id)
+        .single();
+
+    return profile?.role === 'super_admin';
+}
+
 // GET: Browse folder contents
 export async function GET(request: Request) {
     try {
+        if (!(await checkSuperAdmin())) {
+            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+        }
+
         const { searchParams } = new URL(request.url);
         const folderId = searchParams.get('folderId');
 
@@ -48,6 +82,10 @@ export async function GET(request: Request) {
 // POST: Create folder or upload file
 export async function POST(request: Request) {
     try {
+        if (!(await checkSuperAdmin())) {
+            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+        }
+
         const contentType = request.headers.get('content-type') || '';
 
         if (contentType.includes('application/json')) {
@@ -87,6 +125,10 @@ export async function POST(request: Request) {
 // PATCH: Rename file or folder
 export async function PATCH(request: Request) {
     try {
+        if (!(await checkSuperAdmin())) {
+            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+        }
+
         const { id, newName, isFolder } = await request.json();
         if (!id || !newName) {
             return NextResponse.json({ error: 'Missing id or newName' }, { status: 400 });
@@ -108,6 +150,10 @@ export async function PATCH(request: Request) {
 // DELETE: Delete file or folder
 export async function DELETE(request: Request) {
     try {
+        if (!(await checkSuperAdmin())) {
+            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+        }
+
         const { searchParams } = new URL(request.url);
         const id = searchParams.get('id');
         const isFolder = searchParams.get('isFolder') === 'true';
