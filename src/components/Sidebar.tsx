@@ -67,7 +67,7 @@ interface SidebarProps {
 export default function Sidebar({ isCollapsed }: SidebarProps) {
     const pathname = usePathname();
     const router = useRouter();
-    const { profile, viewAsProfile, isImpersonating, signOut } = useAuth();
+    const { profile, viewAsProfile, isImpersonating, signOut, isLoading } = useAuth();
     const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
     const [showProfileMenu, setShowProfileMenu] = useState(false);
     const [isLoggingOut, setIsLoggingOut] = useState(false);
@@ -243,7 +243,9 @@ export default function Sidebar({ isCollapsed }: SidebarProps) {
                         className={`w-full p-2 rounded-2xl flex items-center gap-3 hover:bg-shark/40 transition-all group/profile ${showProfileMenu ? 'bg-shark/40' : ''} ${isCollapsed ? 'justify-center' : ''}`}
                     >
                         <div className="w-9 h-9 rounded-full bg-shark relative shrink-0 overflow-hidden flex items-center justify-center text-xs font-black text-white bg-gradient-to-br from-[#279da6]/20 to-transparent group-hover/profile:ring-2 group-hover/profile:ring-[#279da6]/30 transition-all">
-                            {displayProfile?.avatar_url ? (
+                            {isLoading ? (
+                                <Loader2 size={16} className="text-[#279da6] animate-spin" />
+                            ) : displayProfile?.avatar_url ? (
                                 <Image
                                     src={displayProfile.avatar_url}
                                     alt="Avatar"
@@ -257,12 +259,21 @@ export default function Sidebar({ isCollapsed }: SidebarProps) {
                         </div>
                         {!isCollapsed && (
                             <div className="flex flex-col min-w-0 flex-1 text-left">
-                                <p className="text-[11px] font-black text-iron truncate leading-none mb-1">
-                                    {displayProfile?.full_name || (displayProfile?.role === 'super_admin' ? 'Super Admin' : 'User Account')}
-                                </p>
-                                <p className="text-[10px] text-storm-gray font-bold truncate tracking-tight">
-                                    {displayProfile?.email}
-                                </p>
+                                {isLoading ? (
+                                    <div className="space-y-1.5">
+                                        <div className="h-2.5 w-24 bg-shark/60 animate-pulse rounded" />
+                                        <div className="h-2 w-32 bg-shark/40 animate-pulse rounded" />
+                                    </div>
+                                ) : (
+                                    <>
+                                        <p className="text-[11px] font-black text-iron truncate leading-none mb-1">
+                                            {displayProfile?.full_name || (displayProfile?.role === 'super_admin' ? 'Super Admin' : 'User Account')}
+                                        </p>
+                                        <p className="text-[10px] text-storm-gray font-bold truncate tracking-tight">
+                                            {displayProfile?.email}
+                                        </p>
+                                    </>
+                                )}
                             </div>
                         )}
                         {!isCollapsed && <ChevronsUpDown size={14} className="text-storm-gray group-hover/profile:text-iron" />}

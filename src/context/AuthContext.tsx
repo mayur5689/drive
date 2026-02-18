@@ -138,12 +138,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const isImpersonating = !!impersonatedProfile;
 
-    // Fallback profile if database record is missing
+    // Intelligent role detection from Auth metadata and safeguards
+    const getAuthRole = (u: User): Profile['role'] => {
+        // 1. Safeguard for known admin emails
+        if (u.email?.toLowerCase() === '4d.x.art@gmail.com') return 'super_admin';
+
+        // 2. Custom claims (app_metadata) - preferred source
+        const appRole = u.app_metadata?.role;
+        if (appRole) return appRole as Profile['role'];
+
+        // 3. User metadata (fallback)
+        const userRole = u.user_metadata?.role;
+        if (userRole) return userRole as Profile['role'];
+
+        return 'client';
+    };
+
+    // Fallback profile if database record is missing or loading
     const authFallbackProfile: Profile | null = user ? {
         id: user.id,
         email: user.email || '',
         full_name: user.user_metadata?.full_name || user.email?.split('@')[0] || 'User',
-        role: (user.user_metadata?.role as any) || 'client',
+        role: getAuthRole(user),
         avatar_url: user.user_metadata?.avatar_url
     } : null;
 
