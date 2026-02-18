@@ -1,0 +1,105 @@
+import { createServiceClient } from '@/lib/supabase';
+
+export interface TeamMember {
+    id: string;
+    profile_id?: string | null;
+    name: string;
+    email: string;
+    position: string;
+    status: string;
+    created_at: string;
+    last_login: string | null;
+    avatar_url?: string | null;
+    department?: string | null;
+    role?: string | null;
+}
+
+/**
+ * Fetches all team members from the database with merged profile data
+ */
+export async function getTeamMembers(): Promise<TeamMember[]> {
+    const supabase = createServiceClient();
+
+    // Fetch from both tables to replicate the API route logic
+    const [teamRes, profilesRes] = await Promise.all([
+        supabase.from('team_members').select('*').order('created_at', { ascending: false }),
+        supabase.from('profiles').select('id, email, full_name, role, avatar_url')
+    ]);
+
+    if (teamRes.error) {
+        console.error('Error fetching team members:', teamRes.error);
+        return [];
+    }
+
+    const profiles = profilesRes.data || [];
+
+    // Merge by email as per api/team/route.ts
+    return teamRes.data.map(member => {
+        const profile = profiles.find(p => p.email.toLowerCase() === member.email.toLowerCase());
+        return {
+            ...member,
+            profile_id: profile?.id || member.profile_id || null,
+            avatar_url: profile?.avatar_url || null,
+            role: profile?.role || member.role || null
+        };
+    });
+}
+
+/**
+ * Fetches request counts for each team member
+ */
+export async function getTeamMemberRequestCounts(): Promise<Record<string, number>> {
+    const supabase = createServiceClient();
+
+    const { data, error } = await supabase
+        .from('requests')
+        .select('assigned_to');
+
+    if (error) {
+        console.error('Error fetching request counts:', error);
+        return {};
+    }
+
+    // Count occurrences
+    const countMap: Record<string, number> = {};
+    data?.forEach((req: any) => {
+        if (req.assigned_to) {
+            countMap[req.assigned_to] = (countMap[req.assigned_to] || 0) + 1;
+        }
+    });
+
+    return countMap;
+}
+
+/**
+ * Fetches all team data (members + counts) in parallel
+ */
+export async function getAllTeamData() {
+    const [members, counts] = await Promise.all([
+        getTeamMembers(),
+        getTeamMemberRequestCounts(),
+    ]);
+
+    return { members, counts };
+}
+
+/**
+ * Returns a single list of team members enriched with roles and request counts
+ */
+export async function getEnrichedTeamMembers() {
+    const { members, counts } = await getAllTeamData();
+
+    return members.map(m => {
+        // Normalize role for UI - Prioritize position over generic role
+        const rawRole = (m.position || m.role || 'viewer').toLowerCase();
+        let uiRole = 'viewer';
+        if (rawRole.includes('admin')) uiRole = 'admin';
+        else if (rawRole.includes('editor')) uiRole = 'editor';
+
+        return {
+            ...m,
+            role: uiRole,
+            request_count: (m.profile_id && counts[m.profile_id]) || 0
+        };
+    });
+}

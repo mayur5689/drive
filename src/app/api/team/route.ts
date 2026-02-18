@@ -1,30 +1,12 @@
 import { NextResponse } from 'next/server';
 import { supabase, createServiceClient } from '@/lib/supabase';
 
+import { getEnrichedTeamMembers } from '@/lib/data/team';
+
 export async function GET() {
     try {
-        const serviceClient = createServiceClient();
-
-        // Fetch from both tables to bridge the gap
-        const [teamRes, profilesRes] = await Promise.all([
-            serviceClient.from('team_members').select('*').order('created_at', { ascending: false }),
-            serviceClient.from('profiles').select('id, email, full_name, role, avatar_url')
-        ]);
-
-        if (teamRes.error) throw teamRes.error;
-        if (profilesRes.error) throw profilesRes.error;
-
-        // Merge by email
-        const mergedData = teamRes.data.map(member => {
-            const profile = profilesRes.data.find(p => p.email.toLowerCase() === member.email.toLowerCase());
-            return {
-                ...member,
-                profile_id: profile?.id || null,
-                avatar_url: profile?.avatar_url || null
-            };
-        });
-
-        return NextResponse.json(mergedData);
+        const data = await getEnrichedTeamMembers();
+        return NextResponse.json(data);
     } catch (error: any) {
         return NextResponse.json({ error: error.message }, { status: 500 });
     }
