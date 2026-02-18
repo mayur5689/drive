@@ -80,16 +80,20 @@ export default function Sidebar({ isCollapsed }: SidebarProps) {
         setIsLoggingOut(true);
 
         try {
+            // Attempt clean sign out but don't let it hang the UI
             await Promise.race([
                 signOut(),
-                new Promise((_, reject) => setTimeout(() => reject(new Error('Sign out timeout')), 2000))
+                new Promise((_, reject) => setTimeout(() => reject(new Error('Sign out timeout')), 1500))
             ]);
         } catch (error) {
             console.error('Sign out error:', error);
         } finally {
+            // Always clear storage and redirect regardless of clean signout success
             window.localStorage.clear();
             window.sessionStorage.clear();
-            window.location.replace('/login');
+
+            // Force redirect to login
+            window.location.href = '/login';
         }
     };
 

@@ -61,14 +61,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         // Listen for changes
         const { data: { subscription } } = supabase.auth.onAuthStateChange(
             async (event, session) => {
+                // Clear state immediately on any change to prevent glitches
+                setProfile(null);
+                setImpersonatedProfile(null);
+                sessionStorage.removeItem('impersonated_profile');
+
                 if (session) {
                     setUser(session.user);
                     await fetchProfile(session.user.id);
                 } else {
                     setUser(null);
-                    setProfile(null);
-                    setImpersonatedProfile(null);
-                    sessionStorage.removeItem('impersonated_profile');
                 }
                 setIsLoading(false);
             }

@@ -20,10 +20,11 @@ export interface TeamMember {
 export async function getTeamMembers(): Promise<TeamMember[]> {
     const supabase = createServiceClient();
 
-    // Fetch from both tables to replicate the API route logic
-    const [teamRes, profilesRes] = await Promise.all([
+    // Fetch from both tables and Auth to replicate the API route logic
+    const [teamRes, profilesRes, authRes] = await Promise.all([
         supabase.from('team_members').select('*').order('created_at', { ascending: false }),
-        supabase.from('profiles').select('id, email, full_name, role, avatar_url')
+        supabase.from('profiles').select('id, email, full_name, role, avatar_url'),
+        supabase.auth.admin.listUsers()
     ]);
 
     if (teamRes.error) {
@@ -32,15 +33,19 @@ export async function getTeamMembers(): Promise<TeamMember[]> {
     }
 
     const profiles = profilesRes.data || [];
+    const authUsers = authRes.data?.users || [];
 
     // Merge by email as per api/team/route.ts
     return teamRes.data.map(member => {
         const profile = profiles.find(p => p.email.toLowerCase() === member.email.toLowerCase());
+        const authUser = authUsers.find(u => u.email?.toLowerCase() === member.email.toLowerCase());
+
         return {
             ...member,
             profile_id: profile?.id || member.profile_id || null,
             avatar_url: profile?.avatar_url || null,
-            role: profile?.role || member.role || null
+            role: profile?.role || member.role || null,
+            last_login: authUser?.last_sign_in_at || member.last_login || null
         };
     });
 }

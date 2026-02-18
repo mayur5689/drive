@@ -16,15 +16,23 @@ export interface ClientItem {
 export async function getClients(): Promise<ClientItem[]> {
     const supabase = createServiceClient();
 
-    const { data, error } = await supabase
-        .from('clients')
-        .select('*')
-        .order('created_at', { ascending: false });
+    const [clientsRes, authRes] = await Promise.all([
+        supabase.from('clients').select('*').order('created_at', { ascending: false }),
+        supabase.auth.admin.listUsers()
+    ]);
 
-    if (error) {
-        console.error('Error fetching clients:', error);
+    if (clientsRes.error) {
+        console.error('Error fetching clients:', clientsRes.error);
         return [];
     }
 
-    return data || [];
+    const authUsers = authRes.data?.users || [];
+
+    return (clientsRes.data || []).map(client => {
+        const authUser = authUsers.find(u => u.email?.toLowerCase() === client.email.toLowerCase());
+        return {
+            ...client,
+            last_login: authUser?.last_sign_in_at || client.last_login || null
+        };
+    });
 }
