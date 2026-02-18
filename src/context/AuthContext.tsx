@@ -109,6 +109,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
 
     const signOut = async () => {
+        // Clear state immediately to prevent flicker on potential slow redirect
+        setProfile(null);
+        setImpersonatedProfile(null);
+        setUser(null);
+        sessionStorage.removeItem('impersonated_profile');
+
         await supabase.auth.signOut();
     };
 
@@ -131,7 +137,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
 
     const isImpersonating = !!impersonatedProfile;
-    const viewAsProfile = impersonatedProfile || profile;
+
+    // Fallback profile if database record is missing
+    const authFallbackProfile: Profile | null = user ? {
+        id: user.id,
+        email: user.email || '',
+        full_name: user.user_metadata?.full_name || user.email?.split('@')[0] || 'User',
+        role: (user.user_metadata?.role as any) || 'client',
+        avatar_url: user.user_metadata?.avatar_url
+    } : null;
+
+    const viewAsProfile = impersonatedProfile || profile || authFallbackProfile;
 
     return (
         <AuthContext.Provider value={{

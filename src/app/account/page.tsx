@@ -27,7 +27,7 @@ import { useRouter } from 'next/navigation';
 import ImpersonationWarning from '@/components/ImpersonationWarning';
 
 export default function AccountPage() {
-    const { profile, viewAsProfile, isImpersonating, refreshProfile } = useAuth();
+    const { profile, viewAsProfile, isImpersonating, refreshProfile, isLoading } = useAuth();
     const displayProfile = viewAsProfile || profile;
     const router = useRouter();
     const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
@@ -297,7 +297,9 @@ export default function AccountPage() {
                                         onClick={() => fileInputRef.current?.click()}
                                         className="w-24 h-24 rounded-full bg-shark flex items-center justify-center text-4xl font-black text-white bg-gradient-to-br from-[#279da6]/40 via-[#279da6]/10 to-transparent ring-4 ring-shark/50 shadow-2xl relative group/avatar cursor-pointer overflow-hidden"
                                     >
-                                        {avatarUrl ? (
+                                        {isLoading ? (
+                                            <Loader2 size={24} className="text-[#279da6] animate-spin" />
+                                        ) : avatarUrl ? (
                                             <Image
                                                 src={avatarUrl}
                                                 alt="Profile"
@@ -329,15 +331,24 @@ export default function AccountPage() {
                                             accept="image/*"
                                         />
                                     </div>
-                                    <div className="space-y-2">
-                                        <h2 className="text-3xl font-black text-white tracking-tighter uppercase leading-none">
-                                            {displayProfile?.full_name || (displayProfile?.role === 'super_admin' ? 'Super Admin' : 'User Account')}
-                                        </h2>
-                                        <div className="flex items-center gap-3">
-                                            <p className="text-[10px] font-black text-storm-gray uppercase tracking-[0.2em]">{displayProfile?.role?.replace('_', ' ') || 'Guest Account'}</p>
-                                            <div className="w-1 h-1 rounded-full bg-[#279da6]" />
-                                            <p className="text-[10px] font-black text-[#279da6] uppercase tracking-[0.2em]">{displayProfile?.email}</p>
-                                        </div>
+                                    <div className="space-y-3">
+                                        {isLoading ? (
+                                            <div className="space-y-2">
+                                                <div className="h-8 w-48 bg-shark/50 animate-pulse rounded-lg" />
+                                                <div className="h-3 w-32 bg-shark/30 animate-pulse rounded-md" />
+                                            </div>
+                                        ) : (
+                                            <>
+                                                <h2 className="text-3xl font-black text-white tracking-tighter uppercase leading-none">
+                                                    {displayProfile?.full_name || (displayProfile?.role === 'super_admin' ? 'Super Admin' : 'User Account')}
+                                                </h2>
+                                                <div className="flex items-center gap-3">
+                                                    <p className="text-[10px] font-black text-storm-gray uppercase tracking-[0.2em]">{displayProfile?.role?.replace('_', ' ') || 'Guest Account'}</p>
+                                                    <div className="w-1 h-1 rounded-full bg-[#279da6]" />
+                                                    <p className="text-[10px] font-black text-[#279da6] uppercase tracking-[0.2em]">{displayProfile?.email}</p>
+                                                </div>
+                                            </>
+                                        )}
                                     </div>
                                 </div>
                             </div>
