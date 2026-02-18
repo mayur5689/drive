@@ -8,6 +8,7 @@ export async function POST(request: Request) {
         const formData = await request.formData();
         const file = formData.get('file') as File;
         const requestId = formData.get('requestId') as string | null;
+        const taskId = formData.get('taskId') as string | null;
         const senderId = formData.get('senderId') as string | null;
 
         if (!file) {
@@ -17,8 +18,7 @@ export async function POST(request: Request) {
         // If requestId is provided, upload to Google Drive (chat attachments)
         if (requestId) {
             const supabase = createServiceClient();
-
-            // Get request info for folder path
+            // ... (keep existing drive logic)
             const { data: req, error: reqErr } = await supabase
                 .from('requests')
                 .select(`
@@ -30,7 +30,6 @@ export async function POST(request: Request) {
 
             if (reqErr) throw reqErr;
 
-            // Get client org name
             const { data: clientData } = await supabase
                 .from('clients')
                 .select('organization, name')
@@ -39,7 +38,6 @@ export async function POST(request: Request) {
 
             const clientName = clientData?.organization || clientData?.name || (req.client as any)?.full_name || 'Unknown';
 
-            // Determine folder based on sender role
             let folder: 'production' | 'distributed' = 'production';
             if (senderId) {
                 const { data: senderProfile } = await supabase
@@ -53,7 +51,6 @@ export async function POST(request: Request) {
                 }
             }
 
-            // Upload to Google Drive
             const folderId = await ensureFolderPath(clientName, req.title, folder);
             const fileBuffer = Buffer.from(await file.arrayBuffer());
             const { fileId, webViewLink } = await uploadFileToDrive(
@@ -71,14 +68,17 @@ export async function POST(request: Request) {
             });
         }
 
-        // Fallback: no requestId means avatar or general upload → Supabase Storage
+        // Fallback: taskId or general upload → Supabase Storage
         const supabase = createServiceClient();
         const fileExtension = file.name.split('.').pop();
         const fileName = `${uuidv4()}.${fileExtension}`;
 
+        // If taskId is provided, we can organize by task
+        const path = taskId ? `tasks/${taskId}/${fileName}` : fileName;
+
         const { error } = await supabase.storage
             .from('chat-attachments')
-            .upload(fileName, file, {
+            .upload(path, file, {
                 cacheControl: '3600',
                 upsert: false
             });
@@ -87,7 +87,7 @@ export async function POST(request: Request) {
 
         const { data: { publicUrl } } = supabase.storage
             .from('chat-attachments')
-            .getPublicUrl(fileName);
+            .getPublicUrl(path);
 
         return NextResponse.json({
             url: publicUrl,

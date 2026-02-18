@@ -104,6 +104,7 @@ export default function Sidebar({ isCollapsed }: SidebarProps) {
     const menuItems = [
         { name: 'Overview', icon: Home, path: '/' },
         { name: 'Requests', icon: MessageSquare, path: '/requests' },
+        { name: 'Tasks', icon: Box, path: '/tasks', adminOnly: false, teamOnly: true },
         { name: 'Files', icon: FolderOpen, path: '/files', superAdminOnly: true },
         { name: 'Clients', icon: Users, path: '/clients', section: 'Users', adminOnly: true },
         { name: 'Team', icon: UserPlus, path: '/team', section: 'Users', adminOnly: true },
@@ -113,6 +114,7 @@ export default function Sidebar({ isCollapsed }: SidebarProps) {
     const filteredItems = menuItems.filter(item => {
         if (item.superAdminOnly && !isSuperAdmin) return false;
         if (item.adminOnly && !isAdmin) return false;
+        if (item.teamOnly && !isAdmin && displayProfile?.role !== 'team_member') return false;
         return true;
     });
     const isUsersActive = pathname.includes('/clients') || pathname.includes('/team');

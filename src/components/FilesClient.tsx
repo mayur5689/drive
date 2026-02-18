@@ -28,6 +28,10 @@ import {
     Check,
     PanelLeft,
     Filter,
+    Moon,
+    Sun,
+    Bell,
+    Plus,
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 
@@ -110,6 +114,17 @@ export default function FilesClient({ initialRootId, initialDriveItems, initialD
     // Upload
     const [isUploading, setIsUploading] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const [theme, setTheme] = useState<'dark' | 'light'>('dark');
+
+    // Theme toggle effect
+    useEffect(() => {
+        const root = window.document.documentElement;
+        if (theme === 'light') {
+            root.classList.add('light');
+        } else {
+            root.classList.remove('light');
+        }
+    }, [theme]);
 
     const isSuperAdmin = displayProfile?.role === 'super_admin';
     const isAdmin = displayProfile?.role === 'admin' || isSuperAdmin;
@@ -319,14 +334,14 @@ export default function FilesClient({ initialRootId, initialDriveItems, initialD
                             </div>
                             <button
                                 onClick={refreshFolder}
-                                className="p-2 bg-shark/20 border border-shark rounded-lg text-storm-gray hover:text-white transition-all"
+                                className="p-2 bg-shark/20 border border-shark rounded-lg text-storm-gray hover:text-white transition-all shrink-0"
                             >
                                 <RefreshCw size={14} className={isDriveLoading ? 'animate-spin' : ''} />
                             </button>
-                            <div className="h-4 w-[1px] bg-shark" />
+                            <div className="h-4 w-[1px] bg-shark shrink-0" />
                             <button
                                 onClick={() => setIsCreatingFolder(true)}
-                                className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-shark/40 border border-shark text-storm-gray text-[11px] font-bold hover:text-[#279da6] hover:border-[#279da6]/30 transition-all"
+                                className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-shark/40 border border-shark text-storm-gray text-[11px] font-bold hover:text-[#279da6] hover:border-[#279da6]/30 transition-all whitespace-nowrap"
                             >
                                 <FolderPlus size={14} />
                                 <span>NEW FOLDER</span>
@@ -334,12 +349,27 @@ export default function FilesClient({ initialRootId, initialDriveItems, initialD
                             <button
                                 onClick={() => fileInputRef.current?.click()}
                                 disabled={isUploading}
-                                className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#279da6] text-white text-[11px] font-bold hover:bg-[#20838b] transition-all shadow-lg shadow-[#279da6]/20 disabled:opacity-50"
+                                className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#279da6] text-white text-[11px] font-bold hover:bg-[#20838b] transition-all shadow-lg shadow-[#279da6]/20 disabled:opacity-50 whitespace-nowrap"
                             >
                                 {isUploading ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}
                                 <span>UPLOAD</span>
                             </button>
                             <input type="file" ref={fileInputRef} className="hidden" onChange={handleUpload} />
+                        </div>
+
+                        {/* Right side global elements */}
+                        <div className="flex items-center gap-3 ml-4">
+                            <div className="h-4 w-[1px] bg-shark" />
+                            <button
+                                onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+                                className="p-2 text-santas-gray hover:text-white rounded-lg hover:bg-shark/40 transition-all"
+                            >
+                                {theme === 'dark' ? <Moon size={18} /> : <Sun size={18} />}
+                            </button>
+                            <button className="p-2 text-santas-gray hover:text-white rounded-lg hover:bg-shark/40 transition-all relative">
+                                <Bell size={18} />
+                                <div className="absolute top-2 right-2.5 w-1.5 h-1.5 bg-red-500 rounded-full border border-black" />
+                            </button>
                         </div>
                     </div>
 
