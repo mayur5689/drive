@@ -257,7 +257,7 @@ export default function TeamClient({ initialMembers, initialCounts }: TeamClient
                                         <input
                                             type="text"
                                             placeholder="Search for Team Members"
-                                            className="w-full bg-[#09090B] border border-shark/50 rounded-lg py-2 pl-10 pr-4 text-xs text-iron placeholder:text-storm-gray focus:outline-none focus:border-[#279da6]/40 transition-all"
+                                            className="w-full bg-[#09090B] border border-shark/50 rounded-lg py-2 pl-10 pr-4 text-xs text-iron placeholder:text-storm-gray focus:outline-none focus:border-[#279da6]/40 transition-all font-bold"
                                         />
                                     </div>
                                     <div className="flex items-center gap-2">
@@ -280,15 +280,15 @@ export default function TeamClient({ initialMembers, initialCounts }: TeamClient
                                     <div className="overflow-visible">
                                         <table className="w-full text-left border-collapse table-auto text-xs">
                                             <thead>
-                                                <tr className="border-b border-shark text-storm-gray text-[10px] uppercase font-bold bg-shark/20">
-                                                    <th className="px-5 py-4 w-10 border-r border-shark/60"><input type="checkbox" /></th>
-                                                    <th className="px-6 py-4 border-r border-shark/60">Name</th>
-                                                    <th className="px-6 py-4 border-r border-shark/60">Email</th>
-                                                    <th className="px-6 py-4 border-r border-shark/60">Role</th>
-                                                    <th className="px-6 py-4 border-r border-shark/60">Requests Managing</th>
-                                                    <th className="px-6 py-4 border-r border-shark/60">Last Login</th>
-                                                    <th className="px-6 py-4 border-r border-shark/60">Created At</th>
-                                                    <th className="px-6 py-4 w-10"></th>
+                                                <tr className="border-b border-shark text-storm-gray text-xs uppercase font-black tracking-widest bg-shark/20">
+                                                    <th className="px-5 py-5 w-12 border-r border-shark/60"><input type="checkbox" /></th>
+                                                    <th className="px-6 py-5 border-r border-shark/60">Name</th>
+                                                    <th className="px-6 py-5 border-r border-shark/60">Email</th>
+                                                    <th className="px-6 py-5 border-r border-shark/60">Role</th>
+                                                    <th className="px-6 py-5 border-r border-shark/60">Requests Managing</th>
+                                                    <th className="px-6 py-5 border-r border-shark/60">Last Login</th>
+                                                    <th className="px-6 py-5 border-r border-shark/60">Created At</th>
+                                                    <th className="px-6 py-5 w-12"></th>
                                                 </tr>
                                             </thead>
                                             <tbody className="divide-y divide-shark/60">
@@ -300,11 +300,11 @@ export default function TeamClient({ initialMembers, initialCounts }: TeamClient
                                                     </tr>
                                                 ) : (
                                                     filteredMembers.map((member: TeamMember) => (
-                                                        <tr key={member.id} className="hover:bg-shark/10 transition-colors group">
-                                                            <td className="px-5 py-4 border-r border-shark/60"><input type="checkbox" /></td>
-                                                            <td className="px-6 py-4 border-r border-shark/60">
+                                                        <tr key={member.id} className="hover:bg-shark/10 transition-colors group text-sm">
+                                                            <td className="px-5 py-4.5 border-r border-shark/60"><input type="checkbox" /></td>
+                                                            <td className="px-6 py-4.5 border-r border-shark/60">
                                                                 <div className="flex items-center gap-3">
-                                                                    <div className="w-8 h-8 rounded-full bg-shark flex items-center justify-center text-[10px] font-black text-white overflow-hidden">
+                                                                    <div className="w-9 h-9 rounded-full bg-shark flex items-center justify-center text-[11px] font-black text-white overflow-hidden border border-white/5">
                                                                         {member.avatar_url ? (
                                                                             <img src={member.avatar_url} alt={member.name} className="w-full h-full object-cover" />
                                                                         ) : (
@@ -312,33 +312,33 @@ export default function TeamClient({ initialMembers, initialCounts }: TeamClient
                                                                         )}
                                                                     </div>
                                                                     <div className="flex flex-col">
-                                                                        <span className="font-bold text-iron text-xs">{member.name}</span>
+                                                                        <span className="font-black text-iron">{member.name}</span>
                                                                     </div>
                                                                 </div>
                                                             </td>
-                                                            <td className="px-6 py-4 border-r border-shark/60 text-storm-gray font-medium">{member.email}</td>
-                                                            <td className="px-6 py-4 border-r border-shark/60">
-                                                                <span className={`px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-wider ${member.role === 'admin' ? 'bg-purple-500/10 text-purple-400 border border-purple-500/20' :
+                                                            <td className="px-6 py-4.5 border-r border-shark/60 text-storm-gray font-black">{member.email}</td>
+                                                            <td className="px-6 py-4.5 border-r border-shark/60">
+                                                                <span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${member.role === 'admin' ? 'bg-purple-500/10 text-purple-400 border border-purple-500/20' :
                                                                     member.role === 'editor' ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20' :
                                                                         'bg-amber-500/10 text-amber-400 border border-amber-500/20'
                                                                     }`}>
                                                                     {member.role}
                                                                 </span>
                                                             </td>
-                                                            <td className="px-6 py-4 border-r border-shark/60">
+                                                            <td className="px-6 py-4.5 border-r border-shark/60">
                                                                 <div className="flex items-center gap-2">
-                                                                    <FileText size={13} className="text-[#279da6]" />
-                                                                    <span className="text-iron font-bold text-xs">{member.request_count || 0}</span>
-                                                                    <span className="text-storm-gray text-[10px]">requests</span>
+                                                                    <FileText size={14} className="text-[#279da6]" />
+                                                                    <span className="text-iron font-black">{member.request_count || 0}</span>
+                                                                    <span className="text-storm-gray text-[11px] font-bold">requests</span>
                                                                 </div>
                                                             </td>
-                                                            <td className="px-6 py-4 border-r border-shark/60 text-storm-gray font-medium text-[11px]">
+                                                            <td className="px-6 py-4.5 border-r border-shark/60 text-storm-gray font-black whitespace-nowrap">
                                                                 {member.last_login ? new Date(member.last_login).toLocaleString() : 'Never'}
                                                             </td>
-                                                            <td className="px-6 py-4 border-r border-shark/60 text-storm-gray font-medium text-[11px]">
+                                                            <td className="px-6 py-4.5 border-r border-shark/60 text-storm-gray font-black whitespace-nowrap">
                                                                 {new Date(member.created_at).toLocaleDateString()}
                                                             </td>
-                                                            <td className="px-6 py-4 relative">
+                                                            <td className="px-6 py-4.5 relative">
                                                                 <button
                                                                     onClick={() => setActiveDropdown(activeDropdown === member.id ? null : member.id)}
                                                                     className="p-1 hover:bg-shark rounded-md transition-colors text-storm-gray hover:text-white"

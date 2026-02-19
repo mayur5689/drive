@@ -190,7 +190,7 @@ export default function RequestsClient({
                                                 value={searchQuery}
                                                 onChange={(e) => setSearchQuery(e.target.value)}
                                                 placeholder="Search for a request..."
-                                                className="w-full bg-[#09090B] border border-shark/50 rounded-lg py-1.5 pl-9 pr-4 text-[11px] text-iron placeholder:text-storm-gray focus:outline-none focus:border-[#279da6]/40 transition-all font-bold"
+                                                className="w-full bg-[#09090B] border border-shark/50 rounded-lg py-2 pl-9 pr-4 text-xs text-iron placeholder:text-storm-gray focus:outline-none focus:border-[#279da6]/40 transition-all font-bold"
                                             />
                                         </div>
                                     </div>
@@ -198,7 +198,7 @@ export default function RequestsClient({
                                         <div className="relative">
                                             <button
                                                 onClick={() => setIsFilterOpen(!isFilterOpen)}
-                                                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border transition-all text-[11px] font-bold ${isFilterOpen ? 'bg-[#279da6]/10 border-[#279da6]/40 text-[#279da6]' : 'border-shark bg-[#121214] text-santas-gray hover:text-white'}`}
+                                                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border transition-all text-xs font-bold ${isFilterOpen ? 'bg-[#279da6]/10 border-[#279da6]/40 text-[#279da6]' : 'border-shark bg-[#121214] text-santas-gray hover:text-white'}`}
                                             >
                                                 <Filter size={14} />
                                                 <span>Filters</span>
@@ -329,17 +329,16 @@ export default function RequestsClient({
                                     <div className="overflow-x-auto">
                                         <table className="w-full text-left border-collapse table-auto">
                                             <thead>
-                                                <tr className="border-b border-shark text-storm-gray text-[10px] uppercase font-bold tracking-wider bg-shark/20">
-                                                    <th className="px-5 py-4 w-10 border-r border-shark/60"><input type="checkbox" /></th>
-                                                    {[
-                                                        'Title', 'Client', 'Status', 'Assigned', 'Priority', 'Due Date', 'Last Updated', 'Created'
-                                                    ].map((header, idx) => (
-                                                        <th key={header} className={`px-6 py-4 border-r border-shark/60 ${idx === 7 ? 'border-r-0' : ''}`}>
-                                                            <div className="flex items-center gap-1 cursor-pointer hover:text-white transition-colors">
-                                                                {header}
-                                                            </div>
-                                                        </th>
-                                                    ))}
+                                                <tr className="border-b border-shark text-storm-gray text-xs uppercase font-black tracking-widest bg-shark/20">
+                                                    <th className="px-5 py-5 w-12 border-r border-shark/60"><input type="checkbox" /></th>
+                                                    <th className="px-6 py-5 border-r border-shark/60 w-[30%] min-w-[250px]">Title</th>
+                                                    <th className="px-6 py-5 border-r border-shark/60 w-[20%]">Client</th>
+                                                    <th className="px-4 py-5 border-r border-shark/60 w-32 text-center">Status</th>
+                                                    <th className="px-4 py-5 border-r border-shark/60 w-36">Assigned</th>
+                                                    <th className="px-4 py-5 border-r border-shark/60 w-28">Priority</th>
+                                                    <th className="px-4 py-5 border-r border-shark/60 w-32">Due Date</th>
+                                                    <th className="px-6 py-5 border-r border-shark/60 w-32">Last Updated</th>
+                                                    <th className="px-6 py-5 w-32">Created</th>
                                                 </tr>
                                             </thead>
                                             <tbody className="divide-y divide-shark/60">
@@ -351,22 +350,27 @@ export default function RequestsClient({
                                                     </tr>
                                                 ) : (
                                                     filteredRequests.map((item: RequestItem) => (
-                                                        <tr key={item.id} className="hover:bg-shark/10 transition-colors group text-[11px]">
-                                                            <td className="px-5 py-3.5 border-r border-shark/60"><input type="checkbox" /></td>
+                                                        <tr key={item.id} className="hover:bg-shark/10 transition-colors group text-sm">
+                                                            <td className="px-5 py-4.5 border-r border-shark/60"><input type="checkbox" /></td>
                                                             <td
-                                                                className="px-6 py-3.5 font-bold text-iron border-r border-shark/60 group-hover:text-[#279da6] whitespace-nowrap cursor-pointer transition-colors"
+                                                                className="px-6 py-4.5 font-black text-iron border-r border-shark/60 group-hover:text-[#279da6] cursor-pointer transition-colors"
                                                                 onClick={() => router.push(`/requests/${item.id}`)}
                                                             >
                                                                 {item.title}
                                                             </td>
-                                                            <td className="px-6 py-3.5 text-santas-gray border-r border-shark/60 whitespace-nowrap">
-                                                                {item.client?.full_name || 'Unknown'}
+                                                            <td className="px-6 py-4.5 border-r border-shark/60">
+                                                                <div className="flex flex-col gap-0.5">
+                                                                    <span className="text-iron font-black truncate block">{item.client?.full_name || 'Unknown'}</span>
+                                                                    {(item.client as any)?.organization && (
+                                                                        <span className="text-[11px] text-storm-gray uppercase font-black tracking-tighter truncate block">{(item.client as any).organization}</span>
+                                                                    )}
+                                                                </div>
                                                             </td>
-                                                            <td className="px-6 py-3.5 border-r border-shark/60">
+                                                            <td className="px-4 py-4.5 border-r border-shark/60 text-center">
                                                                 <select
                                                                     value={item.status}
                                                                     onChange={(e) => handleUpdateField(item.id, 'status', e.target.value)}
-                                                                    className={`bg-transparent font-bold text-[10px] uppercase tracking-wider focus:outline-none cursor-pointer hover:underline py-0.5 px-2 rounded-md border
+                                                                    className={`bg-transparent font-black text-[10px] uppercase tracking-wider focus:outline-none cursor-pointer hover:underline py-1 px-2.5 rounded-md border
                                                                     ${item.status === 'Done' ? 'bg-[#10B981]/5 text-[#10B981] border-[#10B981]/20' :
                                                                             item.status === 'In Progress' ? 'bg-[#EAB308]/5 text-[#EAB308] border-[#EAB308]/20' :
                                                                                 item.status === 'Review' ? 'bg-blue-500/5 text-blue-400 border-blue-400/20' :
@@ -379,21 +383,21 @@ export default function RequestsClient({
                                                                     <option value="Done" className="bg-[#121214]">Done</option>
                                                                 </select>
                                                             </td>
-                                                            <td className="px-6 py-3.5 text-santas-gray border-r border-shark/60 whitespace-nowrap">
-                                                                <div className="flex items-center gap-2">
-                                                                    <div className="w-5 h-5 rounded-full bg-shark/40 border border-shark flex items-center justify-center text-storm-gray overflow-hidden shrink-0">
+                                                            <td className="px-4 py-4.5 text-santas-gray border-r border-shark/60">
+                                                                <div className="flex items-center gap-2 overflow-hidden">
+                                                                    <div className="w-6 h-6 rounded-full bg-shark/40 border border-shark flex items-center justify-center text-storm-gray overflow-hidden shrink-0">
                                                                         {item.assignee ? (
                                                                             <div className="w-full h-full bg-[#279da6] text-white flex items-center justify-center text-[8px] font-black">
                                                                                 {item.assignee.full_name?.split(' ').map((n: string) => n[0]).join('')}
                                                                             </div>
                                                                         ) : (
-                                                                            <PlusIcon size={10} />
+                                                                            <PlusIcon size={12} />
                                                                         )}
                                                                     </div>
                                                                     <select
                                                                         value={item.assigned_to || ''}
                                                                         onChange={(e) => handleUpdateField(item.id, 'assigned_to', e.target.value)}
-                                                                        className="bg-transparent text-[11px] font-bold text-iron focus:outline-none cursor-pointer hover:text-white transition-all appearance-none"
+                                                                        className="bg-transparent text-[11px] font-black text-iron focus:outline-none cursor-pointer hover:text-white transition-all appearance-none truncate max-w-[100px]"
                                                                     >
                                                                         <option value="" className="bg-[#121214]">Unassigned</option>
                                                                         {teamMembers.filter((tm: any) => tm.profile_id).map((tm: any) => (
@@ -402,11 +406,11 @@ export default function RequestsClient({
                                                                     </select>
                                                                 </div>
                                                             </td>
-                                                            <td className="px-6 py-3.5 border-r border-shark/60 font-bold">
+                                                            <td className="px-4 py-4.5 border-r border-shark/60 font-black">
                                                                 <select
                                                                     value={item.priority}
                                                                     onChange={(e) => handleUpdateField(item.id, 'priority', e.target.value)}
-                                                                    className={`bg-transparent text-[11px] font-bold focus:outline-none cursor-pointer hover:underline
+                                                                    className={`bg-transparent text-[11px] font-black focus:outline-none cursor-pointer hover:underline
                                                                     ${item.priority === 'Critical' ? 'text-rose-500' :
                                                                             item.priority === 'High' ? 'text-amber-500' :
                                                                                 item.priority === 'Medium' ? 'text-blue-400' :
@@ -419,34 +423,34 @@ export default function RequestsClient({
                                                                     <option value="Critical" className="bg-[#121214]">Critical</option>
                                                                 </select>
                                                             </td>
-                                                            <td className="px-6 py-3.5 text-storm-gray border-r border-shark/60 whitespace-nowrap">
+                                                            <td className="px-4 py-4.5 text-storm-gray border-r border-shark/60 whitespace-nowrap">
                                                                 <div className="flex items-center gap-2 group/date">
                                                                     <input
                                                                         ref={el => { dateInputRefs.current[item.id] = el; }}
                                                                         type="date"
                                                                         value={item.due_date ? new Date(item.due_date).toISOString().split('T')[0] : ''}
                                                                         onChange={(e) => handleUpdateField(item.id, 'due_date', e.target.value)}
-                                                                        className="bg-transparent text-iron border-none focus:outline-none cursor-pointer hover:text-white transition-all text-[11px] font-bold uppercase w-24 [color-scheme:dark] [&::-webkit-calendar-picker-indicator]:hidden"
+                                                                        className="bg-transparent text-iron border-none focus:outline-none cursor-pointer hover:text-white transition-all text-[11px] font-black uppercase w-24 [color-scheme:dark] [&::-webkit-calendar-picker-indicator]:hidden"
                                                                     />
                                                                     <CalendarIcon
                                                                         size={12}
-                                                                        className="text-storm-gray opacity-50 group-hover/date:opacity-100 transition-opacity cursor-pointer"
+                                                                        className="text-storm-gray opacity-30 group-hover/date:opacity-100 transition-opacity cursor-pointer"
                                                                         onClick={() => dateInputRefs.current[item.id]?.showPicker()}
                                                                     />
                                                                 </div>
                                                             </td>
-                                                            <td className="px-6 py-3.5 text-storm-gray border-r border-shark/60 whitespace-nowrap text-[10px]">
+                                                            <td className="px-6 py-4.5 text-storm-gray border-r border-shark/60 whitespace-nowrap text-xs">
                                                                 {item.updated_at ? (
                                                                     <div className="flex flex-col">
-                                                                        <span className="text-iron font-bold">{new Date(item.updated_at).toLocaleDateString()}</span>
-                                                                        <span className="opacity-50">{new Date(item.updated_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                                                                        <span className="text-iron font-black">{new Date(item.updated_at).toLocaleDateString()}</span>
+                                                                        <span className="opacity-50 font-bold">{new Date(item.updated_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                                                                     </div>
                                                                 ) : '-'}
                                                             </td>
-                                                            <td className="px-6 py-3.5 text-storm-gray whitespace-nowrap text-[10px]">
+                                                            <td className="px-6 py-4.5 text-storm-gray whitespace-nowrap text-xs">
                                                                 <div className="flex flex-col">
-                                                                    <span className="text-iron font-bold">{new Date(item.created_at).toLocaleDateString()}</span>
-                                                                    <span className="opacity-50">{new Date(item.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                                                                    <span className="text-iron font-black">{new Date(item.created_at).toLocaleDateString()}</span>
+                                                                    <span className="opacity-50 font-bold">{new Date(item.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                                                                 </div>
                                                             </td>
                                                         </tr>

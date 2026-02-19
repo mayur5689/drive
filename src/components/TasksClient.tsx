@@ -158,7 +158,7 @@ export default function TasksClient({ initialTasks, profiles, teamMembers, reque
                                                 value={searchQuery}
                                                 onChange={(e) => setSearchQuery(e.target.value)}
                                                 placeholder="Search tasks..."
-                                                className="w-full bg-[#09090B] border border-shark/50 rounded-lg py-1.5 pl-9 pr-4 text-[11px] text-iron placeholder:text-storm-gray focus:outline-none focus:border-[#279da6]/40 transition-all font-bold"
+                                                className="w-full bg-[#09090B] border border-shark/50 rounded-lg py-2 pl-9 pr-4 text-xs text-iron placeholder:text-storm-gray focus:outline-none focus:border-[#279da6]/40 transition-all font-bold"
                                             />
                                         </div>
                                     </div>
@@ -166,7 +166,7 @@ export default function TasksClient({ initialTasks, profiles, teamMembers, reque
                                         <div className="relative">
                                             <button
                                                 onClick={() => setIsFilterOpen(!isFilterOpen)}
-                                                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border transition-all text-[11px] font-bold ${isFilterOpen ? 'bg-[#279da6]/10 border-[#279da6]/40 text-[#279da6]' : 'border-shark bg-[#121214] text-santas-gray hover:text-white'}`}
+                                                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border transition-all text-xs font-bold ${isFilterOpen ? 'bg-[#279da6]/10 border-[#279da6]/40 text-[#279da6]' : 'border-shark bg-[#121214] text-santas-gray hover:text-white'}`}
                                             >
                                                 <Filter size={14} />
                                                 <span>Filters</span>
@@ -272,12 +272,12 @@ export default function TasksClient({ initialTasks, profiles, teamMembers, reque
                                     <div className="overflow-x-auto">
                                         <table className="w-full text-left border-collapse table-auto">
                                             <thead>
-                                                <tr className="border-b border-shark text-storm-gray text-[10px] uppercase font-bold tracking-wider bg-shark/20">
-                                                    <th className="px-5 py-4 w-10 border-r border-shark/60"><input type="checkbox" /></th>
+                                                <tr className="border-b border-shark text-storm-gray text-xs uppercase font-black tracking-widest bg-shark/20">
+                                                    <th className="px-5 py-5 w-12 border-r border-shark/60"><input type="checkbox" /></th>
                                                     {[
                                                         'Title', 'Request', 'Creator', 'Status', 'Assigned', 'Priority', 'Due Date', 'Last Updated', 'Created'
                                                     ].map((header, idx) => (
-                                                        <th key={header} className={`px-6 py-4 border-r border-shark/60 ${idx === 8 ? 'border-r-0' : header === 'Request' ? 'min-w-[150px]' : ''}`}>
+                                                        <th key={header} className={`px-6 py-5 border-r border-shark/60 ${idx === 8 ? 'border-r-0' : header === 'Request' ? 'min-w-[150px]' : ''}`}>
                                                             <div className="flex items-center gap-1 cursor-pointer hover:text-white transition-colors">
                                                                 {header}
                                                             </div>
@@ -294,15 +294,15 @@ export default function TasksClient({ initialTasks, profiles, teamMembers, reque
                                                     </tr>
                                                 ) : (
                                                     filteredTasks.map((item: TaskItem) => (
-                                                        <tr key={item.id} className="hover:bg-shark/10 transition-colors group text-[11px]">
-                                                            <td className="px-5 py-3.5 border-r border-shark/60"><input type="checkbox" /></td>
+                                                        <tr key={item.id} className="hover:bg-shark/10 transition-colors group text-sm">
+                                                            <td className="px-5 py-4.5 border-r border-shark/60"><input type="checkbox" /></td>
                                                             <td
-                                                                className="px-6 py-3.5 font-bold text-iron border-r border-shark/60 group-hover:text-[#279da6] whitespace-nowrap cursor-pointer transition-colors"
+                                                                className="px-6 py-4.5 font-black text-iron border-r border-shark/60 group-hover:text-[#279da6] whitespace-nowrap cursor-pointer transition-colors"
                                                                 onClick={() => router.push(`/tasks/${item.id}`)}
                                                             >
                                                                 {item.title}
                                                             </td>
-                                                            <td className="px-6 py-3.5 text-santas-gray border-r border-shark/60 whitespace-nowrap">
+                                                            <td className="px-6 py-4.5 text-santas-gray border-r border-shark/60 whitespace-nowrap">
                                                                 {item.request_links && item.request_links.length > 0 ? (
                                                                     <div className="flex flex-col gap-1.5">
                                                                         {item.request_links.map((link, idx) => (
@@ -311,8 +311,8 @@ export default function TasksClient({ initialTasks, profiles, teamMembers, reque
                                                                                 onClick={() => router.push(`/requests/${link.request?.id}`)}
                                                                                 className="flex flex-col cursor-pointer hover:text-[#279da6] transition-colors leading-tight"
                                                                             >
-                                                                                <span className="text-iron font-bold truncate max-w-[150px] text-[10px]">{link.request?.title}</span>
-                                                                                {idx === 0 && <span className="text-[8px] opacity-40 uppercase tracking-widest leading-none">Internal Request</span>}
+                                                                                <span className="text-iron font-black truncate max-w-[150px] text-xs">{link.request?.title}</span>
+                                                                                {idx === 0 && <span className="text-[10px] opacity-40 uppercase font-black tracking-widest leading-none mt-0.5">Internal Request</span>}
                                                                             </div>
                                                                         ))}
                                                                     </div>
@@ -320,14 +320,14 @@ export default function TasksClient({ initialTasks, profiles, teamMembers, reque
                                                                     <span className="opacity-30 italic">None</span>
                                                                 )}
                                                             </td>
-                                                            <td className="px-6 py-3.5 text-santas-gray border-r border-shark/60 whitespace-nowrap">
+                                                            <td className="px-6 py-4.5 text-santas-gray border-r border-shark/60 whitespace-nowrap font-bold">
                                                                 {item.creator?.full_name || 'System'}
                                                             </td>
-                                                            <td className="px-6 py-3.5 border-r border-shark/60">
+                                                            <td className="px-6 py-4.5 border-r border-shark/60">
                                                                 <select
                                                                     value={item.status}
                                                                     onChange={(e) => handleUpdateField(item.id, 'status', e.target.value)}
-                                                                    className={`bg-transparent font-bold text-[10px] uppercase tracking-wider focus:outline-none cursor-pointer hover:underline py-0.5 px-2 rounded-md border
+                                                                    className={`bg-transparent font-black text-[10px] uppercase tracking-wider focus:outline-none cursor-pointer hover:underline py-1 px-2.5 rounded-md border
                                                                     ${item.status === 'Done' ? 'bg-[#10B981]/5 text-[#10B981] border-[#10B981]/20' :
                                                                             item.status === 'In Progress' ? 'bg-[#EAB308]/5 text-[#EAB308] border-[#EAB308]/20' :
                                                                                 item.status === 'Review' ? 'bg-blue-500/5 text-blue-400 border-blue-400/20' :
@@ -340,21 +340,21 @@ export default function TasksClient({ initialTasks, profiles, teamMembers, reque
                                                                     <option value="Done" className="bg-[#121214]">Done</option>
                                                                 </select>
                                                             </td>
-                                                            <td className="px-6 py-3.5 text-santas-gray border-r border-shark/60 whitespace-nowrap">
+                                                            <td className="px-6 py-4.5 text-santas-gray border-r border-shark/60 whitespace-nowrap">
                                                                 <div className="flex items-center gap-2">
-                                                                    <div className="w-5 h-5 rounded-full bg-shark/40 border border-shark flex items-center justify-center text-storm-gray overflow-hidden shrink-0">
+                                                                    <div className="w-6 h-6 rounded-full bg-shark/40 border border-shark flex items-center justify-center text-storm-gray overflow-hidden shrink-0">
                                                                         {item.assignee ? (
                                                                             <div className="w-full h-full bg-[#279da6] text-white flex items-center justify-center text-[8px] font-black">
                                                                                 {item.assignee.full_name?.split(' ').map((n: string) => n[0]).join('')}
                                                                             </div>
                                                                         ) : (
-                                                                            <PlusIcon size={10} />
+                                                                            <PlusIcon size={12} />
                                                                         )}
                                                                     </div>
                                                                     <select
                                                                         value={item.assigned_to || ''}
                                                                         onChange={(e) => handleUpdateField(item.id, 'assigned_to', e.target.value)}
-                                                                        className="bg-transparent text-[11px] font-bold text-iron focus:outline-none cursor-pointer hover:text-white transition-all appearance-none"
+                                                                        className="bg-transparent text-[11px] font-black text-iron focus:outline-none cursor-pointer hover:text-white transition-all appearance-none"
                                                                     >
                                                                         <option value="" className="bg-[#121214]">Unassigned</option>
                                                                         {teamMembers.filter((tm: any) => tm.profile_id).map((tm: any) => (
@@ -363,11 +363,11 @@ export default function TasksClient({ initialTasks, profiles, teamMembers, reque
                                                                     </select>
                                                                 </div>
                                                             </td>
-                                                            <td className="px-6 py-3.5 border-r border-shark/60 font-bold">
+                                                            <td className="px-6 py-4.5 border-r border-shark/60 font-black">
                                                                 <select
                                                                     value={item.priority}
                                                                     onChange={(e) => handleUpdateField(item.id, 'priority', e.target.value)}
-                                                                    className={`bg-transparent text-[11px] font-bold focus:outline-none cursor-pointer hover:underline
+                                                                    className={`bg-transparent text-[11px] font-black focus:outline-none cursor-pointer hover:underline
                                                                     ${item.priority === 'Critical' ? 'text-rose-500' :
                                                                             item.priority === 'High' ? 'text-amber-500' :
                                                                                 item.priority === 'Medium' ? 'text-blue-400' :
@@ -380,34 +380,34 @@ export default function TasksClient({ initialTasks, profiles, teamMembers, reque
                                                                     <option value="Critical" className="bg-[#121214]">Critical</option>
                                                                 </select>
                                                             </td>
-                                                            <td className="px-6 py-3.5 text-storm-gray border-r border-shark/60 whitespace-nowrap">
+                                                            <td className="px-6 py-4.5 text-storm-gray border-r border-shark/60 whitespace-nowrap">
                                                                 <div className="flex items-center gap-2 group/date">
                                                                     <input
                                                                         ref={el => { dateInputRefs.current[item.id] = el; }}
                                                                         type="date"
                                                                         value={item.due_date ? new Date(item.due_date).toISOString().split('T')[0] : ''}
                                                                         onChange={(e) => handleUpdateField(item.id, 'due_date', e.target.value)}
-                                                                        className="bg-transparent text-iron border-none focus:outline-none cursor-pointer hover:text-white transition-all text-[11px] font-bold uppercase w-24 [color-scheme:dark] [&::-webkit-calendar-picker-indicator]:hidden"
+                                                                        className="bg-transparent text-iron border-none focus:outline-none cursor-pointer hover:text-white transition-all text-[11px] font-black uppercase w-24 [color-scheme:dark] [&::-webkit-calendar-picker-indicator]:hidden"
                                                                     />
                                                                     <CalendarIcon
                                                                         size={12}
-                                                                        className="text-storm-gray opacity-50 group-hover/date:opacity-100 transition-opacity cursor-pointer"
+                                                                        className="text-storm-gray opacity-30 group-hover/date:opacity-100 transition-opacity cursor-pointer"
                                                                         onClick={() => dateInputRefs.current[item.id]?.showPicker()}
                                                                     />
                                                                 </div>
                                                             </td>
-                                                            <td className="px-6 py-3.5 text-storm-gray border-r border-shark/60 whitespace-nowrap text-[10px]">
+                                                            <td className="px-6 py-4.5 text-storm-gray border-r border-shark/60 whitespace-nowrap text-xs">
                                                                 {item.updated_at ? (
                                                                     <div className="flex flex-col">
-                                                                        <span className="text-iron font-bold">{new Date(item.updated_at).toLocaleDateString()}</span>
-                                                                        <span className="opacity-50">{new Date(item.updated_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                                                                        <span className="text-iron font-black">{new Date(item.updated_at).toLocaleDateString()}</span>
+                                                                        <span className="opacity-50 font-bold">{new Date(item.updated_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                                                                     </div>
                                                                 ) : '-'}
                                                             </td>
-                                                            <td className="px-6 py-3.5 text-storm-gray whitespace-nowrap text-[10px]">
+                                                            <td className="px-6 py-4.5 text-storm-gray whitespace-nowrap text-xs">
                                                                 <div className="flex flex-col">
-                                                                    <span className="text-iron font-bold">{new Date(item.created_at).toLocaleDateString()}</span>
-                                                                    <span className="opacity-50">{new Date(item.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                                                                    <span className="text-iron font-black">{new Date(item.created_at).toLocaleDateString()}</span>
+                                                                    <span className="opacity-50 font-bold">{new Date(item.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                                                                 </div>
                                                             </td>
                                                         </tr>

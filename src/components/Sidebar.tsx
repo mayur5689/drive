@@ -135,7 +135,7 @@ export default function Sidebar({ isCollapsed }: SidebarProps) {
                     {!isCollapsed && (
                         <div className="flex flex-col -mt-1">
                             <h1 className="text-xl font-black tracking-tighter text-[#279da6] select-none uppercase">aneeverse</h1>
-                            <p className="text-[8px] text-storm-gray -mt-1 font-bold tracking-widest uppercase">Request hub</p>
+                            <p className="text-[10px] text-storm-gray -mt-1 font-black tracking-widest uppercase opacity-80">Request hub</p>
                         </div>
                     )}
                 </div>
@@ -199,10 +199,10 @@ export default function Sidebar({ isCollapsed }: SidebarProps) {
                                             )}
                                         </div>
                                         <div className="flex flex-col min-w-0">
-                                            <p className="text-xs font-black text-white truncate">
+                                            <p className="text-sm font-black text-white truncate">
                                                 {displayProfile?.full_name || (displayProfile?.role === 'super_admin' ? 'Super Admin' : 'User Account')}
                                             </p>
-                                            <p className="text-[10px] text-storm-gray font-bold truncate tracking-tight">{displayProfile?.email}</p>
+                                            <p className="text-xs text-storm-gray font-bold truncate tracking-tight">{displayProfile?.email}</p>
                                         </div>
                                     </div>
                                 )}
@@ -213,17 +213,17 @@ export default function Sidebar({ isCollapsed }: SidebarProps) {
                                             setShowProfileMenu(false);
                                             router.push('/account');
                                         }}
-                                        className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-bold text-iron hover:bg-shark transition-all text-left group"
+                                        className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-bold text-iron hover:bg-shark transition-all text-left group"
                                     >
-                                        <BadgeCheck size={16} className="text-storm-gray group-hover:text-[#279da6]" />
+                                        <BadgeCheck size={18} className="text-storm-gray group-hover:text-[#279da6]" />
                                         <span>Account</span>
                                     </button>
-                                    <button className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-bold text-iron hover:bg-shark transition-all text-left group">
-                                        <CreditCard size={16} className="text-storm-gray group-hover:text-[#279da6]" />
+                                    <button className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-bold text-iron hover:bg-shark transition-all text-left group">
+                                        <CreditCard size={18} className="text-storm-gray group-hover:text-[#279da6]" />
                                         <span>Billing</span>
                                     </button>
-                                    <button className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-bold text-iron hover:bg-shark transition-all text-left group">
-                                        <Bell size={16} className="text-storm-gray group-hover:text-[#279da6]" />
+                                    <button className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-bold text-iron hover:bg-shark transition-all text-left group">
+                                        <Bell size={18} className="text-storm-gray group-hover:text-[#279da6]" />
                                         <span>Notifications</span>
                                     </button>
                                     <div className="h-px bg-shark/40 mx-2 my-1" />
@@ -232,9 +232,9 @@ export default function Sidebar({ isCollapsed }: SidebarProps) {
                                             setShowProfileMenu(false);
                                             setShowLogoutConfirm(true);
                                         }}
-                                        className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-bold text-rose-500 hover:bg-rose-500/10 transition-all text-left"
+                                        className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-bold text-rose-500 hover:bg-rose-500/10 transition-all text-left"
                                     >
-                                        <LogOut size={16} />
+                                        <LogOut size={18} />
                                         <span>Log out</span>
                                     </button>
                                 </div>
@@ -269,10 +269,10 @@ export default function Sidebar({ isCollapsed }: SidebarProps) {
                                         </div>
                                     ) : (
                                         <>
-                                            <p className="text-[11px] font-black text-iron truncate leading-none mb-1">
+                                            <p className="text-sm font-black text-white truncate leading-none mb-1.5">
                                                 {displayProfile?.full_name || (displayProfile?.role === 'super_admin' ? 'Super Admin' : 'User Account')}
                                             </p>
-                                            <p className="text-[10px] text-storm-gray font-bold truncate tracking-tight">
+                                            <p className="text-xs text-storm-gray font-bold truncate tracking-tight">
                                                 {displayProfile?.email}
                                             </p>
                                         </>

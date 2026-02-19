@@ -266,14 +266,14 @@ export default function ClientsClient({ initialClients }: ClientsClientProps) {
                                     <div className="overflow-visible">
                                         <table className="w-full text-left border-collapse table-auto text-xs">
                                             <thead>
-                                                <tr className="border-b border-shark text-storm-gray text-[10px] uppercase font-bold bg-shark/20">
-                                                    <th className="px-5 py-4 w-10 border-r border-shark/60"><input type="checkbox" /></th>
-                                                    <th className="px-6 py-4 border-r border-shark/60">User</th>
-                                                    <th className="px-6 py-4 border-r border-shark/60">Email</th>
-                                                    <th className="px-6 py-4 border-r border-shark/60">Organization</th>
-                                                    <th className="px-6 py-4 border-r border-shark/60">Created At</th>
-                                                    <th className="px-6 py-4 border-r border-shark/60">Last Login</th>
-                                                    <th className="px-6 py-4 w-10"></th>
+                                                <tr className="border-b border-shark text-storm-gray text-xs uppercase font-black tracking-widest bg-shark/20">
+                                                    <th className="px-5 py-5 w-12 border-r border-shark/60"><input type="checkbox" /></th>
+                                                    <th className="px-6 py-5 border-r border-shark/60">User</th>
+                                                    <th className="px-6 py-5 border-r border-shark/60">Email</th>
+                                                    <th className="px-6 py-5 border-r border-shark/60">Organization</th>
+                                                    <th className="px-6 py-5 border-r border-shark/60">Created At</th>
+                                                    <th className="px-6 py-5 border-r border-shark/60">Last Login</th>
+                                                    <th className="px-6 py-5 w-12"></th>
                                                 </tr>
                                             </thead>
                                             <tbody className="divide-y divide-shark/60">
@@ -285,29 +285,29 @@ export default function ClientsClient({ initialClients }: ClientsClientProps) {
                                                     </tr>
                                                 ) : (
                                                     clients.map((client: ClientItem) => (
-                                                        <tr key={client.id} className="hover:bg-shark/10 transition-colors group">
-                                                            <td className="px-5 py-4 border-r border-shark/60"><input type="checkbox" /></td>
+                                                        <tr key={client.id} className="hover:bg-shark/10 transition-colors group text-sm">
+                                                            <td className="px-5 py-4.5 border-r border-shark/60"><input type="checkbox" /></td>
                                                             <td
-                                                                className="px-6 py-4 border-r border-shark/60 cursor-pointer hover:bg-white/5 transition-colors group/cell"
+                                                                className="px-6 py-4.5 border-r border-shark/60 cursor-pointer hover:bg-white/5 transition-colors group/cell"
                                                                 onClick={() => router.push(`/clients/${client.id}`)}
                                                             >
                                                                 <div className="flex items-center gap-3">
-                                                                    <div className="w-8 h-8 rounded-full bg-shark/80 border border-white/5 overflow-hidden flex items-center justify-center text-[10px] text-white bg-gradient-to-br from-[#279da6]/20 to-transparent group-hover/cell:scale-110 transition-transform">
+                                                                    <div className="w-9 h-9 rounded-full bg-shark/80 border border-white/5 overflow-hidden flex items-center justify-center text-[11px] text-white font-black bg-gradient-to-br from-[#279da6]/20 to-transparent group-hover/cell:scale-110 transition-transform">
                                                                         {client.name.split(' ').map((n: string) => n[0]).join('')}
                                                                     </div>
-                                                                    <span className="text-iron font-medium group-hover/cell:text-[#279da6] transition-colors">{client.name}</span>
+                                                                    <span className="text-iron font-black group-hover/cell:text-[#279da6] transition-colors">{client.name}</span>
                                                                 </div>
                                                             </td>
                                                             <td
-                                                                className="px-6 py-4 text-santas-gray border-r border-shark/60 cursor-pointer hover:bg-white/5 transition-colors group-hover/cell:text-iron"
+                                                                className="px-6 py-4.5 text-santas-gray border-r border-shark/60 cursor-pointer hover:bg-white/5 transition-colors group/cell-email font-black"
                                                                 onClick={() => router.push(`/clients/${client.id}`)}
                                                             >
                                                                 {client.email}
                                                             </td>
-                                                            <td className="px-6 py-4 text-santas-gray border-r border-shark/60 font-bold uppercase tracking-tight">{client.organization}</td>
-                                                            <td className="px-6 py-4 text-storm-gray border-r border-shark/60 font-medium">{client.createdAt}</td>
-                                                            <td className="px-6 py-4 text-storm-gray border-r border-shark/60 font-medium">{client.lastLogin}</td>
-                                                            <td className="px-6 py-4 relative group/actions">
+                                                            <td className="px-6 py-4.5 text-santas-gray border-r border-shark/60 font-black uppercase tracking-tight">{client.organization}</td>
+                                                            <td className="px-6 py-4.5 text-storm-gray border-r border-shark/60 font-black whitespace-nowrap">{client.createdAt}</td>
+                                                            <td className="px-6 py-4.5 text-storm-gray border-r border-shark/60 font-black whitespace-nowrap">{client.lastLogin}</td>
+                                                            <td className="px-6 py-4.5 relative group/actions">
                                                                 <button
                                                                     onClick={(e) => {
                                                                         e.stopPropagation();
