@@ -17,7 +17,10 @@ import {
     AlertTriangle,
     MoreHorizontal,
     UserCog,
-    FileText
+    FileText,
+    Check,
+    SortAsc,
+    SortDesc
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
@@ -54,6 +57,20 @@ export default function TeamClient({ initialMembers, initialCounts }: TeamClient
     const [selectedMember, setSelectedMember] = useState<TeamMember | null>(null);
     const [showPassword, setShowPassword] = useState(false);
     const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
+    const [searchQuery, setSearchQuery] = useState('');
+    const [filters, setFilters] = useState({
+        name: '',
+        email: '',
+        role: '',
+        request_count: '',
+        last_login: '',
+        created_at: ''
+    });
+    const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' | null }>({
+        key: 'created_at',
+        direction: 'desc'
+    });
+    const [activeFilterHeader, setActiveFilterHeader] = useState<string | null>(null);
 
     const [members, setMembers] = useState<TeamMember[]>(initialMembers);
 
@@ -228,9 +245,59 @@ export default function TeamClient({ initialMembers, initialCounts }: TeamClient
         }
     };
 
-    const filteredMembers = activeTab === 'All Members'
-        ? members
-        : members.filter((m: TeamMember) => activeTab === 'Active' ? m.status === 'Active' : m.status === 'Inactive');
+    const handleSort = (key: string) => {
+        setSortConfig(prev => ({
+            key,
+            direction: prev.key === key ? (prev.direction === 'asc' ? 'desc' : 'asc') : 'asc'
+        }));
+    };
+
+    const filteredMembers = members.filter((member: TeamMember) => {
+        // Tab Filter
+        const matchesTab = activeTab === 'All Members' || (activeTab === 'Active' ? member.status === 'Active' : member.status === 'Inactive');
+
+        // Search Filter
+        const searchLower = searchQuery.toLowerCase();
+        const matchesSearch = !searchQuery ||
+            member.name.toLowerCase().includes(searchLower) ||
+            member.email.toLowerCase().includes(searchLower);
+
+        // Header Filters
+        const matchesName = !filters.name || member.name.toLowerCase().includes(filters.name.toLowerCase());
+        const matchesEmail = !filters.email || member.email.toLowerCase().includes(filters.email.toLowerCase());
+        const matchesRole = !filters.role || member.role.toLowerCase() === filters.role.toLowerCase();
+        const matchesRequests = !filters.request_count || (member.request_count || 0) >= parseInt(filters.request_count);
+
+        const matchesLastLogin = !filters.last_login || (member.last_login && formatDate(member.last_login).includes(filters.last_login));
+        const matchesCreatedAt = !filters.created_at || formatDate(member.created_at).includes(filters.created_at);
+
+        return matchesTab && matchesSearch && matchesName && matchesEmail && matchesRole && matchesRequests && matchesLastLogin && matchesCreatedAt;
+    });
+
+    const sortedMembers = [...filteredMembers].sort((a, b) => {
+        if (!sortConfig.key || !sortConfig.direction) return 0;
+
+        let aValue: any = (a as any)[sortConfig.key];
+        let bValue: any = (b as any)[sortConfig.key];
+
+        if (typeof aValue === 'string') aValue = aValue.toLowerCase();
+        if (typeof bValue === 'string') bValue = bValue.toLowerCase();
+
+        if (aValue < bValue) return sortConfig.direction === 'asc' ? -1 : 1;
+        if (aValue > bValue) return sortConfig.direction === 'asc' ? 1 : -1;
+        return 0;
+    });
+
+    // Handle clicks outside to close filter dropdowns
+    React.useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (activeFilterHeader && !(event.target as Element).closest('.header-filter-container')) {
+                setActiveFilterHeader(null);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, [activeFilterHeader]);
 
     return (
         <div className={`flex h-screen bg-[#09090B] text-iron font-sans overflow-hidden transition-all duration-500 ${isImpersonating ? 'p-1.5' : ''}`} style={isImpersonating ? { backgroundColor: '#0f2b1a' } : undefined}>
@@ -258,14 +325,36 @@ export default function TeamClient({ initialMembers, initialCounts }: TeamClient
                                         <input
                                             type="text"
                                             placeholder="Search for Team Members"
+                                            value={searchQuery}
+                                            onChange={(e) => setSearchQuery(e.target.value)}
                                             className="w-full bg-[#09090B] border border-shark/50 rounded-lg py-2 pl-10 pr-4 text-xs text-iron placeholder:text-storm-gray focus:outline-none focus:border-[#279da6]/40 transition-all font-bold"
                                         />
                                     </div>
                                     <div className="flex items-center gap-2">
-                                        <button className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-shark bg-shark/20 text-[11px] font-bold text-santas-gray hover:text-white transition-all">
-                                            <Filter size={14} />
-                                            <span>Filters</span>
-                                        </button>
+                                        <div className="relative">
+                                            {/* Glow Indicator */}
+                                            {(Object.values(filters).some(v => v !== '') || searchQuery !== '' || sortConfig.key !== '') && (
+                                                <div className="absolute inset-0 bg-[#279da6]/30 blur-2xl rounded-full animate-pulse z-0 pointer-events-none" />
+                                            )}
+                                            <button
+                                                onClick={() => {
+                                                    setFilters({
+                                                        name: '',
+                                                        email: '',
+                                                        role: '',
+                                                        request_count: '',
+                                                        last_login: '',
+                                                        created_at: ''
+                                                    });
+                                                    setSearchQuery('');
+                                                    setSortConfig({ key: '', direction: null });
+                                                }}
+                                                className={`relative flex items-center gap-2 px-3 py-1.5 rounded-lg border transition-all text-[11px] font-bold z-10 ${Object.values(filters).some(v => v !== '') || searchQuery !== '' || sortConfig.key !== '' ? 'bg-[#279da6]/20 border-[#279da6]/60 text-[#279da6] shadow-[0_0_20px_rgba(39,157,166,0.5)] active:scale-95' : 'border-shark bg-shark/20 text-santas-gray hover:text-white hover:bg-shark/40'}`}
+                                            >
+                                                <Filter size={14} className={Object.values(filters).some(v => v !== '') || searchQuery !== '' || sortConfig.key !== '' ? 'fill-[#279da6]/20' : ''} />
+                                                <span>{Object.values(filters).some(v => v !== '') || searchQuery !== '' || sortConfig.key !== '' ? 'Reset Filters' : 'Filters'}</span>
+                                            </button>
+                                        </div>
                                         <button
                                             onClick={() => setIsModalOpen(true)}
                                             className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#279da6] text-white text-xs font-bold hover:bg-[#279da6]/90 transition-all shadow-lg hover:shadow-[#279da6]/20"
@@ -283,24 +372,98 @@ export default function TeamClient({ initialMembers, initialCounts }: TeamClient
                                             <thead>
                                                 <tr className="border-b border-shark text-storm-gray text-xs uppercase font-black tracking-widest bg-shark/20">
                                                     <th className="px-5 py-5 w-12 border-r border-shark/60"><input type="checkbox" /></th>
-                                                    <th className="px-6 py-5 border-r border-shark/60">Name</th>
-                                                    <th className="px-6 py-5 border-r border-shark/60">Email</th>
-                                                    <th className="px-6 py-5 border-r border-shark/60">Role</th>
-                                                    <th className="px-6 py-5 border-r border-shark/60">Requests Managing</th>
-                                                    <th className="px-6 py-5 border-r border-shark/60">Last Login</th>
-                                                    <th className="px-6 py-5 border-r border-shark/60">Created At</th>
-                                                    <th className="px-6 py-5 w-12"></th>
+                                                    {[
+                                                        { label: 'Name', key: 'name', filter: 'name' },
+                                                        { label: 'Email', key: 'email', filter: 'email' },
+                                                        { label: 'Role', key: 'role', filter: 'role' },
+                                                        { label: 'Requests', key: 'request_count', filter: 'request_count' },
+                                                        { label: 'Last Login', key: 'last_login', filter: 'last_login' },
+                                                        { label: 'Created At', key: 'created_at', filter: 'created_at' }
+                                                    ].map((header, idx) => (
+                                                        <th key={header.label} className="px-6 py-5 border-r border-shark/60 group/header relative header-filter-container">
+                                                            <div className="flex items-center justify-between gap-2">
+                                                                <span className="cursor-default">{header.label}</span>
+                                                                <button
+                                                                    onClick={() => setActiveFilterHeader(activeFilterHeader === header.filter ? null : header.filter)}
+                                                                    className={`p-1 rounded hover:bg-shark/40 transition-colors ${(filters as any)[header.filter] || sortConfig.key === header.key ? 'text-[#279da6]' : 'text-storm-gray'}`}
+                                                                >
+                                                                    <Filter size={10} />
+                                                                </button>
+                                                            </div>
+                                                            {activeFilterHeader === header.filter && (
+                                                                <div className={`absolute top-full ${idx > 3 ? 'right-0' : 'left-0'} mt-1 w-48 bg-[#121214] border border-shark rounded-lg shadow-2xl p-2 z-[60] normal-case tracking-normal`}>
+                                                                    <div className="mb-2 border-b border-shark/40 pb-2">
+                                                                        <div className="text-[10px] font-bold text-storm-gray uppercase mb-1 px-1">Sort</div>
+                                                                        <button
+                                                                            onClick={() => { setSortConfig({ key: header.key, direction: 'asc' }); setActiveFilterHeader(null); }}
+                                                                            className={`flex items-center gap-2 w-full px-2 py-1.5 rounded-md text-[11px] hover:bg-shark/40 transition-colors ${sortConfig.key === header.key && sortConfig.direction === 'asc' ? 'text-[#279da6] bg-shark/20' : 'text-iron'}`}
+                                                                        >
+                                                                            <SortAsc size={12} />
+                                                                            <span>Sort A-Z</span>
+                                                                        </button>
+                                                                        <button
+                                                                            onClick={() => { setSortConfig({ key: header.key, direction: 'desc' }); setActiveFilterHeader(null); }}
+                                                                            className={`flex items-center gap-2 w-full px-2 py-1.5 rounded-md text-[11px] hover:bg-shark/40 transition-colors ${sortConfig.key === header.key && sortConfig.direction === 'desc' ? 'text-[#279da6] bg-shark/20' : 'text-iron'}`}
+                                                                        >
+                                                                            <SortDesc size={12} />
+                                                                            <span>Sort Z-A</span>
+                                                                        </button>
+                                                                    </div>
+                                                                    <div>
+                                                                        <div className="text-[10px] font-bold text-storm-gray uppercase mb-1 px-1">Filter</div>
+                                                                        {header.filter === 'role' ? (
+                                                                            <select
+                                                                                value={filters.role}
+                                                                                onChange={(e) => { setFilters(f => ({ ...f, role: e.target.value })); setActiveFilterHeader(null); }}
+                                                                                className="w-full bg-[#09090B] border border-shark/50 rounded-md py-1 px-1 text-[10px] text-iron focus:outline-none"
+                                                                            >
+                                                                                <option value="">All Roles</option>
+                                                                                <option value="admin">Admin</option>
+                                                                                <option value="editor">Editor</option>
+                                                                                <option value="viewer">Viewer</option>
+                                                                            </select>
+                                                                        ) : header.filter === 'request_count' ? (
+                                                                            <input
+                                                                                type="number"
+                                                                                placeholder="Min requests..."
+                                                                                value={filters.request_count}
+                                                                                onChange={(e) => setFilters(f => ({ ...f, request_count: e.target.value }))}
+                                                                                className="w-full bg-[#09090B] border border-shark/50 rounded-md py-1.5 px-2 text-[10px] text-iron focus:outline-none"
+                                                                            />
+                                                                        ) : ['created_at', 'last_login'].includes(header.filter) ? (
+                                                                            <input
+                                                                                type="date"
+                                                                                value={(filters as any)[header.filter]}
+                                                                                onChange={(e) => setFilters(f => ({ ...f, [header.filter]: e.target.value }))}
+                                                                                className="w-full bg-[#09090B] border border-shark/50 rounded-md py-1.5 px-2 text-[10px] text-iron focus:outline-none [color-scheme:dark]"
+                                                                            />
+                                                                        ) : (
+                                                                            <input
+                                                                                type="text"
+                                                                                placeholder={`Filter by ${header.label.toLowerCase()}...`}
+                                                                                value={(filters as any)[header.filter]}
+                                                                                onChange={(e) => setFilters(f => ({ ...f, [header.filter]: e.target.value }))}
+                                                                                className="w-full bg-[#09090B] border border-shark/50 rounded-md py-1.5 px-2 text-[10px] text-iron focus:outline-none"
+                                                                                autoFocus
+                                                                            />
+                                                                        )}
+                                                                    </div>
+                                                                </div>
+                                                            )}
+                                                        </th>
+                                                    ))}
+                                                    <th className="px-6 py-5 w-24">Actions</th>
                                                 </tr>
                                             </thead>
                                             <tbody className="divide-y divide-shark/60">
-                                                {filteredMembers.length === 0 ? (
+                                                {sortedMembers.length === 0 ? (
                                                     <tr>
                                                         <td colSpan={8} className="px-6 py-12 text-center text-storm-gray font-medium uppercase tracking-widest opacity-40">
-                                                            No team members found. Add one to get started.
+                                                            No team members found matching your criteria.
                                                         </td>
                                                     </tr>
                                                 ) : (
-                                                    filteredMembers.map((member: TeamMember) => (
+                                                    sortedMembers.map((member: TeamMember) => (
                                                         <tr key={member.id} className="hover:bg-shark/10 transition-colors group text-sm">
                                                             <td className="px-5 py-4.5 border-r border-shark/60"><input type="checkbox" /></td>
                                                             <td className="px-6 py-4.5 border-r border-shark/60">
@@ -405,251 +568,257 @@ export default function TeamClient({ initialMembers, initialCounts }: TeamClient
                                 </div>
                             </div>
                         </div>
-                    </main>
-                </div>
-            </div>
+                    </main >
+                </div >
+            </div >
 
             {/* Create Modal */}
-            {isModalOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
-                    <div className="bg-[#18181B] border border-shark rounded-3xl p-8 max-w-2xl w-full shadow-2xl animate-slide-up max-h-[90vh] overflow-y-auto custom-scrollbar">
-                        <div className="flex justify-between items-start mb-6">
-                            <h2 className="text-2xl font-black text-white uppercase tracking-tight">Create Team Member</h2>
-                            <button onClick={() => { setIsModalOpen(false); resetForm(); }} className="text-storm-gray hover:text-white transition-colors">
-                                <X size={20} />
-                            </button>
-                        </div>
-
-                        <form onSubmit={handleSubmit} className="space-y-5">
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label className="block text-[10px] font-black uppercase tracking-widest text-storm-gray mb-2">Full Name *</label>
-                                    <input
-                                        type="text"
-                                        value={formData.name}
-                                        onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                                        required
-                                        className="w-full bg-[#09090B] border border-shark rounded-lg px-4 py-2.5 text-sm text-iron focus:outline-none focus:border-[#279da6]/40 transition-all"
-                                        placeholder="Enter full name"
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-[10px] font-black uppercase tracking-widest text-storm-gray mb-2">Email Address *</label>
-                                    <input
-                                        type="email"
-                                        value={formData.email}
-                                        onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                                        required
-                                        className="w-full bg-[#09090B] border border-shark rounded-lg px-4 py-2.5 text-sm text-iron focus:outline-none focus:border-[#279da6]/40 transition-all"
-                                        placeholder="email@example.com"
-                                    />
-                                </div>
+            {
+                isModalOpen && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
+                        <div className="bg-[#18181B] border border-shark rounded-3xl p-8 max-w-2xl w-full shadow-2xl animate-slide-up max-h-[90vh] overflow-y-auto custom-scrollbar">
+                            <div className="flex justify-between items-start mb-6">
+                                <h2 className="text-2xl font-black text-white uppercase tracking-tight">Create Team Member</h2>
+                                <button onClick={() => { setIsModalOpen(false); resetForm(); }} className="text-storm-gray hover:text-white transition-colors">
+                                    <X size={20} />
+                                </button>
                             </div>
 
-                            <div>
-                                <label className="block text-[10px] font-black uppercase tracking-widest text-storm-gray mb-2">Role *</label>
-                                <select
-                                    value={formData.role}
-                                    onChange={(e) => setFormData({ ...formData, role: e.target.value })}
-                                    className="w-full bg-[#09090B] border border-shark rounded-lg px-4 py-2.5 text-sm text-iron focus:outline-none focus:border-[#279da6]/40 transition-all"
-                                >
-                                    <option value="viewer">Viewer — Can view assigned requests</option>
-                                    <option value="editor">Editor — Can view & chat on requests</option>
-                                    <option value="admin">Admin — Full access to assigned requests</option>
-                                </select>
-                            </div>
+                            <form onSubmit={handleSubmit} className="space-y-5">
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="block text-[10px] font-black uppercase tracking-widest text-storm-gray mb-2">Full Name *</label>
+                                        <input
+                                            type="text"
+                                            value={formData.name}
+                                            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                                            required
+                                            className="w-full bg-[#09090B] border border-shark rounded-lg px-4 py-2.5 text-sm text-iron focus:outline-none focus:border-[#279da6]/40 transition-all"
+                                            placeholder="Enter full name"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-[10px] font-black uppercase tracking-widest text-storm-gray mb-2">Email Address *</label>
+                                        <input
+                                            type="email"
+                                            value={formData.email}
+                                            onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                                            required
+                                            className="w-full bg-[#09090B] border border-shark rounded-lg px-4 py-2.5 text-sm text-iron focus:outline-none focus:border-[#279da6]/40 transition-all"
+                                            placeholder="email@example.com"
+                                        />
+                                    </div>
+                                </div>
 
-                            <div className="grid grid-cols-2 gap-4">
                                 <div>
-                                    <label className="block text-[10px] font-black uppercase tracking-widest text-storm-gray mb-2">Password (Optional)</label>
-                                    <div className="relative">
+                                    <label className="block text-[10px] font-black uppercase tracking-widest text-storm-gray mb-2">Role *</label>
+                                    <select
+                                        value={formData.role}
+                                        onChange={(e) => setFormData({ ...formData, role: e.target.value })}
+                                        className="w-full bg-[#09090B] border border-shark rounded-lg px-4 py-2.5 text-sm text-iron focus:outline-none focus:border-[#279da6]/40 transition-all"
+                                    >
+                                        <option value="viewer">Viewer — Can view assigned requests</option>
+                                        <option value="editor">Editor — Can view & chat on requests</option>
+                                        <option value="admin">Admin — Full access to assigned requests</option>
+                                    </select>
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="block text-[10px] font-black uppercase tracking-widest text-storm-gray mb-2">Password (Optional)</label>
+                                        <div className="relative">
+                                            <input
+                                                type={showPassword ? "text" : "password"}
+                                                value={formData.password}
+                                                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                                                className="w-full bg-[#09090B] border border-shark rounded-lg px-4 py-2.5 text-sm text-iron focus:outline-none focus:border-[#279da6]/40 transition-all pr-10"
+                                                placeholder="••••••••"
+                                            />
+                                            <button
+                                                type="button"
+                                                onClick={() => setShowPassword(!showPassword)}
+                                                className="absolute right-3 top-1/2 -translate-y-1/2 text-storm-gray hover:text-white transition-colors"
+                                            >
+                                                {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                                            </button>
+                                        </div>
+                                        <p className="text-[10px] text-storm-gray mt-1.5">If provided, a login account will be created</p>
+                                    </div>
+                                    <div>
+                                        <label className="block text-[10px] font-black uppercase tracking-widest text-storm-gray mb-2">Confirm Password</label>
                                         <input
                                             type={showPassword ? "text" : "password"}
-                                            value={formData.password}
-                                            onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                                            className="w-full bg-[#09090B] border border-shark rounded-lg px-4 py-2.5 text-sm text-iron focus:outline-none focus:border-[#279da6]/40 transition-all pr-10"
+                                            value={formData.confirmPassword}
+                                            onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
+                                            className="w-full bg-[#09090B] border border-shark rounded-lg px-4 py-2.5 text-sm text-iron focus:outline-none focus:border-[#279da6]/40 transition-all"
                                             placeholder="••••••••"
                                         />
-                                        <button
-                                            type="button"
-                                            onClick={() => setShowPassword(!showPassword)}
-                                            className="absolute right-3 top-1/2 -translate-y-1/2 text-storm-gray hover:text-white transition-colors"
-                                        >
-                                            {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-                                        </button>
                                     </div>
-                                    <p className="text-[10px] text-storm-gray mt-1.5">If provided, a login account will be created</p>
                                 </div>
-                                <div>
-                                    <label className="block text-[10px] font-black uppercase tracking-widest text-storm-gray mb-2">Confirm Password</label>
-                                    <input
-                                        type={showPassword ? "text" : "password"}
-                                        value={formData.confirmPassword}
-                                        onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
-                                        className="w-full bg-[#09090B] border border-shark rounded-lg px-4 py-2.5 text-sm text-iron focus:outline-none focus:border-[#279da6]/40 transition-all"
-                                        placeholder="••••••••"
-                                    />
-                                </div>
-                            </div>
 
-                            <div className="flex justify-end gap-3 pt-4">
-                                <button
-                                    type="button"
-                                    onClick={() => { setIsModalOpen(false); resetForm(); }}
-                                    className="px-5 py-2.5 bg-shark/50 hover:bg-shark text-iron rounded-lg font-bold text-sm transition-all"
-                                >
-                                    Cancel
-                                </button>
-                                <button
-                                    type="submit"
-                                    disabled={isSubmitting}
-                                    className="px-5 py-2.5 bg-[#279da6] hover:bg-[#279da6]/90 text-white rounded-lg font-bold text-sm transition-all flex items-center gap-2 shadow-lg shadow-[#279da6]/20"
-                                >
-                                    {isSubmitting ? <Loader2 size={16} className="animate-spin" /> : 'Create Member'}
-                                </button>
-                            </div>
-                        </form>
+                                <div className="flex justify-end gap-3 pt-4">
+                                    <button
+                                        type="button"
+                                        onClick={() => { setIsModalOpen(false); resetForm(); }}
+                                        className="px-5 py-2.5 bg-shark/50 hover:bg-shark text-iron rounded-lg font-bold text-sm transition-all"
+                                    >
+                                        Cancel
+                                    </button>
+                                    <button
+                                        type="submit"
+                                        disabled={isSubmitting}
+                                        className="px-5 py-2.5 bg-[#279da6] hover:bg-[#279da6]/90 text-white rounded-lg font-bold text-sm transition-all flex items-center gap-2 shadow-lg shadow-[#279da6]/20"
+                                    >
+                                        {isSubmitting ? <Loader2 size={16} className="animate-spin" /> : 'Create Member'}
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
                     </div>
-                </div>
-            )}
+                )
+            }
 
             {/* Edit Modal */}
-            {isEditModalOpen && selectedMember && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
-                    <div className="bg-[#18181B] border border-shark rounded-3xl p-8 max-w-2xl w-full shadow-2xl animate-slide-up max-h-[90vh] overflow-y-auto custom-scrollbar">
-                        <div className="flex justify-between items-start mb-6">
-                            <h2 className="text-2xl font-black text-white uppercase tracking-tight">Edit Team Member</h2>
-                            <button onClick={() => { setIsEditModalOpen(false); resetForm(); }} className="text-storm-gray hover:text-white transition-colors">
-                                <X size={20} />
-                            </button>
-                        </div>
-
-                        <form onSubmit={handleEditSubmit} className="space-y-5">
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label className="block text-[10px] font-black uppercase tracking-widest text-storm-gray mb-2">Full Name *</label>
-                                    <input
-                                        type="text"
-                                        value={formData.name}
-                                        onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                                        required
-                                        className="w-full bg-[#09090B] border border-shark rounded-lg px-4 py-2.5 text-sm text-iron focus:outline-none focus:border-[#279da6]/40 transition-all"
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-[10px] font-black uppercase tracking-widest text-storm-gray mb-2">Email Address *</label>
-                                    <input
-                                        type="email"
-                                        value={formData.email}
-                                        onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                                        required
-                                        className="w-full bg-[#09090B] border border-shark rounded-lg px-4 py-2.5 text-sm text-iron focus:outline-none focus:border-[#279da6]/40 transition-all"
-                                    />
-                                </div>
+            {
+                isEditModalOpen && selectedMember && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
+                        <div className="bg-[#18181B] border border-shark rounded-3xl p-8 max-w-2xl w-full shadow-2xl animate-slide-up max-h-[90vh] overflow-y-auto custom-scrollbar">
+                            <div className="flex justify-between items-start mb-6">
+                                <h2 className="text-2xl font-black text-white uppercase tracking-tight">Edit Team Member</h2>
+                                <button onClick={() => { setIsEditModalOpen(false); resetForm(); }} className="text-storm-gray hover:text-white transition-colors">
+                                    <X size={20} />
+                                </button>
                             </div>
 
-                            <div>
-                                <label className="block text-[10px] font-black uppercase tracking-widest text-storm-gray mb-2">Role *</label>
-                                <select
-                                    value={formData.role}
-                                    onChange={(e) => setFormData({ ...formData, role: e.target.value })}
-                                    className="w-full bg-[#09090B] border border-shark rounded-lg px-4 py-2.5 text-sm text-iron focus:outline-none focus:border-[#279da6]/40 transition-all"
-                                >
-                                    <option value="viewer">Viewer — Can view assigned requests</option>
-                                    <option value="editor">Editor — Can view & chat on requests</option>
-                                    <option value="admin">Admin — Full access to assigned requests</option>
-                                </select>
-                            </div>
-
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label className="block text-[10px] font-black uppercase tracking-widest text-storm-gray mb-2">New Password (Leave blank to keep current)</label>
-                                    <div className="relative">
+                            <form onSubmit={handleEditSubmit} className="space-y-5">
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="block text-[10px] font-black uppercase tracking-widest text-storm-gray mb-2">Full Name *</label>
                                         <input
-                                            type={showPassword ? "text" : "password"}
-                                            value={formData.password}
-                                            onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                                            className="w-full bg-[#09090B] border border-shark rounded-lg px-4 py-2.5 text-sm text-iron focus:outline-none focus:border-[#279da6]/40 transition-all pr-10"
-                                            placeholder="••••••••"
+                                            type="text"
+                                            value={formData.name}
+                                            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                                            required
+                                            className="w-full bg-[#09090B] border border-shark rounded-lg px-4 py-2.5 text-sm text-iron focus:outline-none focus:border-[#279da6]/40 transition-all"
                                         />
-                                        <button
-                                            type="button"
-                                            onClick={() => setShowPassword(!showPassword)}
-                                            className="absolute right-3 top-1/2 -translate-y-1/2 text-storm-gray hover:text-white transition-colors"
-                                        >
-                                            {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-                                        </button>
+                                    </div>
+                                    <div>
+                                        <label className="block text-[10px] font-black uppercase tracking-widest text-storm-gray mb-2">Email Address *</label>
+                                        <input
+                                            type="email"
+                                            value={formData.email}
+                                            onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                                            required
+                                            className="w-full bg-[#09090B] border border-shark rounded-lg px-4 py-2.5 text-sm text-iron focus:outline-none focus:border-[#279da6]/40 transition-all"
+                                        />
                                     </div>
                                 </div>
-                                <div>
-                                    <label className="block text-[10px] font-black uppercase tracking-widest text-storm-gray mb-2">Confirm Password</label>
-                                    <input
-                                        type={showPassword ? "text" : "password"}
-                                        value={formData.confirmPassword}
-                                        onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
-                                        className="w-full bg-[#09090B] border border-shark rounded-lg px-4 py-2.5 text-sm text-iron focus:outline-none focus:border-[#279da6]/40 transition-all"
-                                        placeholder="••••••••"
-                                    />
-                                </div>
-                            </div>
 
-                            <div className="flex justify-end gap-3 pt-4">
+                                <div>
+                                    <label className="block text-[10px] font-black uppercase tracking-widest text-storm-gray mb-2">Role *</label>
+                                    <select
+                                        value={formData.role}
+                                        onChange={(e) => setFormData({ ...formData, role: e.target.value })}
+                                        className="w-full bg-[#09090B] border border-shark rounded-lg px-4 py-2.5 text-sm text-iron focus:outline-none focus:border-[#279da6]/40 transition-all"
+                                    >
+                                        <option value="viewer">Viewer — Can view assigned requests</option>
+                                        <option value="editor">Editor — Can view & chat on requests</option>
+                                        <option value="admin">Admin — Full access to assigned requests</option>
+                                    </select>
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="block text-[10px] font-black uppercase tracking-widest text-storm-gray mb-2">New Password (Leave blank to keep current)</label>
+                                        <div className="relative">
+                                            <input
+                                                type={showPassword ? "text" : "password"}
+                                                value={formData.password}
+                                                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                                                className="w-full bg-[#09090B] border border-shark rounded-lg px-4 py-2.5 text-sm text-iron focus:outline-none focus:border-[#279da6]/40 transition-all pr-10"
+                                                placeholder="••••••••"
+                                            />
+                                            <button
+                                                type="button"
+                                                onClick={() => setShowPassword(!showPassword)}
+                                                className="absolute right-3 top-1/2 -translate-y-1/2 text-storm-gray hover:text-white transition-colors"
+                                            >
+                                                {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label className="block text-[10px] font-black uppercase tracking-widest text-storm-gray mb-2">Confirm Password</label>
+                                        <input
+                                            type={showPassword ? "text" : "password"}
+                                            value={formData.confirmPassword}
+                                            onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
+                                            className="w-full bg-[#09090B] border border-shark rounded-lg px-4 py-2.5 text-sm text-iron focus:outline-none focus:border-[#279da6]/40 transition-all"
+                                            placeholder="••••••••"
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="flex justify-end gap-3 pt-4">
+                                    <button
+                                        type="button"
+                                        onClick={() => { setIsEditModalOpen(false); resetForm(); }}
+                                        className="px-5 py-2.5 bg-shark/50 hover:bg-shark text-iron rounded-lg font-bold text-sm transition-all"
+                                    >
+                                        Cancel
+                                    </button>
+                                    <button
+                                        type="submit"
+                                        disabled={isSubmitting}
+                                        className="px-5 py-2.5 bg-[#279da6] hover:bg-[#279da6]/90 text-white rounded-lg font-bold text-sm transition-all flex items-center gap-2 shadow-lg shadow-[#279da6]/20"
+                                    >
+                                        {isSubmitting ? <Loader2 size={16} className="animate-spin" /> : 'Update Member'}
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                )
+            }
+
+            {/* Delete Modal */}
+            {
+                isDeleteModalOpen && selectedMember && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
+                        <div className="bg-[#18181B] border border-shark rounded-3xl p-8 max-w-md w-full shadow-2xl animate-slide-up">
+                            <div className="flex justify-between items-start mb-6">
+                                <div className="w-12 h-12 rounded-2xl bg-rose-500/10 flex items-center justify-center text-rose-500">
+                                    <AlertTriangle size={24} />
+                                </div>
+                                <button onClick={() => { setIsDeleteModalOpen(false); resetForm(); }} className="text-storm-gray hover:text-white transition-colors">
+                                    <X size={20} />
+                                </button>
+                            </div>
+                            <h2 className="text-xl font-bold text-iron mb-2">Delete Team Member?</h2>
+                            <p className="text-storm-gray text-sm mb-8">
+                                Are you sure you want to delete <strong className="text-white">{selectedMember.name}</strong>?
+                                This will also delete their account and cannot be undone.
+                            </p>
+                            <div className="flex flex-col gap-3">
                                 <button
-                                    type="button"
-                                    onClick={() => { setIsEditModalOpen(false); resetForm(); }}
-                                    className="px-5 py-2.5 bg-shark/50 hover:bg-shark text-iron rounded-lg font-bold text-sm transition-all"
+                                    onClick={handleDeleteConfirm}
+                                    disabled={isSubmitting}
+                                    className="w-full bg-rose-600 hover:bg-rose-700 text-white py-3 rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-2"
+                                >
+                                    {isSubmitting ? <Loader2 size={16} className="animate-spin" /> : 'Yes, Delete Member'}
+                                </button>
+                                <button
+                                    onClick={() => { setIsDeleteModalOpen(false); resetForm(); }}
+                                    disabled={isSubmitting}
+                                    className="w-full bg-shark/50 hover:bg-shark text-iron py-3 rounded-xl font-bold text-sm transition-all"
                                 >
                                     Cancel
                                 </button>
-                                <button
-                                    type="submit"
-                                    disabled={isSubmitting}
-                                    className="px-5 py-2.5 bg-[#279da6] hover:bg-[#279da6]/90 text-white rounded-lg font-bold text-sm transition-all flex items-center gap-2 shadow-lg shadow-[#279da6]/20"
-                                >
-                                    {isSubmitting ? <Loader2 size={16} className="animate-spin" /> : 'Update Member'}
-                                </button>
                             </div>
-                        </form>
-                    </div>
-                </div>
-            )}
-
-            {/* Delete Modal */}
-            {isDeleteModalOpen && selectedMember && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
-                    <div className="bg-[#18181B] border border-shark rounded-3xl p-8 max-w-md w-full shadow-2xl animate-slide-up">
-                        <div className="flex justify-between items-start mb-6">
-                            <div className="w-12 h-12 rounded-2xl bg-rose-500/10 flex items-center justify-center text-rose-500">
-                                <AlertTriangle size={24} />
-                            </div>
-                            <button onClick={() => { setIsDeleteModalOpen(false); resetForm(); }} className="text-storm-gray hover:text-white transition-colors">
-                                <X size={20} />
-                            </button>
-                        </div>
-                        <h2 className="text-xl font-bold text-iron mb-2">Delete Team Member?</h2>
-                        <p className="text-storm-gray text-sm mb-8">
-                            Are you sure you want to delete <strong className="text-white">{selectedMember.name}</strong>?
-                            This will also delete their account and cannot be undone.
-                        </p>
-                        <div className="flex flex-col gap-3">
-                            <button
-                                onClick={handleDeleteConfirm}
-                                disabled={isSubmitting}
-                                className="w-full bg-rose-600 hover:bg-rose-700 text-white py-3 rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-2"
-                            >
-                                {isSubmitting ? <Loader2 size={16} className="animate-spin" /> : 'Yes, Delete Member'}
-                            </button>
-                            <button
-                                onClick={() => { setIsDeleteModalOpen(false); resetForm(); }}
-                                disabled={isSubmitting}
-                                className="w-full bg-shark/50 hover:bg-shark text-iron py-3 rounded-xl font-bold text-sm transition-all"
-                            >
-                                Cancel
-                            </button>
                         </div>
                     </div>
-                </div>
-            )}
-        </div>
+                )
+            }
+        </div >
     );
 }

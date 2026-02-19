@@ -12,6 +12,9 @@ import {
     Filter,
     SlidersHorizontal,
     LayoutList,
+    Check,
+    SortAsc,
+    SortDesc
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
@@ -53,6 +56,11 @@ export default function RequestsClient({
         request_number: '',
         due_date: ''
     });
+    const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' | null }>({
+        key: 'created_at',
+        direction: 'desc'
+    });
+    const [activeFilterHeader, setActiveFilterHeader] = useState<string | null>(null);
     const dateInputRefs = React.useRef<{ [key: string]: HTMLInputElement | null }>({});
 
     const subTabs = ['All', 'Assigned', 'Open', 'Unassigned', 'Completed'];
@@ -160,6 +168,48 @@ export default function RequestsClient({
         return (matchesSearch || false) && matchesTab && (matchesClient || false) && (matchesOrg || false) && matchesAssignee && matchesStatus && matchesPriority && matchesNumber && matchesDate;
     });
 
+    const handleSort = (key: string) => {
+        setSortConfig(prev => ({
+            key,
+            direction: prev.key === key ? (prev.direction === 'asc' ? 'desc' : 'asc') : 'asc'
+        }));
+    };
+
+    const sortedRequests = [...filteredRequests].sort((a, b) => {
+        if (!sortConfig.key || !sortConfig.direction) return 0;
+
+        let aValue: any = (a as any)[sortConfig.key];
+        let bValue: any = (b as any)[sortConfig.key];
+
+        // Case-insensitive sorting for strings
+        if (typeof aValue === 'string') aValue = aValue.toLowerCase();
+        if (typeof bValue === 'string') bValue = bValue.toLowerCase();
+
+        // Custom handling for nested fields
+        if (sortConfig.key === 'client') {
+            aValue = a.client?.full_name?.toLowerCase() || '';
+        } else if (sortConfig.key === 'assignee') {
+            aValue = a.assignee?.full_name?.toLowerCase() || '';
+        } else if (sortConfig.key === 'organization') {
+            aValue = (a.client as any)?.organization?.toLowerCase() || '';
+        }
+
+        if (aValue < bValue) return sortConfig.direction === 'asc' ? -1 : 1;
+        if (aValue > bValue) return sortConfig.direction === 'asc' ? 1 : -1;
+        return 0;
+    });
+
+    // Handle clicks outside to close filter dropdowns
+    React.useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (activeFilterHeader && !(event.target as Element).closest('.header-filter-container')) {
+                setActiveFilterHeader(null);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, [activeFilterHeader]);
+
     return (
         <div className={`flex h-screen bg-[#09090B] text-iron font-sans overflow-hidden transition-all duration-500 ${isImpersonating ? 'p-1.5' : ''}`} style={isImpersonating ? { backgroundColor: '#0f2b1a' } : undefined}>
             <Sidebar isCollapsed={isSidebarCollapsed} />
@@ -197,11 +247,15 @@ export default function RequestsClient({
                                     </div>
                                     <div className="flex items-center gap-1">
                                         <div className="relative">
+                                            {/* Glow Indicator */}
+                                            {(Object.values(filters).some(v => v !== '') || searchQuery !== '' || sortConfig.key !== '') && (
+                                                <div className="absolute inset-0 bg-[#279da6]/30 blur-2xl rounded-full animate-pulse z-0 pointer-events-none" />
+                                            )}
                                             <button
                                                 onClick={() => setIsFilterOpen(!isFilterOpen)}
-                                                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border transition-all text-xs font-bold ${isFilterOpen ? 'bg-[#279da6]/10 border-[#279da6]/40 text-[#279da6]' : 'border-shark bg-[#121214] text-santas-gray hover:text-white'}`}
+                                                className={`relative flex items-center gap-2 px-3 py-1.5 rounded-lg border transition-all text-xs font-bold z-10 ${isFilterOpen || Object.values(filters).some(v => v !== '') || searchQuery !== '' || sortConfig.key !== '' ? 'bg-[#279da6]/20 border-[#279da6]/60 text-[#279da6] shadow-[0_0_20px_rgba(39,157,166,0.5)] active:scale-95' : 'border-shark bg-[#121214] text-santas-gray hover:text-white hover:bg-shark/40'}`}
                                             >
-                                                <Filter size={14} />
+                                                <Filter size={14} className={Object.values(filters).some(v => v !== '') || searchQuery !== '' || sortConfig.key !== '' ? 'fill-[#279da6]/20' : ''} />
                                                 <span>Filters</span>
                                                 <ChevronDown size={14} className={isFilterOpen ? 'rotate-180 transition-transform' : 'transition-transform'} />
                                             </button>
@@ -332,25 +386,352 @@ export default function RequestsClient({
                                             <thead>
                                                 <tr className="border-b border-shark text-storm-gray text-xs uppercase font-black tracking-widest bg-shark/20">
                                                     <th className="px-5 py-5 w-12 border-r border-shark/60"><input type="checkbox" /></th>
-                                                    <th className="px-6 py-5 border-r border-shark/60 w-[30%] min-w-[250px]">Title</th>
-                                                    <th className="px-6 py-5 border-r border-shark/60 w-[20%]">Client</th>
-                                                    <th className="px-4 py-5 border-r border-shark/60 w-32 text-center">Status</th>
-                                                    <th className="px-4 py-5 border-r border-shark/60 w-36">Assigned</th>
-                                                    <th className="px-4 py-5 border-r border-shark/60 w-28">Priority</th>
-                                                    <th className="px-4 py-5 border-r border-shark/60 w-32">Due Date</th>
-                                                    <th className="px-6 py-5 border-r border-shark/60 w-32">Last Updated</th>
-                                                    <th className="px-6 py-5 w-32">Created</th>
+                                                    <th className="px-6 py-5 border-r border-shark/60 w-[30%] min-w-[250px] group/header relative">
+                                                        <div className="flex items-center justify-between">
+                                                            <span className="cursor-default">Title</span>
+                                                            <button
+                                                                onClick={() => setActiveFilterHeader(activeFilterHeader === 'title' ? null : 'title')}
+                                                                className={`p-1 rounded hover:bg-shark/40 transition-colors ${searchQuery || sortConfig.key === 'title' ? 'text-[#279da6]' : 'text-storm-gray'}`}
+                                                            >
+                                                                <Filter size={10} />
+                                                            </button>
+                                                        </div>
+                                                        {activeFilterHeader === 'title' && (
+                                                            <div className="absolute top-full left-0 mt-1 w-44 bg-[#121214] border border-shark rounded-lg shadow-2xl p-2 z-[60] normal-case tracking-normal">
+                                                                <div className="mb-2 border-b border-shark/40 pb-2">
+                                                                    <div className="text-[10px] font-bold text-storm-gray uppercase mb-1 px-1">Sort</div>
+                                                                    <button
+                                                                        onClick={() => { setSortConfig({ key: 'title', direction: 'asc' }); setActiveFilterHeader(null); }}
+                                                                        className={`flex items-center gap-2 w-full px-2 py-1.5 rounded-md text-[11px] hover:bg-shark/40 transition-colors ${sortConfig.key === 'title' && sortConfig.direction === 'asc' ? 'text-[#279da6] bg-shark/20' : 'text-iron'}`}
+                                                                    >
+                                                                        <SortAsc size={12} />
+                                                                        <span>Sort A-Z</span>
+                                                                    </button>
+                                                                    <button
+                                                                        onClick={() => { setSortConfig({ key: 'title', direction: 'desc' }); setActiveFilterHeader(null); }}
+                                                                        className={`flex items-center gap-2 w-full px-2 py-1.5 rounded-md text-[11px] hover:bg-shark/40 transition-colors ${sortConfig.key === 'title' && sortConfig.direction === 'desc' ? 'text-[#279da6] bg-shark/20' : 'text-iron'}`}
+                                                                    >
+                                                                        <SortDesc size={12} />
+                                                                        <span>Sort Z-A</span>
+                                                                    </button>
+                                                                </div>
+                                                                <div>
+                                                                    <div className="text-[10px] font-bold text-storm-gray uppercase mb-1 px-1">Filter</div>
+                                                                    <input
+                                                                        type="text"
+                                                                        placeholder="Filter by title..."
+                                                                        value={searchQuery}
+                                                                        onChange={(e) => setSearchQuery(e.target.value)}
+                                                                        className="w-full bg-[#09090B] border border-shark/50 rounded-md py-1 px-2 text-[10px] text-iron focus:outline-none"
+                                                                        autoFocus
+                                                                    />
+                                                                </div>
+                                                            </div>
+                                                        )}
+                                                    </th>
+                                                    <th className="px-6 py-5 border-r border-shark/60 w-[20%] group/header relative header-filter-container">
+                                                        <div className="flex items-center justify-between">
+                                                            <span className="cursor-default">Client</span>
+                                                            <button
+                                                                onClick={() => setActiveFilterHeader(activeFilterHeader === 'client' ? null : 'client')}
+                                                                className={`p-1 rounded hover:bg-shark/40 transition-colors ${filters.client || filters.organization ? 'text-[#279da6]' : 'text-storm-gray'}`}
+                                                            >
+                                                                <Filter size={10} />
+                                                            </button>
+                                                        </div>
+                                                        {activeFilterHeader === 'client' && (
+                                                            <div className="absolute top-full left-0 mt-1 w-64 bg-[#121214] border border-shark rounded-xl shadow-2xl p-4 z-[60] normal-case tracking-normal animate-in fade-in slide-in-from-top-1 duration-200">
+                                                                <div className="mb-3 border-b border-shark/40 pb-2">
+                                                                    <div className="text-[10px] font-bold text-storm-gray uppercase mb-1 px-1">Sort</div>
+                                                                    <button
+                                                                        onClick={() => { setSortConfig({ key: 'client', direction: 'asc' }); setActiveFilterHeader(null); }}
+                                                                        className={`flex items-center gap-2 w-full px-2 py-1.5 rounded-md text-[11px] hover:bg-shark/40 transition-colors ${sortConfig.key === 'client' && sortConfig.direction === 'asc' ? 'text-[#279da6] bg-shark/20' : 'text-iron'}`}
+                                                                    >
+                                                                        <SortAsc size={12} />
+                                                                        <span>Sort A-Z</span>
+                                                                    </button>
+                                                                    <button
+                                                                        onClick={() => { setSortConfig({ key: 'client', direction: 'desc' }); setActiveFilterHeader(null); }}
+                                                                        className={`flex items-center gap-2 w-full px-2 py-1.5 rounded-md text-[11px] hover:bg-shark/40 transition-colors ${sortConfig.key === 'client' && sortConfig.direction === 'desc' ? 'text-[#279da6] bg-shark/20' : 'text-iron'}`}
+                                                                    >
+                                                                        <SortDesc size={12} />
+                                                                        <span>Sort Z-A</span>
+                                                                    </button>
+                                                                </div>
+                                                                <div className="space-y-3">
+                                                                    <div className="text-[10px] font-bold text-storm-gray uppercase mb-1 px-1">Filter</div>
+                                                                    <div className="space-y-1.5">
+                                                                        <label className="text-[10px] font-black uppercase text-storm-gray">Full Name</label>
+                                                                        <input
+                                                                            type="text"
+                                                                            placeholder="Filter by name..."
+                                                                            value={filters.client}
+                                                                            onChange={(e) => setFilters(f => ({ ...f, client: e.target.value }))}
+                                                                            className="w-full bg-[#09090B] border border-shark/50 rounded-lg py-1.5 px-3 text-[11px] text-iron focus:outline-none focus:border-[#279da6]/40"
+                                                                            autoFocus
+                                                                        />
+                                                                    </div>
+                                                                    <div className="space-y-1.5">
+                                                                        <label className="text-[10px] font-black uppercase text-storm-gray">Organization</label>
+                                                                        <input
+                                                                            type="text"
+                                                                            placeholder="Filter by org..."
+                                                                            value={filters.organization}
+                                                                            onChange={(e) => setFilters(f => ({ ...f, organization: e.target.value }))}
+                                                                            className="w-full bg-[#09090B] border border-shark/50 rounded-lg py-1.5 px-3 text-[11px] text-iron focus:outline-none focus:border-[#279da6]/40"
+                                                                        />
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        )}
+                                                    </th>
+                                                    <th className="px-4 py-5 border-r border-shark/60 w-32 text-center group/header relative header-filter-container">
+                                                        <div className="flex items-center justify-center gap-2">
+                                                            <span className="cursor-default">Status</span>
+                                                            <button
+                                                                onClick={() => setActiveFilterHeader(activeFilterHeader === 'status' ? null : 'status')}
+                                                                className={`p-1 rounded hover:bg-shark/40 transition-colors ${filters.status || sortConfig.key === 'status' ? 'text-[#279da6]' : 'text-storm-gray'}`}
+                                                            >
+                                                                <Filter size={10} />
+                                                            </button>
+                                                        </div>
+                                                        {activeFilterHeader === 'status' && (
+                                                            <div className="absolute top-full left-1/2 -translate-x-1/2 mt-1 w-36 bg-[#121214] border border-shark rounded-lg shadow-2xl p-2 z-[60] normal-case tracking-normal">
+                                                                <div className="mb-2 border-b border-shark/40 pb-2">
+                                                                    <div className="text-[10px] font-bold text-storm-gray uppercase mb-1 px-1">Sort</div>
+                                                                    <button
+                                                                        onClick={() => { setSortConfig({ key: 'status', direction: 'asc' }); setActiveFilterHeader(null); }}
+                                                                        className={`flex items-center gap-2 w-full px-2 py-1.5 rounded-md text-[11px] hover:bg-shark/40 transition-colors ${sortConfig.key === 'status' && sortConfig.direction === 'asc' ? 'text-[#279da6] bg-shark/20' : 'text-iron'}`}
+                                                                    >
+                                                                        <SortAsc size={12} />
+                                                                        <span>Sort A-Z</span>
+                                                                    </button>
+                                                                    <button
+                                                                        onClick={() => { setSortConfig({ key: 'status', direction: 'desc' }); setActiveFilterHeader(null); }}
+                                                                        className={`flex items-center gap-2 w-full px-2 py-1.5 rounded-md text-[11px] hover:bg-shark/40 transition-colors ${sortConfig.key === 'status' && sortConfig.direction === 'desc' ? 'text-[#279da6] bg-shark/20' : 'text-iron'}`}
+                                                                    >
+                                                                        <SortDesc size={12} />
+                                                                        <span>Sort Z-A</span>
+                                                                    </button>
+                                                                </div>
+                                                                <div>
+                                                                    <div className="text-[10px] font-bold text-storm-gray uppercase mb-1 px-1">Filter</div>
+                                                                    <select
+                                                                        value={filters.status}
+                                                                        onChange={(e) => { setFilters(f => ({ ...f, status: e.target.value })); setActiveFilterHeader(null); }}
+                                                                        className="w-full bg-[#09090B] border border-shark/50 rounded-md py-1 px-2 text-[10px] text-iron focus:outline-none"
+                                                                    >
+                                                                        <option value="">All Status</option>
+                                                                        <option value="Todo">Todo</option>
+                                                                        <option value="In Progress">In Progress</option>
+                                                                        <option value="Review">Review</option>
+                                                                        <option value="Done">Done</option>
+                                                                    </select>
+                                                                </div>
+                                                            </div>
+                                                        )}
+                                                    </th>
+                                                    <th className="px-4 py-5 border-r border-shark/60 w-36 group/header relative header-filter-container">
+                                                        <div className="flex items-center justify-between">
+                                                            <span className="cursor-default">Assigned</span>
+                                                            <button
+                                                                onClick={() => setActiveFilterHeader(activeFilterHeader === 'assigned_to' ? null : 'assigned_to')}
+                                                                className={`p-1 rounded hover:bg-shark/40 transition-colors ${filters.assigned_to || sortConfig.key === 'assignee' ? 'text-[#279da6]' : 'text-storm-gray'}`}
+                                                            >
+                                                                <Filter size={10} />
+                                                            </button>
+                                                        </div>
+                                                        {activeFilterHeader === 'assigned_to' && (
+                                                            <div className="absolute top-full left-0 mt-1 w-44 bg-[#121214] border border-shark rounded-lg shadow-2xl p-2 z-[60] normal-case tracking-normal">
+                                                                <div className="mb-2 border-b border-shark/40 pb-2">
+                                                                    <div className="text-[10px] font-bold text-storm-gray uppercase mb-1 px-1">Sort</div>
+                                                                    <button
+                                                                        onClick={() => { setSortConfig({ key: 'assignee', direction: 'asc' }); setActiveFilterHeader(null); }}
+                                                                        className={`flex items-center gap-2 w-full px-2 py-1.5 rounded-md text-[11px] hover:bg-shark/40 transition-colors ${sortConfig.key === 'assignee' && sortConfig.direction === 'asc' ? 'text-[#279da6] bg-shark/20' : 'text-iron'}`}
+                                                                    >
+                                                                        <SortAsc size={12} />
+                                                                        <span>Sort A-Z</span>
+                                                                    </button>
+                                                                    <button
+                                                                        onClick={() => { setSortConfig({ key: 'assignee', direction: 'desc' }); setActiveFilterHeader(null); }}
+                                                                        className={`flex items-center gap-2 w-full px-2 py-1.5 rounded-md text-[11px] hover:bg-shark/40 transition-colors ${sortConfig.key === 'assignee' && sortConfig.direction === 'desc' ? 'text-[#279da6] bg-shark/20' : 'text-iron'}`}
+                                                                    >
+                                                                        <SortDesc size={12} />
+                                                                        <span>Sort Z-A</span>
+                                                                    </button>
+                                                                </div>
+                                                                <div>
+                                                                    <div className="text-[10px] font-bold text-storm-gray uppercase mb-1 px-1">Filter</div>
+                                                                    <select
+                                                                        value={filters.assigned_to}
+                                                                        onChange={(e) => { setFilters(f => ({ ...f, assigned_to: e.target.value })); setActiveFilterHeader(null); }}
+                                                                        className="w-full bg-[#09090B] border border-shark/50 rounded-md py-1 px-2 text-[10px] text-iron focus:outline-none"
+                                                                    >
+                                                                        <option value="">All Team</option>
+                                                                        {initialTeamMembers.map((m: TeamMember) => <option key={m.id} value={m.id}>{m.name}</option>)}
+                                                                    </select>
+                                                                </div>
+                                                            </div>
+                                                        )}
+                                                    </th>
+                                                    <th className="px-4 py-5 border-r border-shark/60 w-28 group/header relative header-filter-container">
+                                                        <div className="flex items-center justify-between">
+                                                            <span className="cursor-default">Priority</span>
+                                                            <button
+                                                                onClick={() => setActiveFilterHeader(activeFilterHeader === 'priority' ? null : 'priority')}
+                                                                className={`p-1 rounded hover:bg-shark/40 transition-colors ${filters.priority || sortConfig.key === 'priority' ? 'text-[#279da6]' : 'text-storm-gray'}`}
+                                                            >
+                                                                <Filter size={10} />
+                                                            </button>
+                                                        </div>
+                                                        {activeFilterHeader === 'priority' && (
+                                                            <div className="absolute top-full left-0 mt-1 w-36 bg-[#121214] border border-shark rounded-lg shadow-2xl p-2 z-[60] normal-case tracking-normal">
+                                                                <div className="mb-2 border-b border-shark/40 pb-2">
+                                                                    <div className="text-[10px] font-bold text-storm-gray uppercase mb-1 px-1">Sort</div>
+                                                                    <button
+                                                                        onClick={() => { setSortConfig({ key: 'priority', direction: 'asc' }); setActiveFilterHeader(null); }}
+                                                                        className={`flex items-center gap-2 w-full px-2 py-1.5 rounded-md text-[11px] hover:bg-shark/40 transition-colors ${sortConfig.key === 'priority' && sortConfig.direction === 'asc' ? 'text-[#279da6] bg-shark/20' : 'text-iron'}`}
+                                                                    >
+                                                                        <SortAsc size={12} />
+                                                                        <span>Sort A-Z</span>
+                                                                    </button>
+                                                                    <button
+                                                                        onClick={() => { setSortConfig({ key: 'priority', direction: 'desc' }); setActiveFilterHeader(null); }}
+                                                                        className={`flex items-center gap-2 w-full px-2 py-1.5 rounded-md text-[11px] hover:bg-shark/40 transition-colors ${sortConfig.key === 'priority' && sortConfig.direction === 'desc' ? 'text-[#279da6] bg-shark/20' : 'text-iron'}`}
+                                                                    >
+                                                                        <SortDesc size={12} />
+                                                                        <span>Sort Z-A</span>
+                                                                    </button>
+                                                                </div>
+                                                                <div>
+                                                                    <div className="text-[10px] font-bold text-storm-gray uppercase mb-1 px-1">Filter</div>
+                                                                    <select
+                                                                        value={filters.priority}
+                                                                        onChange={(e) => { setFilters(f => ({ ...f, priority: e.target.value })); setActiveFilterHeader(null); }}
+                                                                        className="w-full bg-[#09090B] border border-shark/50 rounded-md py-1 px-2 text-[10px] text-iron focus:outline-none"
+                                                                    >
+                                                                        <option value="">All Priority</option>
+                                                                        <option value="Low">Low</option>
+                                                                        <option value="Medium">Medium</option>
+                                                                        <option value="High">High</option>
+                                                                        <option value="Critical">Critical</option>
+                                                                    </select>
+                                                                </div>
+                                                            </div>
+                                                        )}
+                                                    </th>
+                                                    <th className="px-4 py-5 border-r border-shark/60 w-32 group/header relative header-filter-container">
+                                                        <div className="flex items-center justify-between">
+                                                            <span className="cursor-default">Due Date</span>
+                                                            <button
+                                                                onClick={() => setActiveFilterHeader(activeFilterHeader === 'due_date' ? null : 'due_date')}
+                                                                className={`p-1 rounded hover:bg-shark/40 transition-colors ${filters.due_date || sortConfig.key === 'due_date' ? 'text-[#279da6]' : 'text-storm-gray'}`}
+                                                            >
+                                                                <Filter size={10} />
+                                                            </button>
+                                                        </div>
+                                                        {activeFilterHeader === 'due_date' && (
+                                                            <div className="absolute top-full left-0 mt-1 w-44 bg-[#121214] border border-shark rounded-lg shadow-2xl p-2 z-[60] normal-case tracking-normal">
+                                                                <div className="mb-2 border-b border-shark/40 pb-2">
+                                                                    <div className="text-[10px] font-bold text-storm-gray uppercase mb-1 px-1">Sort</div>
+                                                                    <button
+                                                                        onClick={() => { setSortConfig({ key: 'due_date', direction: 'asc' }); setActiveFilterHeader(null); }}
+                                                                        className={`flex items-center gap-2 w-full px-2 py-1.5 rounded-md text-[11px] hover:bg-shark/40 transition-colors ${sortConfig.key === 'due_date' && sortConfig.direction === 'asc' ? 'text-[#279da6] bg-shark/20' : 'text-iron'}`}
+                                                                    >
+                                                                        <SortAsc size={12} />
+                                                                        <span>Sort A-Z</span>
+                                                                    </button>
+                                                                    <button
+                                                                        onClick={() => { setSortConfig({ key: 'due_date', direction: 'desc' }); setActiveFilterHeader(null); }}
+                                                                        className={`flex items-center gap-2 w-full px-2 py-1.5 rounded-md text-[11px] hover:bg-shark/40 transition-colors ${sortConfig.key === 'due_date' && sortConfig.direction === 'desc' ? 'text-[#279da6] bg-shark/20' : 'text-iron'}`}
+                                                                    >
+                                                                        <SortDesc size={12} />
+                                                                        <span>Sort Z-A</span>
+                                                                    </button>
+                                                                </div>
+                                                                <div>
+                                                                    <div className="text-[10px] font-bold text-storm-gray uppercase mb-1 px-1">Filter</div>
+                                                                    <input
+                                                                        type="date"
+                                                                        value={filters.due_date}
+                                                                        onChange={(e) => setFilters(f => ({ ...f, due_date: e.target.value }))}
+                                                                        className="w-full bg-[#09090B] border border-shark/50 rounded-md py-1.5 px-2 text-[10px] text-iron focus:outline-none [color-scheme:dark]"
+                                                                    />
+                                                                </div>
+                                                            </div>
+                                                        )}
+                                                    </th>
+                                                    <th className="px-4 py-5 border-r border-shark/60 w-32 group/header relative header-filter-container">
+                                                        <div className="flex items-center justify-between">
+                                                            <span className="cursor-default">Last Updated</span>
+                                                            <button
+                                                                onClick={() => setActiveFilterHeader(activeFilterHeader === 'updated_at' ? null : 'updated_at')}
+                                                                className={`p-1 rounded hover:bg-shark/40 transition-colors ${sortConfig.key === 'updated_at' ? 'text-[#279da6]' : 'text-storm-gray'}`}
+                                                            >
+                                                                <Filter size={10} />
+                                                            </button>
+                                                        </div>
+                                                        {activeFilterHeader === 'updated_at' && (
+                                                            <div className="absolute top-full left-0 mt-1 w-36 bg-[#121214] border border-shark rounded-lg shadow-2xl p-2 z-[60] normal-case tracking-normal">
+                                                                <div className="text-[10px] font-bold text-storm-gray uppercase mb-1 px-1">Sort</div>
+                                                                <button
+                                                                    onClick={() => { setSortConfig({ key: 'updated_at', direction: 'asc' }); setActiveFilterHeader(null); }}
+                                                                    className={`flex items-center gap-2 w-full px-2 py-1.5 rounded-md text-[11px] hover:bg-shark/40 transition-colors ${sortConfig.key === 'updated_at' && sortConfig.direction === 'asc' ? 'text-[#279da6] bg-shark/20' : 'text-iron'}`}
+                                                                >
+                                                                    <SortAsc size={12} />
+                                                                    <span>Sort A-Z</span>
+                                                                </button>
+                                                                <button
+                                                                    onClick={() => { setSortConfig({ key: 'updated_at', direction: 'desc' }); setActiveFilterHeader(null); }}
+                                                                    className={`flex items-center gap-2 w-full px-2 py-1.5 rounded-md text-[11px] hover:bg-shark/40 transition-colors ${sortConfig.key === 'updated_at' && sortConfig.direction === 'desc' ? 'text-[#279da6] bg-shark/20' : 'text-iron'}`}
+                                                                >
+                                                                    <SortDesc size={12} />
+                                                                    <span>Sort Z-A</span>
+                                                                </button>
+                                                            </div>
+                                                        )}
+                                                    </th>
+                                                    <th className="px-6 py-5 w-32 group/header relative header-filter-container">
+                                                        <div className="flex items-center justify-between">
+                                                            <span className="cursor-default">Created</span>
+                                                            <button
+                                                                onClick={() => setActiveFilterHeader(activeFilterHeader === 'created_at' ? null : 'created_at')}
+                                                                className={`p-1 rounded hover:bg-shark/40 transition-colors ${sortConfig.key === 'created_at' ? 'text-[#279da6]' : 'text-storm-gray'}`}
+                                                            >
+                                                                <Filter size={10} />
+                                                            </button>
+                                                        </div>
+                                                        {activeFilterHeader === 'created_at' && (
+                                                            <div className="absolute top-full right-0 mt-1 w-36 bg-[#121214] border border-shark rounded-lg shadow-2xl p-2 z-[60] normal-case tracking-normal">
+                                                                <div className="text-[10px] font-bold text-storm-gray uppercase mb-1 px-1">Sort</div>
+                                                                <button
+                                                                    onClick={() => { setSortConfig({ key: 'created_at', direction: 'asc' }); setActiveFilterHeader(null); }}
+                                                                    className={`flex items-center gap-2 w-full px-2 py-1.5 rounded-md text-[11px] hover:bg-shark/40 transition-colors ${sortConfig.key === 'created_at' && sortConfig.direction === 'asc' ? 'text-[#279da6] bg-shark/20' : 'text-iron'}`}
+                                                                >
+                                                                    <SortAsc size={12} />
+                                                                    <span>Sort A-Z</span>
+                                                                </button>
+                                                                <button
+                                                                    onClick={() => { setSortConfig({ key: 'created_at', direction: 'desc' }); setActiveFilterHeader(null); }}
+                                                                    className={`flex items-center gap-2 w-full px-2 py-1.5 rounded-md text-[11px] hover:bg-shark/40 transition-colors ${sortConfig.key === 'created_at' && sortConfig.direction === 'desc' ? 'text-[#279da6] bg-shark/20' : 'text-iron'}`}
+                                                                >
+                                                                    <SortDesc size={12} />
+                                                                    <span>Sort Z-A</span>
+                                                                </button>
+                                                            </div>
+                                                        )}
+                                                    </th>
                                                 </tr>
                                             </thead>
                                             <tbody className="divide-y divide-shark/60">
-                                                {filteredRequests.length === 0 ? (
+                                                {sortedRequests.length === 0 ? (
                                                     <tr>
                                                         <td colSpan={10} className="px-6 py-20 text-center text-storm-gray uppercase text-[10px] font-black tracking-widest opacity-40">
                                                             No matches found for your criteria.
                                                         </td>
                                                     </tr>
                                                 ) : (
-                                                    filteredRequests.map((item: RequestItem) => (
+                                                    sortedRequests.map((item: RequestItem) => (
                                                         <tr key={item.id} className="hover:bg-shark/10 transition-colors group text-sm">
                                                             <td className="px-5 py-4.5 border-r border-shark/60"><input type="checkbox" /></td>
                                                             <td

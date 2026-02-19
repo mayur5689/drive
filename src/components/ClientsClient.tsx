@@ -10,7 +10,6 @@ import {
     Filter,
     Calendar as CalendarIcon,
     MoreHorizontal,
-    ArrowUpDown,
     ChevronDown,
     ChevronRight,
     Users,
@@ -24,7 +23,9 @@ import {
     Trash2,
     AlertTriangle,
     ExternalLink,
-    Check
+    Check,
+    SortAsc,
+    SortDesc
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
@@ -59,6 +60,19 @@ export default function ClientsClient({ initialClients }: ClientsClientProps) {
     const [selectedClient, setSelectedClient] = useState<ClientItem | null>(null);
     const [showPassword, setShowPassword] = useState(false);
     const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
+    const [searchQuery, setSearchQuery] = useState('');
+    const [filters, setFilters] = useState({
+        name: '',
+        email: '',
+        organization: '',
+        createdAt: '',
+        lastLoginDate: ''
+    });
+    const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' | null }>({
+        key: 'createdAt',
+        direction: 'desc'
+    });
+    const [activeFilterHeader, setActiveFilterHeader] = useState<string | null>(null);
 
     const [clients, setClients] = useState<ClientItem[]>(initialClients);
 
@@ -215,6 +229,54 @@ export default function ClientsClient({ initialClients }: ClientsClientProps) {
         }
     };
 
+    const handleSort = (key: string) => {
+        setSortConfig(prev => ({
+            key,
+            direction: prev.key === key ? (prev.direction === 'asc' ? 'desc' : 'asc') : 'asc'
+        }));
+    };
+
+    const filteredClients = clients.filter((client: ClientItem) => {
+        const searchLower = searchQuery.toLowerCase();
+        const matchesSearch = !searchQuery ||
+            client.name.toLowerCase().includes(searchLower) ||
+            client.email.toLowerCase().includes(searchLower) ||
+            client.organization.toLowerCase().includes(searchLower);
+
+        const matchesName = !filters.name || client.name.toLowerCase().includes(filters.name.toLowerCase());
+        const matchesEmail = !filters.email || client.email.toLowerCase().includes(filters.email.toLowerCase());
+        const matchesOrg = !filters.organization || client.organization.toLowerCase().includes(filters.organization.toLowerCase());
+        const matchesDate = !filters.createdAt || client.createdAt.includes(filters.createdAt);
+        const matchesLogin = !filters.lastLoginDate || client.lastLoginDate.includes(filters.lastLoginDate);
+
+        return matchesSearch && matchesName && matchesEmail && matchesOrg && matchesDate && matchesLogin;
+    });
+
+    const sortedClients = [...filteredClients].sort((a, b) => {
+        if (!sortConfig.key || !sortConfig.direction) return 0;
+
+        let aValue: any = (a as any)[sortConfig.key];
+        let bValue: any = (b as any)[sortConfig.key];
+
+        if (typeof aValue === 'string') aValue = aValue.toLowerCase();
+        if (typeof bValue === 'string') bValue = bValue.toLowerCase();
+
+        if (aValue < bValue) return sortConfig.direction === 'asc' ? -1 : 1;
+        if (aValue > bValue) return sortConfig.direction === 'asc' ? 1 : -1;
+        return 0;
+    });
+
+    // Handle clicks outside to close filter dropdowns
+    React.useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (activeFilterHeader && !(event.target as Element).closest('.header-filter-container')) {
+                setActiveFilterHeader(null);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, [activeFilterHeader]);
+
     return (
         <div className={`flex h-screen bg-[#09090B] text-iron font-sans overflow-hidden transition-all duration-500 ${isImpersonating ? 'p-1.5' : ''}`} style={isImpersonating ? { backgroundColor: '#0f2b1a' } : undefined}>
             <Sidebar isCollapsed={isSidebarCollapsed} />
@@ -241,18 +303,35 @@ export default function ClientsClient({ initialClients }: ClientsClientProps) {
                                         <input
                                             type="text"
                                             placeholder="Search for Clients"
+                                            value={searchQuery}
+                                            onChange={(e) => setSearchQuery(e.target.value)}
                                             className="w-full bg-[#09090B] border border-shark/50 rounded-lg py-2 pl-10 pr-4 text-xs text-iron placeholder:text-storm-gray focus:outline-none focus:border-[#279da6]/40 transition-all"
                                         />
                                     </div>
                                     <div className="flex items-center gap-2">
-                                        <button className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-shark bg-shark/20 text-[11px] font-bold text-santas-gray hover:text-white transition-all">
-                                            <CalendarIcon size={14} className="text-storm-gray" />
-                                            <span>14-2-2026</span>
-                                        </button>
-                                        <button className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-shark bg-shark/20 text-[11px] font-bold text-santas-gray hover:text-white transition-all">
-                                            <Filter size={14} />
-                                            <span>Filters</span>
-                                        </button>
+                                        <div className="relative">
+                                            {/* Glow Indicator */}
+                                            {(Object.values(filters).some(v => v !== '') || searchQuery !== '' || sortConfig.key !== '') && (
+                                                <div className="absolute inset-0 bg-[#279da6]/30 blur-2xl rounded-full animate-pulse z-0 pointer-events-none" />
+                                            )}
+                                            <button
+                                                onClick={() => {
+                                                    setFilters({
+                                                        name: '',
+                                                        email: '',
+                                                        organization: '',
+                                                        createdAt: '',
+                                                        lastLoginDate: ''
+                                                    });
+                                                    setSearchQuery('');
+                                                    setSortConfig({ key: '', direction: null });
+                                                }}
+                                                className={`relative flex items-center gap-2 px-3 py-1.5 rounded-lg border transition-all text-[11px] font-bold z-10 ${Object.values(filters).some(v => v !== '') || searchQuery !== '' || sortConfig.key !== '' ? 'bg-[#279da6]/20 border-[#279da6]/60 text-[#279da6] shadow-[0_0_20px_rgba(39,157,166,0.5)] active:scale-95' : 'border-shark bg-shark/20 text-santas-gray hover:text-white hover:bg-shark/40'}`}
+                                            >
+                                                <Filter size={14} className={Object.values(filters).some(v => v !== '') || searchQuery !== '' || sortConfig.key !== '' ? 'fill-[#279da6]/20' : ''} />
+                                                <span>{Object.values(filters).some(v => v !== '') || searchQuery !== '' || sortConfig.key !== '' ? 'Reset Filters' : 'Filters'}</span>
+                                            </button>
+                                        </div>
                                         <button
                                             onClick={() => setIsModalOpen(true)}
                                             className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#279da6] text-white text-xs font-bold hover:bg-[#279da6]/90 transition-all shadow-lg hover:shadow-[#279da6]/20"
@@ -270,23 +349,78 @@ export default function ClientsClient({ initialClients }: ClientsClientProps) {
                                             <thead>
                                                 <tr className="border-b border-shark text-storm-gray text-xs uppercase font-black tracking-widest bg-shark/20">
                                                     <th className="px-5 py-5 w-12 border-r border-shark/60"><input type="checkbox" /></th>
-                                                    <th className="px-6 py-5 border-r border-shark/60">User</th>
-                                                    <th className="px-6 py-5 border-r border-shark/60">Email</th>
-                                                    <th className="px-6 py-5 border-r border-shark/60">Organization</th>
-                                                    <th className="px-6 py-5 border-r border-shark/60">Created At</th>
-                                                    <th className="px-6 py-5 border-r border-shark/60">Last Login</th>
-                                                    <th className="px-6 py-5 w-12"></th>
+                                                    {[
+                                                        { label: 'User', key: 'name', filter: 'name' },
+                                                        { label: 'Email', key: 'email', filter: 'email' },
+                                                        { label: 'Organization', key: 'organization', filter: 'organization' },
+                                                        { label: 'Created At', key: 'createdAt', filter: 'createdAt' },
+                                                        { label: 'Last Login', key: 'lastLoginDate', filter: 'lastLoginDate' }
+                                                    ].map((header, idx) => (
+                                                        <th key={header.label} className="px-6 py-5 border-r border-shark/60 group/header relative header-filter-container">
+                                                            <div className="flex items-center justify-between gap-2">
+                                                                <span className="cursor-default">{header.label}</span>
+                                                                <button
+                                                                    onClick={() => setActiveFilterHeader(activeFilterHeader === header.filter ? null : header.filter)}
+                                                                    className={`p-1 rounded hover:bg-shark/40 transition-colors ${(filters as any)[header.filter] || sortConfig.key === header.key ? 'text-[#279da6]' : 'text-storm-gray'}`}
+                                                                >
+                                                                    <Filter size={10} />
+                                                                </button>
+                                                            </div>
+                                                            {activeFilterHeader === header.filter && (
+                                                                <div className={`absolute top-full ${idx > 2 ? 'right-0' : 'left-0'} mt-1 w-48 bg-[#121214] border border-shark rounded-lg shadow-2xl p-2 z-[60] normal-case tracking-normal`}>
+                                                                    <div className="mb-2 border-b border-shark/40 pb-2">
+                                                                        <div className="text-[10px] font-bold text-storm-gray uppercase mb-1 px-1">Sort</div>
+                                                                        <button
+                                                                            onClick={() => { setSortConfig({ key: header.key, direction: 'asc' }); setActiveFilterHeader(null); }}
+                                                                            className={`flex items-center gap-2 w-full px-2 py-1.5 rounded-md text-[11px] hover:bg-shark/40 transition-colors ${sortConfig.key === header.key && sortConfig.direction === 'asc' ? 'text-[#279da6] bg-shark/20' : 'text-iron'}`}
+                                                                        >
+                                                                            <SortAsc size={12} />
+                                                                            <span>Sort A-Z</span>
+                                                                        </button>
+                                                                        <button
+                                                                            onClick={() => { setSortConfig({ key: header.key, direction: 'desc' }); setActiveFilterHeader(null); }}
+                                                                            className={`flex items-center gap-2 w-full px-2 py-1.5 rounded-md text-[11px] hover:bg-shark/40 transition-colors ${sortConfig.key === header.key && sortConfig.direction === 'desc' ? 'text-[#279da6] bg-shark/20' : 'text-iron'}`}
+                                                                        >
+                                                                            <SortDesc size={12} />
+                                                                            <span>Sort Z-A</span>
+                                                                        </button>
+                                                                    </div>
+                                                                    <div>
+                                                                        <div className="text-[10px] font-bold text-storm-gray uppercase mb-1 px-1">Filter</div>
+                                                                        {['createdAt', 'lastLoginDate'].includes(header.filter) ? (
+                                                                            <input
+                                                                                type="date"
+                                                                                value={(filters as any)[header.filter]}
+                                                                                onChange={(e) => setFilters(f => ({ ...f, [header.filter]: e.target.value }))}
+                                                                                className="w-full bg-[#09090B] border border-shark/50 rounded-md py-1.5 px-2 text-[10px] text-iron focus:outline-none [color-scheme:dark]"
+                                                                            />
+                                                                        ) : (
+                                                                            <input
+                                                                                type="text"
+                                                                                placeholder={`Filter by ${header.label.toLowerCase()}...`}
+                                                                                value={(filters as any)[header.filter]}
+                                                                                onChange={(e) => setFilters(f => ({ ...f, [header.filter]: e.target.value }))}
+                                                                                className="w-full bg-[#09090B] border border-shark/50 rounded-md py-1.5 px-2 text-[10px] text-iron focus:outline-none"
+                                                                                autoFocus
+                                                                            />
+                                                                        )}
+                                                                    </div>
+                                                                </div>
+                                                            )}
+                                                        </th>
+                                                    ))}
+                                                    <th className="px-6 py-5 w-24">Actions</th>
                                                 </tr>
                                             </thead>
                                             <tbody className="divide-y divide-shark/60">
-                                                {clients.length === 0 ? (
+                                                {sortedClients.length === 0 ? (
                                                     <tr>
                                                         <td colSpan={7} className="px-6 py-12 text-center text-storm-gray font-medium uppercase tracking-widest opacity-40">
-                                                            No clients found. Add one to get started.
+                                                            No clients found matching your criteria.
                                                         </td>
                                                     </tr>
                                                 ) : (
-                                                    clients.map((client: ClientItem) => (
+                                                    sortedClients.map((client: ClientItem) => (
                                                         <tr key={client.id} className="hover:bg-shark/10 transition-colors group text-sm">
                                                             <td className="px-5 py-4.5 border-r border-shark/60"><input type="checkbox" /></td>
                                                             <td
