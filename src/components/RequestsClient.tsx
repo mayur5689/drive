@@ -18,6 +18,7 @@ import { useAuth } from '@/context/AuthContext';
 import ChatDrawer from '@/components/ChatDrawer';
 import CreateRequestModal from '@/components/CreateRequestModal';
 import type { RequestItem, Profile, TeamMember } from '@/lib/data/requests';
+import { formatDate, formatTime } from '@/lib/dateUtils';
 
 interface RequestsClientProps {
     initialRequests: RequestItem[];
@@ -424,33 +425,32 @@ export default function RequestsClient({
                                                                 </select>
                                                             </td>
                                                             <td className="px-4 py-4.5 text-storm-gray border-r border-shark/60 whitespace-nowrap">
-                                                                <div className="flex items-center gap-2 group/date">
+                                                                <div className="flex items-center gap-2 group/date relative">
                                                                     <input
                                                                         ref={el => { dateInputRefs.current[item.id] = el; }}
                                                                         type="date"
                                                                         value={item.due_date ? new Date(item.due_date).toISOString().split('T')[0] : ''}
                                                                         onChange={(e) => handleUpdateField(item.id, 'due_date', e.target.value)}
-                                                                        className="bg-transparent text-iron border-none focus:outline-none cursor-pointer hover:text-white transition-all text-[11px] font-black uppercase w-24 [color-scheme:dark] [&::-webkit-calendar-picker-indicator]:hidden"
+                                                                        className="bg-transparent text-iron border border-transparent hover:border-shark/60 focus:border-[#279da6]/60 rounded px-1.5 py-0.5 focus:outline-none cursor-pointer hover:text-white transition-all text-[11px] font-black uppercase w-28 [color-scheme:dark]"
                                                                     />
                                                                     <CalendarIcon
                                                                         size={12}
-                                                                        className="text-storm-gray opacity-30 group-hover/date:opacity-100 transition-opacity cursor-pointer"
-                                                                        onClick={() => dateInputRefs.current[item.id]?.showPicker()}
+                                                                        className="text-storm-gray opacity-30 group-hover/date:opacity-100 transition-opacity cursor-pointer absolute right-2 pointer-events-none"
                                                                     />
                                                                 </div>
                                                             </td>
                                                             <td className="px-6 py-4.5 text-storm-gray border-r border-shark/60 whitespace-nowrap text-xs">
                                                                 {item.updated_at ? (
                                                                     <div className="flex flex-col">
-                                                                        <span className="text-iron font-black">{new Date(item.updated_at).toLocaleDateString()}</span>
-                                                                        <span className="opacity-50 font-bold">{new Date(item.updated_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                                                                        <span className="text-iron font-black">{formatDate(item.updated_at)}</span>
+                                                                        <span className="opacity-50 font-bold">{formatTime(item.updated_at)}</span>
                                                                     </div>
                                                                 ) : '-'}
                                                             </td>
                                                             <td className="px-6 py-4.5 text-storm-gray whitespace-nowrap text-xs">
                                                                 <div className="flex flex-col">
-                                                                    <span className="text-iron font-black">{new Date(item.created_at).toLocaleDateString()}</span>
-                                                                    <span className="opacity-50 font-bold">{new Date(item.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                                                                    <span className="text-iron font-black">{formatDate(item.created_at)}</span>
+                                                                    <span className="opacity-50 font-bold">{formatTime(item.created_at)}</span>
                                                                 </div>
                                                             </td>
                                                         </tr>

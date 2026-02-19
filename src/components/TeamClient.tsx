@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
+import { formatDate, formatTime } from '@/lib/dateUtils';
 
 interface TeamMember {
     id: string;
@@ -332,11 +333,19 @@ export default function TeamClient({ initialMembers, initialCounts }: TeamClient
                                                                     <span className="text-storm-gray text-[11px] font-bold">requests</span>
                                                                 </div>
                                                             </td>
-                                                            <td className="px-6 py-4.5 border-r border-shark/60 text-storm-gray font-black whitespace-nowrap">
-                                                                {member.last_login ? new Date(member.last_login).toLocaleString() : 'Never'}
+                                                            <td className="px-6 py-4.5 border-r border-shark/60 text-storm-gray font-black whitespace-nowrap text-xs">
+                                                                {member.last_login ? (
+                                                                    <div className="flex flex-col">
+                                                                        <span className="text-iron font-black">{formatDate(member.last_login)}</span>
+                                                                        <span className="opacity-50 font-bold">{formatTime(member.last_login)}</span>
+                                                                    </div>
+                                                                ) : 'Never'}
                                                             </td>
-                                                            <td className="px-6 py-4.5 border-r border-shark/60 text-storm-gray font-black whitespace-nowrap">
-                                                                {new Date(member.created_at).toLocaleDateString()}
+                                                            <td className="px-6 py-4.5 border-r border-shark/60 text-storm-gray font-black whitespace-nowrap text-xs">
+                                                                <div className="flex flex-col">
+                                                                    <span className="text-iron font-black">{formatDate(member.created_at)}</span>
+                                                                    <span className="opacity-50 font-bold">{formatTime(member.created_at)}</span>
+                                                                </div>
                                                             </td>
                                                             <td className="px-6 py-4.5 relative">
                                                                 <button

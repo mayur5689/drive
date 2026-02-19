@@ -36,7 +36,9 @@ interface ClientItem {
     email: string;
     organization: string;
     createdAt: string;
-    lastLogin: string | null;
+    lastLoginDate: string;
+    lastLoginTime: string;
+    lastLoginRaw: string | null;
     avatar?: string;
 }
 
@@ -306,7 +308,14 @@ export default function ClientsClient({ initialClients }: ClientsClientProps) {
                                                             </td>
                                                             <td className="px-6 py-4.5 text-santas-gray border-r border-shark/60 font-black uppercase tracking-tight">{client.organization}</td>
                                                             <td className="px-6 py-4.5 text-storm-gray border-r border-shark/60 font-black whitespace-nowrap">{client.createdAt}</td>
-                                                            <td className="px-6 py-4.5 text-storm-gray border-r border-shark/60 font-black whitespace-nowrap">{client.lastLogin}</td>
+                                                            <td className="px-6 py-4.5 text-storm-gray border-r border-shark/60 font-black whitespace-nowrap">
+                                                                {client.lastLoginRaw ? (
+                                                                    <div className="flex flex-col">
+                                                                        <span className="text-iron">{client.lastLoginDate}</span>
+                                                                        <span className="text-[10px] opacity-50">{client.lastLoginTime}</span>
+                                                                    </div>
+                                                                ) : 'Never'}
+                                                            </td>
                                                             <td className="px-6 py-4.5 relative group/actions">
                                                                 <button
                                                                     onClick={(e) => {
