@@ -22,9 +22,10 @@ interface TasksClientProps {
     initialTasks: TaskItem[];
     profiles: any[];
     teamMembers: any[];
+    requests: any[];
 }
 
-export default function TasksClient({ initialTasks, profiles, teamMembers }: TasksClientProps) {
+export default function TasksClient({ initialTasks, profiles, teamMembers, requests }: TasksClientProps) {
     const router = useRouter();
     const { user, isImpersonating, profile, viewAsProfile } = useAuth();
     const displayProfile = viewAsProfile || profile;
@@ -274,9 +275,9 @@ export default function TasksClient({ initialTasks, profiles, teamMembers }: Tas
                                                 <tr className="border-b border-shark text-storm-gray text-[10px] uppercase font-bold tracking-wider bg-shark/20">
                                                     <th className="px-5 py-4 w-10 border-r border-shark/60"><input type="checkbox" /></th>
                                                     {[
-                                                        'Title', 'Creator', 'Status', 'Assigned', 'Priority', 'Due Date', 'Last Updated', 'Created'
+                                                        'Title', 'Request', 'Creator', 'Status', 'Assigned', 'Priority', 'Due Date', 'Last Updated', 'Created'
                                                     ].map((header, idx) => (
-                                                        <th key={header} className={`px-6 py-4 border-r border-shark/60 ${idx === 7 ? 'border-r-0' : ''}`}>
+                                                        <th key={header} className={`px-6 py-4 border-r border-shark/60 ${idx === 8 ? 'border-r-0' : header === 'Request' ? 'min-w-[150px]' : ''}`}>
                                                             <div className="flex items-center gap-1 cursor-pointer hover:text-white transition-colors">
                                                                 {header}
                                                             </div>
@@ -300,6 +301,24 @@ export default function TasksClient({ initialTasks, profiles, teamMembers }: Tas
                                                                 onClick={() => router.push(`/tasks/${item.id}`)}
                                                             >
                                                                 {item.title}
+                                                            </td>
+                                                            <td className="px-6 py-3.5 text-santas-gray border-r border-shark/60 whitespace-nowrap">
+                                                                {item.request_links && item.request_links.length > 0 ? (
+                                                                    <div className="flex flex-col gap-1.5">
+                                                                        {item.request_links.map((link, idx) => (
+                                                                            <div
+                                                                                key={idx}
+                                                                                onClick={() => router.push(`/requests/${link.request?.id}`)}
+                                                                                className="flex flex-col cursor-pointer hover:text-[#279da6] transition-colors leading-tight"
+                                                                            >
+                                                                                <span className="text-iron font-bold truncate max-w-[150px] text-[10px]">{link.request?.title}</span>
+                                                                                {idx === 0 && <span className="text-[8px] opacity-40 uppercase tracking-widest leading-none">Internal Request</span>}
+                                                                            </div>
+                                                                        ))}
+                                                                    </div>
+                                                                ) : (
+                                                                    <span className="opacity-30 italic">None</span>
+                                                                )}
                                                             </td>
                                                             <td className="px-6 py-3.5 text-santas-gray border-r border-shark/60 whitespace-nowrap">
                                                                 {item.creator?.full_name || 'System'}
@@ -410,6 +429,7 @@ export default function TasksClient({ initialTasks, profiles, teamMembers }: Tas
                 onSuccess={handleTaskCreated}
                 profiles={profiles}
                 teamMembers={teamMembers}
+                requests={requests}
             />
         </div>
     );

@@ -20,6 +20,7 @@ interface TaskDetailModalProps {
     onDelete: (taskId: string) => void;
     profiles: any[];
     teamMembers: any[];
+    requests: any[];
 }
 
 interface Attachment {
@@ -50,7 +51,8 @@ export default function TaskDetailModal({
     onUpdate,
     onDelete,
     profiles,
-    teamMembers
+    teamMembers,
+    requests
 }: TaskDetailModalProps) {
     const { user, profile } = useAuth();
     const [isDeleting, setIsDeleting] = useState(false);
@@ -60,7 +62,8 @@ export default function TaskDetailModal({
         priority: '',
         status: '',
         assigned_to: '',
-        due_date: ''
+        due_date: '',
+        request_ids: [] as string[]
     });
 
     // Chat State
@@ -81,7 +84,8 @@ export default function TaskDetailModal({
                 priority: task.priority || 'Medium',
                 status: task.status || 'Todo',
                 assigned_to: task.assigned_to || '',
-                due_date: task.due_date ? new Date(task.due_date).toISOString().split('T')[0] : ''
+                due_date: task.due_date ? new Date(task.due_date).toISOString().split('T')[0] : '',
+                request_ids: task.request_links?.map(l => l.request?.id).filter(Boolean) as string[] || []
             });
 
             fetchMessages();
@@ -252,7 +256,11 @@ export default function TaskDetailModal({
             const p = profiles.find((pr: any) => pr.id === (field === 'assigned_to' ? value : formData.assigned_to));
             const assignee = tm ? { id: tm.profile_id, full_name: tm.name, team_members: [{ name: tm.name }] } : (p ? { id: p.id, full_name: p.full_name || p.email } : null);
 
-            onUpdate({ ...updatedTask, assignee });
+            const currentRequestIds = field === 'request_ids' ? value : formData.request_ids;
+            const selectedRequests = requests.filter(r => currentRequestIds.includes(r.id));
+            const request_links = selectedRequests.map(r => ({ request: r }));
+
+            onUpdate({ ...updatedTask, assignee, request_links });
         } catch (error) {
             console.error('Error updating task:', error);
         }
@@ -438,6 +446,62 @@ export default function TaskDetailModal({
                                         className="w-full bg-black/40 border border-shark rounded-xl p-3 pl-10 text-iron focus:border-[#279da6]/50 focus:outline-none transition-all font-bold text-xs [color-scheme:dark]"
                                     />
                                 </div>
+                            </div>
+                        </div>
+
+                        {/* Linked Request(s) */}
+                        <div className="space-y-1.5">
+                            <label className="text-[10px] font-black text-storm-gray uppercase tracking-widest ml-1">Linked Request(s)</label>
+                            <div className="space-y-3">
+                                <div className="relative">
+                                    <FileText className="absolute left-3 top-1/2 -translate-y-1/2 text-storm-gray z-10" size={14} />
+                                    <select
+                                        value=""
+                                        onChange={e => {
+                                            if (e.target.value) {
+                                                const id = e.target.value;
+                                                const newIds = formData.request_ids.includes(id)
+                                                    ? formData.request_ids
+                                                    : [...formData.request_ids, id];
+                                                handleUpdate('request_ids', newIds);
+                                            }
+                                        }}
+                                        className="w-full bg-black/40 border border-shark rounded-xl p-3 pl-10 pr-10 !text-white appearance-none focus:border-[#279da6]/50 focus:outline-none transition-all cursor-pointer font-bold text-xs [color-scheme:dark]"
+                                    >
+                                        <option value="" className="bg-[#18181B] !text-white">Add connection...</option>
+                                        {requests.filter(r => !formData.request_ids.includes(r.id)).map((r: any) => (
+                                            <option key={r.id} value={r.id} className="bg-[#18181B] !text-white">
+                                                {r.title}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+
+                                {/* Selected Requests Pills */}
+                                {formData.request_ids.length > 0 && (
+                                    <div className="flex flex-wrap gap-2">
+                                        {formData.request_ids.map(rid => {
+                                            const req = requests.find((r: any) => r.id === rid);
+                                            return (
+                                                <div key={rid} className="flex items-center gap-2 bg-[#279da6]/10 border border-[#279da6]/30 rounded-lg px-2 py-1">
+                                                    <span className="text-[9px] font-bold text-[#279da6] truncate max-w-[200px]">
+                                                        {req ? req.title : 'Loading...'}
+                                                    </span>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => {
+                                                            const newIds = formData.request_ids.filter(id => id !== rid);
+                                                            handleUpdate('request_ids', newIds);
+                                                        }}
+                                                        className="text-storm-gray hover:text-white transition-colors"
+                                                    >
+                                                        <X size={10} />
+                                                    </button>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                )}
                             </div>
                         </div>
 

@@ -10,6 +10,12 @@ export interface TaskItem {
     assignee?: { id: string; full_name: string } | null;
     created_by: string | null;
     creator?: { id: string; full_name: string } | null;
+    request_links?: {
+        request: {
+            id: string;
+            title: string;
+        } | null;
+    }[] | null;
     due_date: string | null;
     created_at: string;
     updated_at: string;
@@ -30,12 +36,15 @@ export async function getTasksData() {
                 full_name,
                 team_members!team_members_profile_id_fkey (name)
             ),
-            creator:created_by (
-                id, 
-                full_name,
-                team_members!team_members_profile_id_fkey (name)
-            )
-        `)
+                creator:created_by (
+                    id, 
+                    full_name,
+                    team_members!team_members_profile_id_fkey (name)
+                ),
+                request_links:task_request_links (
+                    request:request_id (id, title)
+                )
+            `)
         .order('created_at', { ascending: false });
 
     if (error) {
@@ -52,16 +61,18 @@ export async function getTasksData() {
 export async function getAllTasksData() {
     const supabase = createServiceClient();
 
-    // Fetch tasks, profiles (for assignment), and team members
-    const [tasks, profilesRes, teamRes] = await Promise.all([
+    // Fetch tasks, profiles (for assignment), team members, and requests
+    const [tasks, profilesRes, teamRes, requestsRes] = await Promise.all([
         getTasksData(),
         supabase.from('profiles').select('id, full_name, email, role'),
-        supabase.from('team_members').select('*')
+        supabase.from('team_members').select('*'),
+        supabase.from('requests').select('id, title').order('created_at', { ascending: false })
     ]);
 
     return {
         tasks,
         profiles: profilesRes.data || [],
-        teamMembers: teamRes.data || []
+        teamMembers: teamRes.data || [],
+        requests: requestsRes.data || []
     };
 }

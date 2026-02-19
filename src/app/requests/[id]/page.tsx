@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
@@ -31,7 +31,11 @@ import {
     UserPlus,
     FileText,
     Image as ImageIcon,
-    Film
+    Film,
+    FolderOpen,
+    CheckSquare,
+    ExternalLink,
+    RefreshCw
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/context/AuthContext';
@@ -104,13 +108,38 @@ interface Assignment {
     team_member: TeamMember;
 }
 
+interface DriveFile {
+    id: string;
+    name: string;
+    mimeType: string;
+    size: number | null;
+    createdTime: string;
+    folder: string;
+    previewUrl: string;
+    webViewLink: string;
+}
+
+interface LinkedTask {
+    id: string;
+    title: string;
+    status: string;
+    priority: string;
+    assigned_to: string | null;
+    assignee?: { id: string; full_name: string } | null;
+    due_date: string | null;
+    created_at: string;
+}
+
 export default function RequestDetailsPage() {
     const { id } = useParams();
     const router = useRouter();
+    const searchParams = useSearchParams();
     const { profile, viewAsProfile, isImpersonating } = useAuth();
     const displayProfile = viewAsProfile || profile;
     const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
     const [request, setRequest] = useState<RequestDetails | null>(null);
+    const initialTab = (searchParams.get('tab') as 'chat' | 'tasks' | 'files') || 'chat';
+    const [activeTab, setActiveTabInternal] = useState<'chat' | 'tasks' | 'files'>(initialTab);
     const [messages, setMessages] = useState<Message[]>([]);
     const [newMessage, setNewMessage] = useState('');
     const [profiles, setProfiles] = useState<Profile[]>([]);
@@ -138,6 +167,27 @@ export default function RequestDetailsPage() {
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
     const [deleteError, setDeleteError] = useState<string | null>(null);
+
+    // Tabs state
+    useEffect(() => {
+        const tab = searchParams.get('tab') as 'chat' | 'tasks' | 'files';
+        if (tab && tab !== activeTab) {
+            setActiveTabInternal(tab);
+        }
+    }, [searchParams]);
+
+    const setActiveTab = (tab: 'chat' | 'tasks' | 'files') => {
+        setActiveTabInternal(tab);
+        const params = new URLSearchParams(searchParams.toString());
+        params.set('tab', tab);
+        router.replace(`/requests/${id}?${params.toString()}`);
+    };
+    const [linkedTasks, setLinkedTasks] = useState<LinkedTask[]>([]);
+    const [isLoadingTasks, setIsLoadingTasks] = useState(false);
+    const [requestFiles, setRequestFiles] = useState<DriveFile[]>([]);
+    const [isLoadingFiles, setIsLoadingFiles] = useState(false);
+    const [isCreatingTask, setIsCreatingTask] = useState(false);
+    const [newTaskTitle, setNewTaskTitle] = useState('');
 
     // WYSIWYG formatting helpers
     const execFormat = (command: string, value?: string) => {
@@ -519,6 +569,74 @@ export default function RequestDetailsPage() {
         tm => !assignments.some(a => a.team_member_id === tm.id)
     );
 
+    // Fetch linked tasks for this request
+    const fetchLinkedTasks = async () => {
+        setIsLoadingTasks(true);
+        try {
+            const response = await fetch(`/api/tasks?request_id=${id}`);
+            if (response.ok) {
+                const data = await response.json();
+                setLinkedTasks(data);
+            }
+        } catch (error) {
+            console.error('Error fetching linked tasks:', error);
+        } finally {
+            setIsLoadingTasks(false);
+        }
+    };
+
+    // Fetch request files from Google Drive
+    const fetchRequestFiles = async () => {
+        setIsLoadingFiles(true);
+        try {
+            const response = await fetch(`/api/requests/${id}/files`);
+            if (response.ok) {
+                const data = await response.json();
+                setRequestFiles(data);
+            }
+        } catch (error) {
+            console.error('Error fetching request files:', error);
+        } finally {
+            setIsLoadingFiles(false);
+        }
+    };
+
+    // Create a task linked to this request
+    const handleCreateLinkedTask = async () => {
+        if (!newTaskTitle.trim() || !displayProfile) return;
+        setIsCreatingTask(true);
+        try {
+            const response = await fetch('/api/tasks', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    title: newTaskTitle.trim(),
+                    request_id: id,
+                    created_by: displayProfile.id,
+                    status: 'Todo',
+                    priority: 'Medium'
+                })
+            });
+            if (response.ok) {
+                setNewTaskTitle('');
+                fetchLinkedTasks();
+            }
+        } catch (error) {
+            console.error('Error creating linked task:', error);
+        } finally {
+            setIsCreatingTask(false);
+        }
+    };
+
+    // Load tab data when tab changes
+    useEffect(() => {
+        if (activeTab === 'tasks' && linkedTasks.length === 0) {
+            fetchLinkedTasks();
+        } else if (activeTab === 'files' && requestFiles.length === 0) {
+            fetchRequestFiles();
+        }
+    }, [activeTab]);
+
     if (isLoading && !request) {
         return (
             <div className="flex h-screen items-center justify-center bg-[#09090B]">
@@ -539,8 +657,43 @@ export default function RequestDetailsPage() {
         );
     }
 
-    // Check if user is Super Admin
+    // Check user roles
     const isSuperAdmin = displayProfile?.role === 'super_admin';
+    const isTeamMember = displayProfile?.role === 'team_member';
+    const isInternal = isSuperAdmin || isTeamMember;
+    const showTabs = isInternal; // Only show tabs for internal users
+
+    const statusColor = (s: string) => {
+        switch (s) {
+            case 'Todo': return 'bg-storm-gray/20 text-storm-gray';
+            case 'In Progress': return 'bg-blue-500/20 text-blue-400';
+            case 'Review': return 'bg-amber-500/20 text-amber-400';
+            case 'Done': return 'bg-emerald-500/20 text-emerald-400';
+            default: return 'bg-shark text-iron';
+        }
+    };
+
+    const priorityColor = (p: string) => {
+        switch (p) {
+            case 'Critical': return 'bg-rose-500';
+            case 'High': return 'bg-amber-500';
+            case 'Medium': return 'bg-blue-400';
+            default: return 'bg-storm-gray';
+        }
+    };
+
+    const getFileIcon = (mimeType: string) => {
+        if (mimeType?.startsWith('image/')) return <ImageIcon size={18} className="text-purple-400" />;
+        if (mimeType?.startsWith('video/')) return <Film size={18} className="text-rose-400" />;
+        return <FileText size={18} className="text-[#279da6]" />;
+    };
+
+    const formatFileSize = (bytes: number | null) => {
+        if (!bytes) return '';
+        if (bytes < 1024) return `${bytes} B`;
+        if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+        return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+    };
 
     return (
         <>
@@ -573,6 +726,57 @@ export default function RequestDetailsPage() {
                                         </div>
                                     </div>
                                 </div>
+
+                                {/* Header Tabs */}
+                                {showTabs && (
+                                    <div className="ml-4 flex items-center">
+                                        <div className="inline-flex items-center p-0.5 bg-[#09090B]/40 border border-shark/50 rounded-xl">
+                                            <button
+                                                onClick={() => setActiveTab('chat')}
+                                                className={`flex items-center gap-1.5 px-3 py-1.5 text-[9px] font-black uppercase tracking-wider transition-all rounded-[10px] ${activeTab === 'chat'
+                                                    ? 'bg-shark/80 text-[#279da6] border border-[#279da6]/20 shadow-sm'
+                                                    : 'text-storm-gray hover:text-iron hover:bg-white/5'
+                                                    }`}
+                                            >
+                                                <MessageSquare size={12} />
+                                                Chat
+                                            </button>
+                                            <button
+                                                onClick={() => setActiveTab('tasks')}
+                                                className={`flex items-center gap-1.5 px-3 py-1.5 text-[9px] font-black uppercase tracking-wider transition-all rounded-[10px] ${activeTab === 'tasks'
+                                                    ? 'bg-shark/80 text-[#279da6] border border-[#279da6]/20 shadow-sm'
+                                                    : 'text-storm-gray hover:text-iron hover:bg-white/5'
+                                                    }`}
+                                            >
+                                                <CheckSquare size={12} />
+                                                Tasks
+                                                {linkedTasks.length > 0 && (
+                                                    <span className={`ml-1.5 px-1 py-0.5 rounded-full text-[8px] font-black ${activeTab === 'tasks' ? 'bg-[#279da6]/10 text-[#279da6]' : 'bg-shark text-storm-gray'}`}>
+                                                        {linkedTasks.length}
+                                                    </span>
+                                                )}
+                                            </button>
+                                            {isSuperAdmin && (
+                                                <button
+                                                    onClick={() => setActiveTab('files')}
+                                                    className={`flex items-center gap-1.5 px-3 py-1.5 text-[9px] font-black uppercase tracking-wider transition-all rounded-[10px] ${activeTab === 'files'
+                                                        ? 'bg-shark/80 text-[#279da6] border border-[#279da6]/20 shadow-sm'
+                                                        : 'text-storm-gray hover:text-iron hover:bg-white/5'
+                                                        }`}
+                                                >
+                                                    <FolderOpen size={12} />
+                                                    Files
+                                                    {requestFiles.length > 0 && (
+                                                        <span className={`ml-1.5 px-1 py-0.5 rounded-full text-[8px] font-black ${activeTab === 'files' ? 'bg-[#279da6]/10 text-[#279da6]' : 'bg-shark text-storm-gray'}`}>
+                                                            {requestFiles.length}
+                                                        </span>
+                                                    )}
+                                                </button>
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
+
                                 <div className="ml-4">
                                     <ImpersonationWarning />
                                 </div>
@@ -586,236 +790,402 @@ export default function RequestDetailsPage() {
 
                         <div className="flex-1 flex overflow-hidden">
                             {/* Main Content Area */}
-                            <div className="flex-1 flex flex-col overflow-y-auto custom-scrollbar bg-[#09090B]/30">
+                            <div className="flex-1 flex flex-col overflow-hidden bg-[#09090B]/30">
 
-                                {/* Request Body */}
-                                <div className="p-8 max-w-4xl mx-auto w-full">
-                                    <div className="mb-8">
-                                        <h2 className="text-3xl font-black text-white mb-6 uppercase tracking-tight">{request.title}</h2>
 
-                                        <div className="flex items-start gap-4 mb-8">
-                                            <div className="w-10 h-10 rounded-full bg-shark flex items-center justify-center text-[#279da6] shrink-0 border border-white/5 shadow-inner">
-                                                <MessageSquare size={18} />
-                                            </div>
-                                            <div className="flex-1">
-                                                <div className="bg-shark/20 border border-shark/50 rounded-2xl p-6 shadow-sm">
-                                                    <div className="flex items-center justify-between mb-4">
-                                                        <span className="text-[11px] font-black text-[#279da6] uppercase tracking-widest">Request Submitted</span>
-                                                        <span className="text-[10px] text-storm-gray font-bold">
-                                                            {new Date(request.created_at).toLocaleString('en-US', {
-                                                                month: 'short',
-                                                                day: 'numeric',
-                                                                hour: '2-digit',
-                                                                minute: '2-digit'
-                                                            })}
-                                                        </span>
+
+                                {/* Tab Content */}
+                                {activeTab === 'chat' && (
+                                    <div className="flex-1 overflow-y-auto custom-scrollbar">
+                                        {/* Request Body */}
+                                        <div className="p-8 max-w-4xl mx-auto w-full">
+                                            <div className="mb-8">
+                                                <h2 className="text-3xl font-black text-white mb-6 uppercase tracking-tight">{request.title}</h2>
+
+                                                <div className="flex items-start gap-4 mb-8">
+                                                    <div className="w-10 h-10 rounded-full bg-shark flex items-center justify-center text-[#279da6] shrink-0 border border-white/5 shadow-inner">
+                                                        <MessageSquare size={18} />
                                                     </div>
-                                                    <p className="text-iron text-sm leading-relaxed whitespace-pre-wrap">
-                                                        {request.description}
-                                                    </p>
+                                                    <div className="flex-1">
+                                                        <div className="bg-shark/20 border border-shark/50 rounded-2xl p-6 shadow-sm">
+                                                            <div className="flex items-center justify-between mb-4">
+                                                                <span className="text-[11px] font-black text-[#279da6] uppercase tracking-widest">Request Submitted</span>
+                                                                <span className="text-[10px] text-storm-gray font-bold">
+                                                                    {new Date(request.created_at).toLocaleString('en-US', {
+                                                                        month: 'short',
+                                                                        day: 'numeric',
+                                                                        hour: '2-digit',
+                                                                        minute: '2-digit'
+                                                                    })}
+                                                                </span>
+                                                            </div>
+                                                            <p className="text-iron text-sm leading-relaxed whitespace-pre-wrap">
+                                                                {request.description}
+                                                            </p>
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                {/* Timeline Splitter */}
+                                                <div className="relative flex items-center justify-center my-12">
+                                                    <div className="absolute inset-0 flex items-center">
+                                                        <div className="w-full border-t border-shark/40"></div>
+                                                    </div>
+                                                    <span className="relative px-4 py-1.5 bg-[#121214] border border-shark rounded-full text-[9px] font-black text-storm-gray uppercase tracking-[0.2em] shadow-2xl">
+                                                        Discussion Started
+                                                    </span>
+                                                </div>
+
+                                                {/* Messages Timeline */}
+                                                <div className="space-y-8">
+                                                    {messages.map((msg) => {
+                                                        const isMe = msg.sender_id === profile?.id;
+                                                        return (
+                                                            <div key={msg.id} className={`flex gap-4 ${isMe ? 'flex-row-reverse' : ''}`}>
+                                                                <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 border border-white/5 shadow-lg relative overflow-hidden ${isMe ? 'bg-[#279da6] text-white' : 'bg-shark text-[#279da6]'
+                                                                    }`}>
+                                                                    {isMe ? (
+                                                                        profile?.avatar_url ? (
+                                                                            <Image
+                                                                                src={profile.avatar_url}
+                                                                                alt={profile.full_name || 'User'}
+                                                                                fill
+                                                                                unoptimized
+                                                                                className="object-cover"
+                                                                            />
+                                                                        ) : (
+                                                                            <span className="font-black text-xs">{profile?.full_name?.split(' ').map(n => n[0]).join('')}</span>
+                                                                        )
+                                                                    ) : (
+                                                                        msg.sender?.avatar_url ? (
+                                                                            <Image
+                                                                                src={msg.sender.avatar_url}
+                                                                                alt={msg.sender.full_name || 'User'}
+                                                                                fill
+                                                                                unoptimized
+                                                                                className="object-cover"
+                                                                            />
+                                                                        ) : (
+                                                                            <span className="font-black text-xs">{msg.sender?.full_name?.split(' ').map(n => n[0]).join('')}</span>
+                                                                        )
+                                                                    )}
+                                                                </div>
+                                                                <div className={`max-w-[80%] ${isMe ? 'text-right' : ''}`}>
+                                                                    <div className="flex items-center gap-2 mb-1.5 px-1">
+                                                                        <span className="text-[11px] font-black text-iron uppercase tracking-widest">
+                                                                            {isMe ? 'You' : msg.sender?.full_name}
+                                                                        </span>
+                                                                        <span className="text-[9px] text-storm-gray font-bold">
+                                                                            {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                                        </span>
+                                                                    </div>
+                                                                    <div className={`px-5 py-3 rounded-2xl text-sm leading-relaxed shadow-lg ${isMe
+                                                                        ? 'bg-[#279da6] text-white rounded-tr-none'
+                                                                        : 'bg-shark text-iron rounded-tl-none border border-white/5'
+                                                                        }`}>
+                                                                        {/* Rich text message renderer — supports HTML (new) and plain text with markdown (old) */}
+                                                                        {isHtmlContent(msg.message) ? (
+                                                                            <div
+                                                                                className="prose prose-sm prose-invert max-w-none [&_a]:text-[#279da6] [&_a]:underline [&_a]:font-bold"
+                                                                                dangerouslySetInnerHTML={{ __html: msg.message }}
+                                                                            />
+                                                                        ) : (
+                                                                            msg.message.split('\n').map((line, i) => (
+                                                                                <div key={i}>
+                                                                                    {line.split(/(\*\*.*?\*\*|__.*?__|\*.*?\*|_.*?_|https?:\/\/[^\s]+)/).map((part, j) => {
+                                                                                        if (part.startsWith('**') && part.endsWith('**')) {
+                                                                                            return <strong key={j}>{part.slice(2, -2)}</strong>;
+                                                                                        }
+                                                                                        if (part.startsWith('__') && part.endsWith('__')) {
+                                                                                            return <u key={j}>{part.slice(2, -2)}</u>;
+                                                                                        }
+                                                                                        if (part.startsWith('*') && part.endsWith('*') && part.length > 2) {
+                                                                                            return <em key={j}>{part.slice(1, -1)}</em>;
+                                                                                        }
+                                                                                        if (part.startsWith('_') && part.endsWith('_') && part.length > 2) {
+                                                                                            return <em key={j}>{part.slice(1, -1)}</em>;
+                                                                                        }
+                                                                                        if (/^https?:\/\/[^\s]+$/.test(part)) {
+                                                                                            return <a key={j} href={part} target="_blank" rel="noopener noreferrer" className={`underline font-bold ${isMe ? 'text-white/90' : 'text-[#279da6]'}`}>{part}</a>;
+                                                                                        }
+                                                                                        return part;
+                                                                                    })}
+                                                                                </div>
+                                                                            ))
+                                                                        )}
+                                                                        {msg.attachments && msg.attachments.length > 0 && (
+                                                                            <div className="mt-3 space-y-2">
+                                                                                {msg.attachments.map((at, idx) => {
+                                                                                    const driveProxyUrl = at.drive_file_id ? `/api/drive/view?fileId=${at.drive_file_id}` : null;
+                                                                                    const displayUrl = driveProxyUrl || at.url;
+
+                                                                                    return (
+                                                                                        <div
+                                                                                            key={idx}
+                                                                                            onClick={(e) => {
+                                                                                                e.preventDefault();
+                                                                                                e.stopPropagation();
+                                                                                                setPreviewFile({
+                                                                                                    name: at.name,
+                                                                                                    url: at.url,
+                                                                                                    previewUrl: driveProxyUrl,
+                                                                                                    type: at.type
+                                                                                                });
+                                                                                                setIsPreviewOpen(true);
+                                                                                            }}
+                                                                                            className="block group/at cursor-pointer"
+                                                                                        >
+                                                                                            {at.type?.startsWith('image/') ? (
+                                                                                                <div className="relative rounded-lg overflow-hidden border border-white/10 shadow-lg max-w-[240px]">
+                                                                                                    <img src={displayUrl} alt={at.name} className="w-full h-auto" />
+                                                                                                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/at:opacity-100 transition-opacity flex items-center justify-center">
+                                                                                                        <span className="text-[10px] font-black uppercase text-white">View Full Image</span>
+                                                                                                    </div>
+                                                                                                </div>
+                                                                                            ) : (
+                                                                                                <div className="flex items-center gap-3 bg-white/5 hover:bg-white/10 p-3 rounded-xl border border-white/10 transition-all max-w-[280px]">
+                                                                                                    <Paperclip size={18} className="text-[#279da6]" />
+                                                                                                    <div className="min-w-0">
+                                                                                                        <p className="text-xs font-bold truncate text-white">{at.name}</p>
+                                                                                                        <p className="text-[10px] text-storm-gray font-bold uppercase tracking-widest">View File</p>
+                                                                                                    </div>
+                                                                                                </div>
+                                                                                            )}
+                                                                                        </div>
+                                                                                    );
+                                                                                })}
+                                                                            </div>
+                                                                        )}
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        );
+                                                    })}
+                                                    <div ref={messagesEndRef} />
                                                 </div>
                                             </div>
                                         </div>
 
-                                        {/* Timeline Splitter */}
-                                        <div className="relative flex items-center justify-center my-12">
-                                            <div className="absolute inset-0 flex items-center">
-                                                <div className="w-full border-t border-shark/40"></div>
-                                            </div>
-                                            <span className="relative px-4 py-1.5 bg-[#121214] border border-shark rounded-full text-[9px] font-black text-storm-gray uppercase tracking-[0.2em] shadow-2xl">
-                                                Discussion Started
-                                            </span>
-                                        </div>
-
-                                        {/* Messages Timeline */}
-                                        <div className="space-y-8">
-                                            {messages.map((msg) => {
-                                                const isMe = msg.sender_id === profile?.id;
-                                                return (
-                                                    <div key={msg.id} className={`flex gap-4 ${isMe ? 'flex-row-reverse' : ''}`}>
-                                                        <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 border border-white/5 shadow-lg relative overflow-hidden ${isMe ? 'bg-[#279da6] text-white' : 'bg-shark text-[#279da6]'
-                                                            }`}>
-                                                            {isMe ? (
-                                                                profile?.avatar_url ? (
-                                                                    <Image
-                                                                        src={profile.avatar_url}
-                                                                        alt={profile.full_name || 'User'}
-                                                                        fill
-                                                                        unoptimized
-                                                                        className="object-cover"
-                                                                    />
-                                                                ) : (
-                                                                    <span className="font-black text-xs">{profile?.full_name?.split(' ').map(n => n[0]).join('')}</span>
-                                                                )
-                                                            ) : (
-                                                                msg.sender?.avatar_url ? (
-                                                                    <Image
-                                                                        src={msg.sender.avatar_url}
-                                                                        alt={msg.sender.full_name || 'User'}
-                                                                        fill
-                                                                        unoptimized
-                                                                        className="object-cover"
-                                                                    />
-                                                                ) : (
-                                                                    <span className="font-black text-xs">{msg.sender?.full_name?.split(' ').map(n => n[0]).join('')}</span>
-                                                                )
-                                                            )}
-                                                        </div>
-                                                        <div className={`max-w-[80%] ${isMe ? 'text-right' : ''}`}>
-                                                            <div className="flex items-center gap-2 mb-1.5 px-1">
-                                                                <span className="text-[11px] font-black text-iron uppercase tracking-widest">
-                                                                    {isMe ? 'You' : msg.sender?.full_name}
-                                                                </span>
-                                                                <span className="text-[9px] text-storm-gray font-bold">
-                                                                    {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                                                </span>
-                                                            </div>
-                                                            <div className={`px-5 py-3 rounded-2xl text-sm leading-relaxed shadow-lg ${isMe
-                                                                ? 'bg-[#279da6] text-white rounded-tr-none'
-                                                                : 'bg-shark text-iron rounded-tl-none border border-white/5'
-                                                                }`}>
-                                                                {/* Rich text message renderer — supports HTML (new) and plain text with markdown (old) */}
-                                                                {isHtmlContent(msg.message) ? (
-                                                                    <div
-                                                                        className="prose prose-sm prose-invert max-w-none [&_a]:text-[#279da6] [&_a]:underline [&_a]:font-bold"
-                                                                        dangerouslySetInnerHTML={{ __html: msg.message }}
-                                                                    />
-                                                                ) : (
-                                                                    msg.message.split('\n').map((line, i) => (
-                                                                        <div key={i}>
-                                                                            {line.split(/(\*\*.*?\*\*|__.*?__|\*.*?\*|_.*?_|https?:\/\/[^\s]+)/).map((part, j) => {
-                                                                                if (part.startsWith('**') && part.endsWith('**')) {
-                                                                                    return <strong key={j}>{part.slice(2, -2)}</strong>;
-                                                                                }
-                                                                                if (part.startsWith('__') && part.endsWith('__')) {
-                                                                                    return <u key={j}>{part.slice(2, -2)}</u>;
-                                                                                }
-                                                                                if (part.startsWith('*') && part.endsWith('*') && part.length > 2) {
-                                                                                    return <em key={j}>{part.slice(1, -1)}</em>;
-                                                                                }
-                                                                                if (part.startsWith('_') && part.endsWith('_') && part.length > 2) {
-                                                                                    return <em key={j}>{part.slice(1, -1)}</em>;
-                                                                                }
-                                                                                if (/^https?:\/\/[^\s]+$/.test(part)) {
-                                                                                    return <a key={j} href={part} target="_blank" rel="noopener noreferrer" className={`underline font-bold ${isMe ? 'text-white/90' : 'text-[#279da6]'}`}>{part}</a>;
-                                                                                }
-                                                                                return part;
-                                                                            })}
-                                                                        </div>
-                                                                    ))
-                                                                )}
-                                                                {msg.attachments && msg.attachments.length > 0 && (
-                                                                    <div className="mt-3 space-y-2">
-                                                                        {msg.attachments.map((at, idx) => {
-                                                                            const driveProxyUrl = at.drive_file_id ? `/api/drive/view?fileId=${at.drive_file_id}` : null;
-                                                                            const displayUrl = driveProxyUrl || at.url;
-
-                                                                            return (
-                                                                                <div
-                                                                                    key={idx}
-                                                                                    onClick={(e) => {
-                                                                                        e.preventDefault();
-                                                                                        e.stopPropagation();
-                                                                                        setPreviewFile({
-                                                                                            name: at.name,
-                                                                                            url: at.url,
-                                                                                            previewUrl: driveProxyUrl,
-                                                                                            type: at.type
-                                                                                        });
-                                                                                        setIsPreviewOpen(true);
-                                                                                    }}
-                                                                                    className="block group/at cursor-pointer"
-                                                                                >
-                                                                                    {at.type?.startsWith('image/') ? (
-                                                                                        <div className="relative rounded-lg overflow-hidden border border-white/10 shadow-lg max-w-[240px]">
-                                                                                            <img src={displayUrl} alt={at.name} className="w-full h-auto" />
-                                                                                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/at:opacity-100 transition-opacity flex items-center justify-center">
-                                                                                                <span className="text-[10px] font-black uppercase text-white">View Full Image</span>
-                                                                                            </div>
-                                                                                        </div>
-                                                                                    ) : (
-                                                                                        <div className="flex items-center gap-3 bg-white/5 hover:bg-white/10 p-3 rounded-xl border border-white/10 transition-all max-w-[280px]">
-                                                                                            <Paperclip size={18} className="text-[#279da6]" />
-                                                                                            <div className="min-w-0">
-                                                                                                <p className="text-xs font-bold truncate text-white">{at.name}</p>
-                                                                                                <p className="text-[10px] text-storm-gray font-bold uppercase tracking-widest">View File</p>
-                                                                                            </div>
-                                                                                        </div>
-                                                                                    )}
-                                                                                </div>
-                                                                            );
-                                                                        })}
-                                                                    </div>
-                                                                )}
-                                                            </div>
-                                                        </div>
+                                        {/* Message Composer - Fixed to bottom of main area */}
+                                        <div className="mt-auto p-6 bg-[#121214] border-t border-shark shadow-[0_-8px_24px_rgba(0,0,0,0.2)]">
+                                            <div className="max-w-4xl mx-auto">
+                                                <div className="bg-shark/30 border border-shark/60 rounded-2xl overflow-hidden shadow-inner focus-within:border-[#279da6]/50 transition-all">
+                                                    {/* Formatting Bar */}
+                                                    <div className="flex items-center gap-1 p-2 bg-shark/20 border-b border-shark/40">
+                                                        <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => execFormat('bold')} title="Bold" className="p-1.5 hover:bg-shark rounded text-storm-gray hover:text-white transition-all"><Bold size={14} /></button>
+                                                        <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => execFormat('italic')} title="Italic" className="p-1.5 hover:bg-shark rounded text-storm-gray hover:text-white transition-all"><Italic size={14} /></button>
+                                                        <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => execFormat('underline')} title="Underline" className="p-1.5 hover:bg-shark rounded text-storm-gray hover:text-white transition-all"><Underline size={14} /></button>
+                                                        <div className="w-px h-4 bg-shark mx-1"></div>
+                                                        <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => execFormat('insertUnorderedList')} title="List" className="p-1.5 hover:bg-shark rounded text-storm-gray hover:text-white transition-all"><List size={14} /></button>
+                                                        <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={handleInsertLink} title="Insert Link" className="p-1.5 hover:bg-shark rounded text-storm-gray hover:text-white transition-all"><LinkIcon size={14} /></button>
+                                                        <div className="flex-1"></div>
+                                                        <button type="button" className="p-1.5 hover:bg-shark rounded text-storm-gray hover:text-white transition-all"><Smile size={14} /></button>
                                                     </div>
-                                                );
-                                            })}
-                                            <div ref={messagesEndRef} />
+                                                    <div
+                                                        ref={editorRef}
+                                                        contentEditable
+                                                        suppressContentEditableWarning
+                                                        onInput={handleEditorInput}
+                                                        onKeyDown={(e) => {
+                                                            if (e.key === 'Enter' && !e.shiftKey) {
+                                                                e.preventDefault();
+                                                                handleSendMessage();
+                                                            }
+                                                        }}
+                                                        data-placeholder="Write your message here..."
+                                                        className="w-full bg-transparent text-iron p-4 text-sm focus:outline-none min-h-[120px] empty:before:content-[attr(data-placeholder)] empty:before:text-storm-gray empty:before:pointer-events-none [&_a]:text-[#279da6] [&_a]:underline"
+                                                    />
+                                                    <div className="flex items-center justify-between p-3 bg-shark/10">
+                                                        <input
+                                                            type="file"
+                                                            ref={fileInputRef}
+                                                            className="hidden"
+                                                            onChange={handleFileUpload}
+                                                        />
+                                                        <button
+                                                            onClick={() => fileInputRef.current?.click()}
+                                                            disabled={isUploading}
+                                                            className="flex items-center gap-2 px-3 py-1.5 text-xs font-bold text-santas-gray hover:text-white transition-all group"
+                                                        >
+                                                            {isUploading ? <Loader2 size={14} className="animate-spin" /> : <Paperclip size={14} className="group-hover:text-[#279da6]" />}
+                                                            <span>{isUploading ? 'Uploading...' : 'Attach Files'}</span>
+                                                        </button>
+                                                        <button
+                                                            onClick={() => handleSendMessage()}
+                                                            disabled={isSending || !newMessage.trim()}
+                                                            className="bg-[#279da6] hover:bg-[#20838b] text-white px-6 py-2 rounded-xl flex items-center justify-center gap-2 transition-all font-black text-xs uppercase tracking-widest disabled:opacity-40 shadow-lg shadow-[#279da6]/20 active:scale-95"
+                                                        >
+                                                            {isSending ? <Loader2 size={16} className="animate-spin" /> : <><Send size={14} /> Send Message</>}
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                                <div className="mt-3 flex items-center justify-center gap-6">
+                                                    <span className="text-[10px] text-storm-gray font-black uppercase tracking-widest opacity-50">Press Enter to Send</span>
+                                                    <span className="text-[10px] text-storm-gray font-black uppercase tracking-widest opacity-50">Shift + Enter for new line</span>
+                                                </div>
+                                            </div>
                                         </div>
                                     </div>
-                                </div>
+                                )}
 
-                                {/* Message Composer - Fixed to bottom of main area */}
-                                <div className="mt-auto p-6 bg-[#121214] border-t border-shark shadow-[0_-8px_24px_rgba(0,0,0,0.2)]">
-                                    <div className="max-w-4xl mx-auto">
-                                        <div className="bg-shark/30 border border-shark/60 rounded-2xl overflow-hidden shadow-inner focus-within:border-[#279da6]/50 transition-all">
-                                            {/* Formatting Bar */}
-                                            <div className="flex items-center gap-1 p-2 bg-shark/20 border-b border-shark/40">
-                                                <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => execFormat('bold')} title="Bold" className="p-1.5 hover:bg-shark rounded text-storm-gray hover:text-white transition-all"><Bold size={14} /></button>
-                                                <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => execFormat('italic')} title="Italic" className="p-1.5 hover:bg-shark rounded text-storm-gray hover:text-white transition-all"><Italic size={14} /></button>
-                                                <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => execFormat('underline')} title="Underline" className="p-1.5 hover:bg-shark rounded text-storm-gray hover:text-white transition-all"><Underline size={14} /></button>
-                                                <div className="w-px h-4 bg-shark mx-1"></div>
-                                                <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => execFormat('insertUnorderedList')} title="List" className="p-1.5 hover:bg-shark rounded text-storm-gray hover:text-white transition-all"><List size={14} /></button>
-                                                <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={handleInsertLink} title="Insert Link" className="p-1.5 hover:bg-shark rounded text-storm-gray hover:text-white transition-all"><LinkIcon size={14} /></button>
-                                                <div className="flex-1"></div>
-                                                <button type="button" className="p-1.5 hover:bg-shark rounded text-storm-gray hover:text-white transition-all"><Smile size={14} /></button>
-                                            </div>
-                                            <div
-                                                ref={editorRef}
-                                                contentEditable
-                                                suppressContentEditableWarning
-                                                onInput={handleEditorInput}
-                                                onKeyDown={(e) => {
-                                                    if (e.key === 'Enter' && !e.shiftKey) {
-                                                        e.preventDefault();
-                                                        handleSendMessage();
-                                                    }
-                                                }}
-                                                data-placeholder="Write your message here..."
-                                                className="w-full bg-transparent text-iron p-4 text-sm focus:outline-none min-h-[120px] empty:before:content-[attr(data-placeholder)] empty:before:text-storm-gray empty:before:pointer-events-none [&_a]:text-[#279da6] [&_a]:underline"
-                                            />
-                                            <div className="flex items-center justify-between p-3 bg-shark/10">
-                                                <input
-                                                    type="file"
-                                                    ref={fileInputRef}
-                                                    className="hidden"
-                                                    onChange={handleFileUpload}
-                                                />
+                                {/* Tasks Tab */}
+                                {activeTab === 'tasks' && (
+                                    <div className="flex-1 overflow-y-auto custom-scrollbar p-6">
+                                        <div className="max-w-4xl mx-auto">
+                                            {/* Create Task Quick-Add */}
+                                            <div className="flex items-center gap-3 mb-6">
+                                                <div className="flex-1 relative">
+                                                    <input
+                                                        type="text"
+                                                        value={newTaskTitle}
+                                                        onChange={(e) => setNewTaskTitle(e.target.value)}
+                                                        onKeyDown={(e) => {
+                                                            if (e.key === 'Enter' && newTaskTitle.trim()) handleCreateLinkedTask();
+                                                        }}
+                                                        placeholder="Create a new task linked to this request..."
+                                                        className="w-full bg-shark/20 border border-shark/50 rounded-xl py-3 px-4 text-sm text-iron placeholder:text-storm-gray/50 focus:outline-none focus:border-[#279da6]/40 transition-all"
+                                                    />
+                                                </div>
                                                 <button
-                                                    onClick={() => fileInputRef.current?.click()}
-                                                    disabled={isUploading}
-                                                    className="flex items-center gap-2 px-3 py-1.5 text-xs font-bold text-santas-gray hover:text-white transition-all group"
+                                                    onClick={handleCreateLinkedTask}
+                                                    disabled={!newTaskTitle.trim() || isCreatingTask}
+                                                    className="flex items-center gap-2 px-5 py-3 rounded-xl bg-[#279da6] text-white text-xs font-black uppercase tracking-widest hover:bg-[#20838b] transition-all shadow-lg shadow-[#279da6]/20 disabled:opacity-40"
                                                 >
-                                                    {isUploading ? <Loader2 size={14} className="animate-spin" /> : <Paperclip size={14} className="group-hover:text-[#279da6]" />}
-                                                    <span>{isUploading ? 'Uploading...' : 'Attach Files'}</span>
-                                                </button>
-                                                <button
-                                                    onClick={() => handleSendMessage()}
-                                                    disabled={isSending || !newMessage.trim()}
-                                                    className="bg-[#279da6] hover:bg-[#20838b] text-white px-6 py-2 rounded-xl flex items-center justify-center gap-2 transition-all font-black text-xs uppercase tracking-widest disabled:opacity-40 shadow-lg shadow-[#279da6]/20 active:scale-95"
-                                                >
-                                                    {isSending ? <Loader2 size={16} className="animate-spin" /> : <><Send size={14} /> Send Message</>}
+                                                    {isCreatingTask ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
+                                                    Add Task
                                                 </button>
                                             </div>
-                                        </div>
-                                        <div className="mt-3 flex items-center justify-center gap-6">
-                                            <span className="text-[10px] text-storm-gray font-black uppercase tracking-widest opacity-50">Press Enter to Send</span>
-                                            <span className="text-[10px] text-storm-gray font-black uppercase tracking-widest opacity-50">Shift + Enter for new line</span>
+
+                                            {isLoadingTasks ? (
+                                                <div className="flex items-center justify-center py-20">
+                                                    <Loader2 size={24} className="animate-spin text-[#279da6]" />
+                                                </div>
+                                            ) : linkedTasks.length === 0 ? (
+                                                <div className="flex flex-col items-center justify-center py-20 text-center">
+                                                    <div className="w-16 h-16 rounded-2xl bg-shark/30 border border-shark flex items-center justify-center mb-4">
+                                                        <CheckSquare size={28} className="text-storm-gray/50" />
+                                                    </div>
+                                                    <p className="text-sm font-bold text-iron mb-1">No tasks linked</p>
+                                                    <p className="text-[11px] text-storm-gray">Create a task above to link it to this request</p>
+                                                </div>
+                                            ) : (
+                                                <div className="space-y-2">
+                                                    {linkedTasks.map(task => (
+                                                        <div
+                                                            key={task.id}
+                                                            onClick={() => router.push(`/tasks/${task.id}`)}
+                                                            className="flex items-center gap-4 p-4 rounded-xl bg-shark/15 border border-shark/40 hover:border-[#279da6]/30 hover:bg-shark/25 cursor-pointer transition-all group"
+                                                        >
+                                                            <div className={`w-2 h-2 rounded-full shrink-0 ${priorityColor(task.priority)}`} />
+                                                            <div className="flex-1 min-w-0">
+                                                                <p className="text-sm font-bold text-iron truncate group-hover:text-white transition-colors">{task.title}</p>
+                                                                {task.due_date && (
+                                                                    <p className="text-[10px] text-storm-gray mt-0.5">
+                                                                        Due {new Date(task.due_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                                                                    </p>
+                                                                )}
+                                                            </div>
+                                                            <span className={`px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest shrink-0 ${statusColor(task.status)}`}>
+                                                                {task.status}
+                                                            </span>
+                                                            {task.assignee && (
+                                                                <div className="w-7 h-7 rounded-full bg-[#279da6] text-white flex items-center justify-center text-[9px] font-black shrink-0 border border-white/10">
+                                                                    {task.assignee.full_name?.split(' ').map(n => n[0]).join('')}
+                                                                </div>
+                                                            )}
+                                                            <ExternalLink size={14} className="text-storm-gray/40 group-hover:text-[#279da6] transition-colors shrink-0" />
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            )}
                                         </div>
                                     </div>
-                                </div>
+                                )}
+
+                                {/* Files Tab */}
+                                {activeTab === 'files' && (
+                                    <div className="flex-1 overflow-y-auto custom-scrollbar p-6">
+                                        <div className="max-w-4xl mx-auto">
+                                            {/* Refresh button */}
+                                            <div className="flex items-center justify-between mb-6">
+                                                <h3 className="text-sm font-black text-iron uppercase tracking-widest">Request Files</h3>
+                                                <button
+                                                    onClick={fetchRequestFiles}
+                                                    className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-shark/30 border border-shark text-storm-gray text-[10px] font-black uppercase tracking-widest hover:text-white hover:border-[#279da6]/30 transition-all"
+                                                >
+                                                    <RefreshCw size={12} className={isLoadingFiles ? 'animate-spin' : ''} />
+                                                    Refresh
+                                                </button>
+                                            </div>
+
+                                            {isLoadingFiles ? (
+                                                <div className="flex items-center justify-center py-20">
+                                                    <Loader2 size={24} className="animate-spin text-[#279da6]" />
+                                                </div>
+                                            ) : requestFiles.length === 0 ? (
+                                                <div className="flex flex-col items-center justify-center py-20 text-center">
+                                                    <div className="w-16 h-16 rounded-2xl bg-shark/30 border border-shark flex items-center justify-center mb-4">
+                                                        <FolderOpen size={28} className="text-storm-gray/50" />
+                                                    </div>
+                                                    <p className="text-sm font-bold text-iron mb-1">No files found</p>
+                                                    <p className="text-[11px] text-storm-gray">Files uploaded via chat will appear here</p>
+                                                </div>
+                                            ) : (
+                                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                                    {requestFiles.map(file => (
+                                                        <div
+                                                            key={file.id}
+                                                            onClick={() => {
+                                                                setPreviewFile({
+                                                                    name: file.name,
+                                                                    url: file.webViewLink,
+                                                                    previewUrl: file.previewUrl,
+                                                                    type: file.mimeType
+                                                                });
+                                                                setIsPreviewOpen(true);
+                                                            }}
+                                                            className="flex items-center gap-3 p-4 rounded-xl bg-shark/15 border border-shark/40 hover:border-[#279da6]/30 hover:bg-shark/25 cursor-pointer transition-all group"
+                                                        >
+                                                            <div className="w-10 h-10 rounded-lg bg-shark/40 border border-shark flex items-center justify-center shrink-0">
+                                                                {getFileIcon(file.mimeType)}
+                                                            </div>
+                                                            <div className="flex-1 min-w-0">
+                                                                <p className="text-xs font-bold text-iron truncate group-hover:text-white transition-colors">{file.name}</p>
+                                                                <div className="flex items-center gap-2 mt-1">
+                                                                    <span className="text-[9px] font-black uppercase tracking-widest text-storm-gray/60">{file.folder}</span>
+                                                                    {file.size && (
+                                                                        <>
+                                                                            <span className="text-storm-gray/30">·</span>
+                                                                            <span className="text-[9px] text-storm-gray/60">{formatFileSize(file.size)}</span>
+                                                                        </>
+                                                                    )}
+                                                                    {file.createdTime && (
+                                                                        <>
+                                                                            <span className="text-storm-gray/30">·</span>
+                                                                            <span className="text-[9px] text-storm-gray/60">
+                                                                                {new Date(file.createdTime).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                                                                            </span>
+                                                                        </>
+                                                                    )}
+                                                                </div>
+                                                            </div>
+                                                            <a
+                                                                href={file.webViewLink}
+                                                                target="_blank"
+                                                                rel="noopener noreferrer"
+                                                                onClick={(e) => e.stopPropagation()}
+                                                                className="p-2 rounded-lg hover:bg-shark text-storm-gray/40 hover:text-[#279da6] transition-all opacity-0 group-hover:opacity-100"
+                                                            >
+                                                                <ExternalLink size={14} />
+                                                            </a>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
+
                             </div>
 
                             {/* Right Sidebar - Summary */}

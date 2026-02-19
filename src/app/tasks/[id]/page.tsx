@@ -59,6 +59,12 @@ interface TaskDetails {
     updated_at: string;
     due_date: string | null;
     assigned_to: string | null;
+    request_links?: {
+        request: {
+            id: string;
+            title: string;
+        } | null;
+    }[] | null;
     created_by: string | null;
     assignee: {
         id: string;
@@ -91,6 +97,7 @@ export default function TaskDetailsPage() {
     const [isSending, setIsSending] = useState(false);
     const [isUploading, setIsUploading] = useState(false);
     const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
+    const [requests, setRequests] = useState<any[]>([]);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const dateInputRef = useRef<HTMLInputElement>(null);
     const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -136,7 +143,8 @@ export default function TaskDetailsPage() {
                     await Promise.all([
                         fetchTaskDetails(),
                         fetchMessages(),
-                        fetchTeamMembers()
+                        fetchTeamMembers(),
+                        fetchRequests()
                     ]);
                 } finally {
                     setIsLoading(false);
@@ -213,6 +221,18 @@ export default function TaskDetailsPage() {
             }
         } catch (error) {
             console.error('Error fetching team members:', error);
+        }
+    };
+
+    const fetchRequests = async () => {
+        try {
+            const response = await fetch('/api/requests');
+            if (response.ok) {
+                const data = await response.json();
+                setRequests(data);
+            }
+        } catch (error) {
+            console.error('Error fetching requests:', error);
         }
     };
 
@@ -321,6 +341,11 @@ export default function TaskDetailsPage() {
             newTask.assignee = tm ? { id: tm.profile_id!, full_name: tm.name } : null;
         }
 
+        if (field === 'request_ids') {
+            const selectedRequests = requests.filter(r => value.includes(r.id));
+            newTask.request_links = selectedRequests.map(r => ({ request: r }));
+        }
+
         setTask(newTask);
 
         try {
@@ -401,7 +426,7 @@ export default function TaskDetailsPage() {
                         <div className="h-16 border-b border-shark flex items-center justify-between px-6 bg-shark/5">
                             <div className="flex items-center gap-4">
                                 <button
-                                    onClick={() => router.push('/tasks')}
+                                    onClick={() => router.back()}
                                     className="p-2 hover:bg-shark rounded-lg text-santas-gray hover:text-white transition-all"
                                 >
                                     <ChevronLeft size={20} />
@@ -722,6 +747,60 @@ export default function TaskDetailsPage() {
                                                         <Plus size={14} />
                                                     )}
                                                 </div>
+                                            </div>
+                                        </div>
+
+                                        {/* Linked Request(s) */}
+                                        <div className="flex flex-col gap-2">
+                                            <span className="text-[12px] font-bold text-storm-gray">Linked Request(s)</span>
+                                            <div className="flex-1 relative group">
+                                                <select
+                                                    value=""
+                                                    onChange={(e) => {
+                                                        if (e.target.value) {
+                                                            const id = e.target.value;
+                                                            const currentIds = task.request_links?.map(l => l.request?.id).filter(Boolean) as string[] || [];
+                                                            if (!currentIds.includes(id)) {
+                                                                handleUpdateField('request_ids', [...currentIds, id]);
+                                                            }
+                                                        }
+                                                    }}
+                                                    className="w-full bg-shark/20 border border-shark/40 px-3 py-2 rounded-lg text-xs font-bold text-iron focus:outline-none cursor-pointer hover:bg-shark/30 transition-all appearance-none"
+                                                >
+                                                    <option value="">Add Connection...</option>
+                                                    {requests.filter(r => !task.request_links?.some(l => l.request?.id === r.id)).map((r: any) => (
+                                                        <option key={r.id} value={r.id}>
+                                                            {r.title}
+                                                        </option>
+                                                    ))}
+                                                </select>
+                                                <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-storm-gray opacity-50">
+                                                    <Plus size={12} />
+                                                </div>
+                                            </div>
+
+                                            {/* Selected Requests Pills */}
+                                            <div className="flex flex-wrap gap-2 mt-1">
+                                                {task.request_links?.map((link, idx) => (
+                                                    <div key={idx} className="flex items-center gap-2 bg-[#279da6]/10 border border-[#279da6]/30 rounded-lg px-2 py-1 group/pill">
+                                                        <span
+                                                            onClick={() => router.push(`/requests/${link.request?.id}`)}
+                                                            className="text-[9px] font-bold text-[#279da6] truncate max-w-[200px] cursor-pointer hover:underline"
+                                                        >
+                                                            {link.request ? link.request.title : 'Unknown'}
+                                                        </span>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => {
+                                                                const currentIds = task.request_links?.map(l => l.request?.id).filter(Boolean) as string[] || [];
+                                                                handleUpdateField('request_ids', currentIds.filter(id => id !== link.request?.id));
+                                                            }}
+                                                            className="text-storm-gray hover:text-white transition-colors"
+                                                        >
+                                                            <X size={10} />
+                                                        </button>
+                                                    </div>
+                                                ))}
                                             </div>
                                         </div>
 

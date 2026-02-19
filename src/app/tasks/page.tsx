@@ -12,6 +12,7 @@ export default async function TasksPage() {
             initialTasks={data.tasks}
             profiles={data.profiles}
             teamMembers={data.teamMembers}
+            requests={data.requests}
         />
     );
 }
