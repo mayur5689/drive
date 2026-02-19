@@ -61,16 +61,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         // Listen for changes
         const { data: { subscription } } = supabase.auth.onAuthStateChange(
             async (event, session) => {
-                // Clear state immediately on any change to prevent glitches
-                setProfile(null);
-                setImpersonatedProfile(null);
-                sessionStorage.removeItem('impersonated_profile');
-
-                if (session) {
-                    setUser(session.user);
-                    await fetchProfile(session.user.id);
-                } else {
+                if (event === 'SIGNED_OUT') {
+                    // Only clear everything on explicit sign out
+                    setProfile(null);
+                    setImpersonatedProfile(null);
+                    sessionStorage.removeItem('impersonated_profile');
                     setUser(null);
+                } else if (session) {
+                    // For token refreshes or other events, just update user and profile
+                    // without killing the existing impersonation state
+                    const prevUserId = user?.id;
+                    setUser(session.user);
+
+                    if (prevUserId && prevUserId !== session.user.id) {
+                        // If the actual user changed (rare without logout), clear impersonation
+                        setImpersonatedProfile(null);
+                        sessionStorage.removeItem('impersonated_profile');
+                    }
+
+                    await fetchProfile(session.user.id);
                 }
                 setIsLoading(false);
             }

@@ -178,109 +178,111 @@ export default function Sidebar({ isCollapsed }: SidebarProps) {
                     )}
                 </div>
 
-                {/* User Footer */}
-                <div className="p-4 mt-auto relative">
-                    {showProfileMenu && (
-                        <div className="absolute bottom-full left-4 right-4 mb-2 bg-[#121214] border border-shark/60 rounded-2xl shadow-2xl z-50 overflow-hidden animate-slide-up">
-                            {!isCollapsed && (
-                                <div className="p-4 border-b border-shark/40 flex items-center gap-3">
-                                    <div className="w-10 h-10 rounded-full bg-shark flex items-center justify-center text-sm font-black text-white bg-gradient-to-br from-[#279da6]/30 to-transparent ring-1 ring-white/5 relative overflow-hidden">
-                                        {displayProfile?.avatar_url ? (
-                                            <Image
-                                                src={displayProfile.avatar_url}
-                                                alt="Avatar"
-                                                fill
-                                                unoptimized
-                                                className="object-cover"
-                                            />
-                                        ) : (
-                                            displayProfile?.full_name?.split(' ').map((n: string) => n[0]).join('') || displayProfile?.email?.[0].toUpperCase() || 'U'
-                                        )}
+                {/* User Footer - hidden during impersonation */}
+                {!isImpersonating && (
+                    <div className="p-4 mt-auto relative">
+                        {showProfileMenu && (
+                            <div className="absolute bottom-full left-4 right-4 mb-2 bg-[#121214] border border-shark/60 rounded-2xl shadow-2xl z-50 overflow-hidden animate-slide-up">
+                                {!isCollapsed && (
+                                    <div className="p-4 border-b border-shark/40 flex items-center gap-3">
+                                        <div className="w-10 h-10 rounded-full bg-shark flex items-center justify-center text-sm font-black text-white bg-gradient-to-br from-[#279da6]/30 to-transparent ring-1 ring-white/5 relative overflow-hidden">
+                                            {displayProfile?.avatar_url ? (
+                                                <Image
+                                                    src={displayProfile.avatar_url}
+                                                    alt="Avatar"
+                                                    fill
+                                                    unoptimized
+                                                    className="object-cover"
+                                                />
+                                            ) : (
+                                                displayProfile?.full_name?.split(' ').map((n: string) => n[0]).join('') || displayProfile?.email?.[0].toUpperCase() || 'U'
+                                            )}
+                                        </div>
+                                        <div className="flex flex-col min-w-0">
+                                            <p className="text-xs font-black text-white truncate">
+                                                {displayProfile?.full_name || (displayProfile?.role === 'super_admin' ? 'Super Admin' : 'User Account')}
+                                            </p>
+                                            <p className="text-[10px] text-storm-gray font-bold truncate tracking-tight">{displayProfile?.email}</p>
+                                        </div>
                                     </div>
-                                    <div className="flex flex-col min-w-0">
-                                        <p className="text-xs font-black text-white truncate">
-                                            {displayProfile?.full_name || (displayProfile?.role === 'super_admin' ? 'Super Admin' : 'User Account')}
-                                        </p>
-                                        <p className="text-[10px] text-storm-gray font-bold truncate tracking-tight">{displayProfile?.email}</p>
-                                    </div>
-                                </div>
-                            )}
-
-                            <div className="p-2 space-y-1">
-                                <button
-                                    onClick={() => {
-                                        setShowProfileMenu(false);
-                                        router.push('/account');
-                                    }}
-                                    className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-bold text-iron hover:bg-shark transition-all text-left group"
-                                >
-                                    <BadgeCheck size={16} className="text-storm-gray group-hover:text-[#279da6]" />
-                                    <span>Account</span>
-                                </button>
-                                <button className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-bold text-iron hover:bg-shark transition-all text-left group">
-                                    <CreditCard size={16} className="text-storm-gray group-hover:text-[#279da6]" />
-                                    <span>Billing</span>
-                                </button>
-                                <button className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-bold text-iron hover:bg-shark transition-all text-left group">
-                                    <Bell size={16} className="text-storm-gray group-hover:text-[#279da6]" />
-                                    <span>Notifications</span>
-                                </button>
-                                <div className="h-px bg-shark/40 mx-2 my-1" />
-                                <button
-                                    onClick={() => {
-                                        setShowProfileMenu(false);
-                                        setShowLogoutConfirm(true);
-                                    }}
-                                    className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-bold text-rose-500 hover:bg-rose-500/10 transition-all text-left"
-                                >
-                                    <LogOut size={16} />
-                                    <span>Log out</span>
-                                </button>
-                            </div>
-                        </div>
-                    )}
-
-                    <button
-                        onClick={() => setShowProfileMenu(!showProfileMenu)}
-                        className={`w-full p-2 rounded-2xl flex items-center gap-3 hover:bg-shark/40 transition-all group/profile ${showProfileMenu ? 'bg-shark/40' : ''} ${isCollapsed ? 'justify-center' : ''}`}
-                    >
-                        <div className="w-9 h-9 rounded-full bg-shark relative shrink-0 overflow-hidden flex items-center justify-center text-xs font-black text-white bg-gradient-to-br from-[#279da6]/20 to-transparent group-hover/profile:ring-2 group-hover/profile:ring-[#279da6]/30 transition-all">
-                            {isLoading ? (
-                                <Loader2 size={16} className="text-[#279da6] animate-spin" />
-                            ) : displayProfile?.avatar_url ? (
-                                <Image
-                                    src={displayProfile.avatar_url}
-                                    alt="Avatar"
-                                    fill
-                                    unoptimized
-                                    className="object-cover"
-                                />
-                            ) : (
-                                displayProfile?.full_name?.split(' ').map((n: string) => n[0]).join('') || displayProfile?.email?.[0].toUpperCase() || 'U'
-                            )}
-                        </div>
-                        {!isCollapsed && (
-                            <div className="flex flex-col min-w-0 flex-1 text-left">
-                                {isLoading ? (
-                                    <div className="space-y-1.5">
-                                        <div className="h-2.5 w-24 bg-shark/60 animate-pulse rounded" />
-                                        <div className="h-2 w-32 bg-shark/40 animate-pulse rounded" />
-                                    </div>
-                                ) : (
-                                    <>
-                                        <p className="text-[11px] font-black text-iron truncate leading-none mb-1">
-                                            {displayProfile?.full_name || (displayProfile?.role === 'super_admin' ? 'Super Admin' : 'User Account')}
-                                        </p>
-                                        <p className="text-[10px] text-storm-gray font-bold truncate tracking-tight">
-                                            {displayProfile?.email}
-                                        </p>
-                                    </>
                                 )}
+
+                                <div className="p-2 space-y-1">
+                                    <button
+                                        onClick={() => {
+                                            setShowProfileMenu(false);
+                                            router.push('/account');
+                                        }}
+                                        className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-bold text-iron hover:bg-shark transition-all text-left group"
+                                    >
+                                        <BadgeCheck size={16} className="text-storm-gray group-hover:text-[#279da6]" />
+                                        <span>Account</span>
+                                    </button>
+                                    <button className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-bold text-iron hover:bg-shark transition-all text-left group">
+                                        <CreditCard size={16} className="text-storm-gray group-hover:text-[#279da6]" />
+                                        <span>Billing</span>
+                                    </button>
+                                    <button className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-bold text-iron hover:bg-shark transition-all text-left group">
+                                        <Bell size={16} className="text-storm-gray group-hover:text-[#279da6]" />
+                                        <span>Notifications</span>
+                                    </button>
+                                    <div className="h-px bg-shark/40 mx-2 my-1" />
+                                    <button
+                                        onClick={() => {
+                                            setShowProfileMenu(false);
+                                            setShowLogoutConfirm(true);
+                                        }}
+                                        className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-bold text-rose-500 hover:bg-rose-500/10 transition-all text-left"
+                                    >
+                                        <LogOut size={16} />
+                                        <span>Log out</span>
+                                    </button>
+                                </div>
                             </div>
                         )}
-                        {!isCollapsed && <ChevronsUpDown size={14} className="text-storm-gray group-hover/profile:text-iron" />}
-                    </button>
-                </div>
+
+                        <button
+                            onClick={() => setShowProfileMenu(!showProfileMenu)}
+                            className={`w-full p-2 rounded-2xl flex items-center gap-3 hover:bg-shark/40 transition-all group/profile ${showProfileMenu ? 'bg-shark/40' : ''} ${isCollapsed ? 'justify-center' : ''}`}
+                        >
+                            <div className="w-9 h-9 rounded-full bg-shark relative shrink-0 overflow-hidden flex items-center justify-center text-xs font-black text-white bg-gradient-to-br from-[#279da6]/20 to-transparent group-hover/profile:ring-2 group-hover/profile:ring-[#279da6]/30 transition-all">
+                                {isLoading ? (
+                                    <Loader2 size={16} className="text-[#279da6] animate-spin" />
+                                ) : displayProfile?.avatar_url ? (
+                                    <Image
+                                        src={displayProfile.avatar_url}
+                                        alt="Avatar"
+                                        fill
+                                        unoptimized
+                                        className="object-cover"
+                                    />
+                                ) : (
+                                    displayProfile?.full_name?.split(' ').map((n: string) => n[0]).join('') || displayProfile?.email?.[0].toUpperCase() || 'U'
+                                )}
+                            </div>
+                            {!isCollapsed && (
+                                <div className="flex flex-col min-w-0 flex-1 text-left">
+                                    {isLoading ? (
+                                        <div className="space-y-1.5">
+                                            <div className="h-2.5 w-24 bg-shark/60 animate-pulse rounded" />
+                                            <div className="h-2 w-32 bg-shark/40 animate-pulse rounded" />
+                                        </div>
+                                    ) : (
+                                        <>
+                                            <p className="text-[11px] font-black text-iron truncate leading-none mb-1">
+                                                {displayProfile?.full_name || (displayProfile?.role === 'super_admin' ? 'Super Admin' : 'User Account')}
+                                            </p>
+                                            <p className="text-[10px] text-storm-gray font-bold truncate tracking-tight">
+                                                {displayProfile?.email}
+                                            </p>
+                                        </>
+                                    )}
+                                </div>
+                            )}
+                            {!isCollapsed && <ChevronsUpDown size={14} className="text-storm-gray group-hover/profile:text-iron" />}
+                        </button>
+                    </div>
+                )}
             </aside>
 
             {showLogoutConfirm && (
