@@ -247,15 +247,11 @@ export default function RequestsClient({
                                     </div>
                                     <div className="flex items-center gap-1">
                                         <div className="relative">
-                                            {/* Glow Indicator */}
-                                            {(Object.values(filters).some(v => v !== '') || searchQuery !== '' || sortConfig.key !== '') && (
-                                                <div className="absolute inset-0 bg-[#279da6]/30 blur-2xl rounded-full animate-pulse z-0 pointer-events-none" />
-                                            )}
                                             <button
                                                 onClick={() => setIsFilterOpen(!isFilterOpen)}
-                                                className={`relative flex items-center gap-2 px-3 py-1.5 rounded-lg border transition-all text-xs font-bold z-10 ${isFilterOpen || Object.values(filters).some(v => v !== '') || searchQuery !== '' || sortConfig.key !== '' ? 'bg-[#279da6]/20 border-[#279da6]/60 text-[#279da6] shadow-[0_0_20px_rgba(39,157,166,0.5)] active:scale-95' : 'border-shark bg-[#121214] text-santas-gray hover:text-white hover:bg-shark/40'}`}
+                                                className={`relative flex items-center gap-2 px-3 py-1.5 rounded-lg border transition-all text-xs font-bold z-10 ${Object.values(filters).some(v => v !== '') || searchQuery !== '' || (sortConfig.key !== '' && !(sortConfig.key === 'created_at' && sortConfig.direction === 'desc')) ? 'bg-[#279da6]/20 border-[#279da6]/60 text-[#279da6] active:scale-95' : 'border-shark bg-[#121214] text-santas-gray hover:text-white hover:bg-shark/40'}`}
                                             >
-                                                <Filter size={14} className={Object.values(filters).some(v => v !== '') || searchQuery !== '' || sortConfig.key !== '' ? 'fill-[#279da6]/20' : ''} />
+                                                <Filter size={14} className={Object.values(filters).some(v => v !== '') || searchQuery !== '' || (sortConfig.key !== '' && !(sortConfig.key === 'created_at' && sortConfig.direction === 'desc')) ? 'fill-[#279da6]/20' : ''} />
                                                 <span>Filters</span>
                                                 <ChevronDown size={14} className={isFilterOpen ? 'rotate-180 transition-transform' : 'transition-transform'} />
                                             </button>
@@ -275,6 +271,9 @@ export default function RequestsClient({
                                                                     request_number: '',
                                                                     due_date: ''
                                                                 });
+                                                                setSearchQuery('');
+                                                                setSortConfig({ key: '', direction: null });
+                                                                setIsFilterOpen(false);
                                                             }}
                                                             className="text-[10px] font-bold text-storm-gray hover:text-white underline underline-offset-4"
                                                         >
@@ -314,7 +313,7 @@ export default function RequestsClient({
                                                                     className="w-full bg-[#09090B] border border-shark rounded-lg px-2 py-1.5 text-[11px] font-bold focus:outline-none focus:border-[#279da6]/40 text-iron"
                                                                 >
                                                                     <option value="">All</option>
-                                                                    {profiles.map((p: Profile) => <option key={p.id} value={p.id}>{p.full_name}</option>)}
+                                                                    {initialTeamMembers.map((m: TeamMember) => <option key={m.id} value={m.profile_id}>{m.name}</option>)}
                                                                 </select>
                                                             </div>
                                                             <div className="space-y-1.5">
@@ -568,7 +567,7 @@ export default function RequestsClient({
                                                                         className="w-full bg-[#09090B] border border-shark/50 rounded-md py-1 px-2 text-[10px] text-iron focus:outline-none"
                                                                     >
                                                                         <option value="">All Team</option>
-                                                                        {initialTeamMembers.map((m: TeamMember) => <option key={m.id} value={m.id}>{m.name}</option>)}
+                                                                        {initialTeamMembers.map((m: TeamMember) => <option key={m.id} value={m.profile_id}>{m.name}</option>)}
                                                                     </select>
                                                                 </div>
                                                             </div>

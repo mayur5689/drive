@@ -290,6 +290,7 @@ export default function ClientsClient({ initialClients }: ClientsClientProps) {
                         tabs={clientCategories}
                         activeTab={activeTab}
                         setActiveTab={setActiveTab}
+                        onCreate={() => setIsModalOpen(true)}
                     />
 
                     <main className="flex-1 overflow-y-auto custom-scrollbar">
@@ -310,10 +311,6 @@ export default function ClientsClient({ initialClients }: ClientsClientProps) {
                                     </div>
                                     <div className="flex items-center gap-2">
                                         <div className="relative">
-                                            {/* Glow Indicator */}
-                                            {(Object.values(filters).some(v => v !== '') || searchQuery !== '' || sortConfig.key !== '') && (
-                                                <div className="absolute inset-0 bg-[#279da6]/30 blur-2xl rounded-full animate-pulse z-0 pointer-events-none" />
-                                            )}
                                             <button
                                                 onClick={() => {
                                                     setFilters({
@@ -326,19 +323,12 @@ export default function ClientsClient({ initialClients }: ClientsClientProps) {
                                                     setSearchQuery('');
                                                     setSortConfig({ key: '', direction: null });
                                                 }}
-                                                className={`relative flex items-center gap-2 px-3 py-1.5 rounded-lg border transition-all text-[11px] font-bold z-10 ${Object.values(filters).some(v => v !== '') || searchQuery !== '' || sortConfig.key !== '' ? 'bg-[#279da6]/20 border-[#279da6]/60 text-[#279da6] shadow-[0_0_20px_rgba(39,157,166,0.5)] active:scale-95' : 'border-shark bg-shark/20 text-santas-gray hover:text-white hover:bg-shark/40'}`}
+                                                className={`relative flex items-center gap-2 px-3 py-1.5 rounded-lg border transition-all text-[11px] font-bold z-10 ${Object.values(filters).some(v => v !== '') || searchQuery !== '' || (sortConfig.key !== '' && !(sortConfig.key === 'createdAt' && sortConfig.direction === 'desc')) ? 'bg-[#279da6]/20 border-[#279da6]/60 text-[#279da6] active:scale-95' : 'border-shark bg-shark/20 text-santas-gray hover:text-white hover:bg-shark/40'}`}
                                             >
-                                                <Filter size={14} className={Object.values(filters).some(v => v !== '') || searchQuery !== '' || sortConfig.key !== '' ? 'fill-[#279da6]/20' : ''} />
-                                                <span>{Object.values(filters).some(v => v !== '') || searchQuery !== '' || sortConfig.key !== '' ? 'Reset Filters' : 'Filters'}</span>
+                                                <Filter size={14} className={Object.values(filters).some(v => v !== '') || searchQuery !== '' || (sortConfig.key !== '' && !(sortConfig.key === 'createdAt' && sortConfig.direction === 'desc')) ? 'fill-[#279da6]/20' : ''} />
+                                                <span>{Object.values(filters).some(v => v !== '') || searchQuery !== '' || (sortConfig.key !== '' && !(sortConfig.key === 'createdAt' && sortConfig.direction === 'desc')) ? 'Reset Filters' : 'Filters'}</span>
                                             </button>
                                         </div>
-                                        <button
-                                            onClick={() => setIsModalOpen(true)}
-                                            className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#279da6] text-white text-xs font-bold hover:bg-[#279da6]/90 transition-all shadow-lg hover:shadow-[#279da6]/20"
-                                        >
-                                            <Plus size={14} />
-                                            <span>Add New</span>
-                                        </button>
                                     </div>
                                 </div>
 

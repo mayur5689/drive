@@ -312,6 +312,7 @@ export default function TeamClient({ initialMembers, initialCounts }: TeamClient
                         tabs={memberCategories}
                         activeTab={activeTab}
                         setActiveTab={setActiveTab}
+                        onCreate={() => setIsModalOpen(true)}
                     />
 
                     <main className="flex-1 overflow-y-auto custom-scrollbar">
@@ -332,10 +333,6 @@ export default function TeamClient({ initialMembers, initialCounts }: TeamClient
                                     </div>
                                     <div className="flex items-center gap-2">
                                         <div className="relative">
-                                            {/* Glow Indicator */}
-                                            {(Object.values(filters).some(v => v !== '') || searchQuery !== '' || sortConfig.key !== '') && (
-                                                <div className="absolute inset-0 bg-[#279da6]/30 blur-2xl rounded-full animate-pulse z-0 pointer-events-none" />
-                                            )}
                                             <button
                                                 onClick={() => {
                                                     setFilters({
@@ -349,19 +346,12 @@ export default function TeamClient({ initialMembers, initialCounts }: TeamClient
                                                     setSearchQuery('');
                                                     setSortConfig({ key: '', direction: null });
                                                 }}
-                                                className={`relative flex items-center gap-2 px-3 py-1.5 rounded-lg border transition-all text-[11px] font-bold z-10 ${Object.values(filters).some(v => v !== '') || searchQuery !== '' || sortConfig.key !== '' ? 'bg-[#279da6]/20 border-[#279da6]/60 text-[#279da6] shadow-[0_0_20px_rgba(39,157,166,0.5)] active:scale-95' : 'border-shark bg-shark/20 text-santas-gray hover:text-white hover:bg-shark/40'}`}
+                                                className={`relative flex items-center gap-2 px-3 py-1.5 rounded-lg border transition-all text-[11px] font-bold z-10 ${Object.values(filters).some(v => v !== '') || searchQuery !== '' || (sortConfig.key !== '' && !(sortConfig.key === 'created_at' && sortConfig.direction === 'desc')) ? 'bg-[#279da6]/20 border-[#279da6]/60 text-[#279da6] active:scale-95' : 'border-shark bg-shark/20 text-santas-gray hover:text-white hover:bg-shark/40'}`}
                                             >
-                                                <Filter size={14} className={Object.values(filters).some(v => v !== '') || searchQuery !== '' || sortConfig.key !== '' ? 'fill-[#279da6]/20' : ''} />
-                                                <span>{Object.values(filters).some(v => v !== '') || searchQuery !== '' || sortConfig.key !== '' ? 'Reset Filters' : 'Filters'}</span>
+                                                <Filter size={14} className={Object.values(filters).some(v => v !== '') || searchQuery !== '' || (sortConfig.key !== '' && !(sortConfig.key === 'created_at' && sortConfig.direction === 'desc')) ? 'fill-[#279da6]/20' : ''} />
+                                                <span>{Object.values(filters).some(v => v !== '') || searchQuery !== '' || (sortConfig.key !== '' && !(sortConfig.key === 'created_at' && sortConfig.direction === 'desc')) ? 'Reset Filters' : 'Filters'}</span>
                                             </button>
                                         </div>
-                                        <button
-                                            onClick={() => setIsModalOpen(true)}
-                                            className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#279da6] text-white text-xs font-bold hover:bg-[#279da6]/90 transition-all shadow-lg hover:shadow-[#279da6]/20"
-                                        >
-                                            <Plus size={14} />
-                                            <span>Add Team Member</span>
-                                        </button>
                                     </div>
                                 </div>
 
@@ -568,257 +558,256 @@ export default function TeamClient({ initialMembers, initialCounts }: TeamClient
                                 </div>
                             </div>
                         </div>
-                    </main >
-                </div >
-            </div >
 
-            {/* Create Modal */}
-            {
-                isModalOpen && (
-                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
-                        <div className="bg-[#18181B] border border-shark rounded-3xl p-8 max-w-2xl w-full shadow-2xl animate-slide-up max-h-[90vh] overflow-y-auto custom-scrollbar">
-                            <div className="flex justify-between items-start mb-6">
-                                <h2 className="text-2xl font-black text-white uppercase tracking-tight">Create Team Member</h2>
-                                <button onClick={() => { setIsModalOpen(false); resetForm(); }} className="text-storm-gray hover:text-white transition-colors">
-                                    <X size={20} />
-                                </button>
-                            </div>
-
-                            <form onSubmit={handleSubmit} className="space-y-5">
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div>
-                                        <label className="block text-[10px] font-black uppercase tracking-widest text-storm-gray mb-2">Full Name *</label>
-                                        <input
-                                            type="text"
-                                            value={formData.name}
-                                            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                                            required
-                                            className="w-full bg-[#09090B] border border-shark rounded-lg px-4 py-2.5 text-sm text-iron focus:outline-none focus:border-[#279da6]/40 transition-all"
-                                            placeholder="Enter full name"
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="block text-[10px] font-black uppercase tracking-widest text-storm-gray mb-2">Email Address *</label>
-                                        <input
-                                            type="email"
-                                            value={formData.email}
-                                            onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                                            required
-                                            className="w-full bg-[#09090B] border border-shark rounded-lg px-4 py-2.5 text-sm text-iron focus:outline-none focus:border-[#279da6]/40 transition-all"
-                                            placeholder="email@example.com"
-                                        />
-                                    </div>
-                                </div>
-
-                                <div>
-                                    <label className="block text-[10px] font-black uppercase tracking-widest text-storm-gray mb-2">Role *</label>
-                                    <select
-                                        value={formData.role}
-                                        onChange={(e) => setFormData({ ...formData, role: e.target.value })}
-                                        className="w-full bg-[#09090B] border border-shark rounded-lg px-4 py-2.5 text-sm text-iron focus:outline-none focus:border-[#279da6]/40 transition-all"
-                                    >
-                                        <option value="viewer">Viewer — Can view assigned requests</option>
-                                        <option value="editor">Editor — Can view & chat on requests</option>
-                                        <option value="admin">Admin — Full access to assigned requests</option>
-                                    </select>
-                                </div>
-
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div>
-                                        <label className="block text-[10px] font-black uppercase tracking-widest text-storm-gray mb-2">Password (Optional)</label>
-                                        <div className="relative">
-                                            <input
-                                                type={showPassword ? "text" : "password"}
-                                                value={formData.password}
-                                                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                                                className="w-full bg-[#09090B] border border-shark rounded-lg px-4 py-2.5 text-sm text-iron focus:outline-none focus:border-[#279da6]/40 transition-all pr-10"
-                                                placeholder="••••••••"
-                                            />
-                                            <button
-                                                type="button"
-                                                onClick={() => setShowPassword(!showPassword)}
-                                                className="absolute right-3 top-1/2 -translate-y-1/2 text-storm-gray hover:text-white transition-colors"
-                                            >
-                                                {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                        {/* Create Modal */}
+                        {
+                            isModalOpen && (
+                                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
+                                    <div className="bg-[#18181B] border border-shark rounded-3xl p-8 max-w-2xl w-full shadow-2xl animate-slide-up max-h-[90vh] overflow-y-auto custom-scrollbar">
+                                        <div className="flex justify-between items-start mb-6">
+                                            <h2 className="text-2xl font-black text-white uppercase tracking-tight">Create Team Member</h2>
+                                            <button onClick={() => { setIsModalOpen(false); resetForm(); }} className="text-storm-gray hover:text-white transition-colors">
+                                                <X size={20} />
                                             </button>
                                         </div>
-                                        <p className="text-[10px] text-storm-gray mt-1.5">If provided, a login account will be created</p>
-                                    </div>
-                                    <div>
-                                        <label className="block text-[10px] font-black uppercase tracking-widest text-storm-gray mb-2">Confirm Password</label>
-                                        <input
-                                            type={showPassword ? "text" : "password"}
-                                            value={formData.confirmPassword}
-                                            onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
-                                            className="w-full bg-[#09090B] border border-shark rounded-lg px-4 py-2.5 text-sm text-iron focus:outline-none focus:border-[#279da6]/40 transition-all"
-                                            placeholder="••••••••"
-                                        />
+
+                                        <form onSubmit={handleSubmit} className="space-y-5">
+                                            <div className="grid grid-cols-2 gap-4">
+                                                <div>
+                                                    <label className="block text-[10px] font-black uppercase tracking-widest text-storm-gray mb-2">Full Name *</label>
+                                                    <input
+                                                        type="text"
+                                                        value={formData.name}
+                                                        onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                                                        required
+                                                        className="w-full bg-[#09090B] border border-shark rounded-lg px-4 py-2.5 text-sm text-iron focus:outline-none focus:border-[#279da6]/40 transition-all"
+                                                        placeholder="Enter full name"
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <label className="block text-[10px] font-black uppercase tracking-widest text-storm-gray mb-2">Email Address *</label>
+                                                    <input
+                                                        type="email"
+                                                        value={formData.email}
+                                                        onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                                                        required
+                                                        className="w-full bg-[#09090B] border border-shark rounded-lg px-4 py-2.5 text-sm text-iron focus:outline-none focus:border-[#279da6]/40 transition-all"
+                                                        placeholder="email@example.com"
+                                                    />
+                                                </div>
+                                            </div>
+
+                                            <div>
+                                                <label className="block text-[10px] font-black uppercase tracking-widest text-storm-gray mb-2">Role *</label>
+                                                <select
+                                                    value={formData.role}
+                                                    onChange={(e) => setFormData({ ...formData, role: e.target.value })}
+                                                    className="w-full bg-[#09090B] border border-shark rounded-lg px-4 py-2.5 text-sm text-iron focus:outline-none focus:border-[#279da6]/40 transition-all"
+                                                >
+                                                    <option value="viewer">Viewer — Can view assigned requests</option>
+                                                    <option value="editor">Editor — Can view & chat on requests</option>
+                                                    <option value="admin">Admin — Full access to assigned requests</option>
+                                                </select>
+                                            </div>
+
+                                            <div className="grid grid-cols-2 gap-4">
+                                                <div>
+                                                    <label className="block text-[10px] font-black uppercase tracking-widest text-storm-gray mb-2">Password (Optional)</label>
+                                                    <div className="relative">
+                                                        <input
+                                                            type={showPassword ? "text" : "password"}
+                                                            value={formData.password}
+                                                            onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                                                            className="w-full bg-[#09090B] border border-shark rounded-lg px-4 py-2.5 text-sm text-iron focus:outline-none focus:border-[#279da6]/40 transition-all pr-10"
+                                                            placeholder="••••••••"
+                                                        />
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => setShowPassword(!showPassword)}
+                                                            className="absolute right-3 top-1/2 -translate-y-1/2 text-storm-gray hover:text-white transition-colors"
+                                                        >
+                                                            {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                                                        </button>
+                                                    </div>
+                                                    <p className="text-[10px] text-storm-gray mt-1.5">If provided, a login account will be created</p>
+                                                </div>
+                                                <div>
+                                                    <label className="block text-[10px] font-black uppercase tracking-widest text-storm-gray mb-2">Confirm Password</label>
+                                                    <input
+                                                        type={showPassword ? "text" : "password"}
+                                                        value={formData.confirmPassword}
+                                                        onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
+                                                        className="w-full bg-[#09090B] border border-shark rounded-lg px-4 py-2.5 text-sm text-iron focus:outline-none focus:border-[#279da6]/40 transition-all"
+                                                        placeholder="••••••••"
+                                                    />
+                                                </div>
+                                            </div>
+
+                                            <div className="flex justify-end gap-3 pt-4">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => { setIsModalOpen(false); resetForm(); }}
+                                                    className="px-5 py-2.5 bg-shark/50 hover:bg-shark text-iron rounded-lg font-bold text-sm transition-all"
+                                                >
+                                                    Cancel
+                                                </button>
+                                                <button
+                                                    type="submit"
+                                                    disabled={isSubmitting}
+                                                    className="px-5 py-2.5 bg-[#279da6] hover:bg-[#279da6]/90 text-white rounded-lg font-bold text-sm transition-all flex items-center gap-2 shadow-lg shadow-[#279da6]/20"
+                                                >
+                                                    {isSubmitting ? <Loader2 size={16} className="animate-spin" /> : 'Create Member'}
+                                                </button>
+                                            </div>
+                                        </form>
                                     </div>
                                 </div>
+                            )
+                        }
 
-                                <div className="flex justify-end gap-3 pt-4">
-                                    <button
-                                        type="button"
-                                        onClick={() => { setIsModalOpen(false); resetForm(); }}
-                                        className="px-5 py-2.5 bg-shark/50 hover:bg-shark text-iron rounded-lg font-bold text-sm transition-all"
-                                    >
-                                        Cancel
-                                    </button>
-                                    <button
-                                        type="submit"
-                                        disabled={isSubmitting}
-                                        className="px-5 py-2.5 bg-[#279da6] hover:bg-[#279da6]/90 text-white rounded-lg font-bold text-sm transition-all flex items-center gap-2 shadow-lg shadow-[#279da6]/20"
-                                    >
-                                        {isSubmitting ? <Loader2 size={16} className="animate-spin" /> : 'Create Member'}
-                                    </button>
-                                </div>
-                            </form>
-                        </div>
-                    </div>
-                )
-            }
+                        {/* Edit Modal */}
+                        {
+                            isEditModalOpen && selectedMember && (
+                                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
+                                    <div className="bg-[#18181B] border border-shark rounded-3xl p-8 max-w-2xl w-full shadow-2xl animate-slide-up max-h-[90vh] overflow-y-auto custom-scrollbar">
+                                        <div className="flex justify-between items-start mb-6">
+                                            <h2 className="text-2xl font-black text-white uppercase tracking-tight">Edit Team Member</h2>
+                                            <button onClick={() => { setIsEditModalOpen(false); resetForm(); }} className="text-storm-gray hover:text-white transition-colors">
+                                                <X size={20} />
+                                            </button>
+                                        </div>
 
-            {/* Edit Modal */}
-            {
-                isEditModalOpen && selectedMember && (
-                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
-                        <div className="bg-[#18181B] border border-shark rounded-3xl p-8 max-w-2xl w-full shadow-2xl animate-slide-up max-h-[90vh] overflow-y-auto custom-scrollbar">
-                            <div className="flex justify-between items-start mb-6">
-                                <h2 className="text-2xl font-black text-white uppercase tracking-tight">Edit Team Member</h2>
-                                <button onClick={() => { setIsEditModalOpen(false); resetForm(); }} className="text-storm-gray hover:text-white transition-colors">
-                                    <X size={20} />
-                                </button>
-                            </div>
+                                        <form onSubmit={handleEditSubmit} className="space-y-5">
+                                            <div className="grid grid-cols-2 gap-4">
+                                                <div>
+                                                    <label className="block text-[10px] font-black uppercase tracking-widest text-storm-gray mb-2">Full Name *</label>
+                                                    <input
+                                                        type="text"
+                                                        value={formData.name}
+                                                        onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                                                        required
+                                                        className="w-full bg-[#09090B] border border-shark rounded-lg px-4 py-2.5 text-sm text-iron focus:outline-none focus:border-[#279da6]/40 transition-all"
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <label className="block text-[10px] font-black uppercase tracking-widest text-storm-gray mb-2">Email Address *</label>
+                                                    <input
+                                                        type="email"
+                                                        value={formData.email}
+                                                        onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                                                        required
+                                                        className="w-full bg-[#09090B] border border-shark rounded-lg px-4 py-2.5 text-sm text-iron focus:outline-none focus:border-[#279da6]/40 transition-all"
+                                                    />
+                                                </div>
+                                            </div>
 
-                            <form onSubmit={handleEditSubmit} className="space-y-5">
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div>
-                                        <label className="block text-[10px] font-black uppercase tracking-widest text-storm-gray mb-2">Full Name *</label>
-                                        <input
-                                            type="text"
-                                            value={formData.name}
-                                            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                                            required
-                                            className="w-full bg-[#09090B] border border-shark rounded-lg px-4 py-2.5 text-sm text-iron focus:outline-none focus:border-[#279da6]/40 transition-all"
-                                        />
+                                            <div>
+                                                <label className="block text-[10px] font-black uppercase tracking-widest text-storm-gray mb-2">Role *</label>
+                                                <select
+                                                    value={formData.role}
+                                                    onChange={(e) => setFormData({ ...formData, role: e.target.value })}
+                                                    className="w-full bg-[#09090B] border border-shark rounded-lg px-4 py-2.5 text-sm text-iron focus:outline-none focus:border-[#279da6]/40 transition-all"
+                                                >
+                                                    <option value="viewer">Viewer — Can view assigned requests</option>
+                                                    <option value="editor">Editor — Can view & chat on requests</option>
+                                                    <option value="admin">Admin — Full access to assigned requests</option>
+                                                </select>
+                                            </div>
+
+                                            <div className="grid grid-cols-2 gap-4">
+                                                <div>
+                                                    <label className="block text-[10px] font-black uppercase tracking-widest text-storm-gray mb-2">New Password (Leave blank to keep current)</label>
+                                                    <div className="relative">
+                                                        <input
+                                                            type={showPassword ? "text" : "password"}
+                                                            value={formData.password}
+                                                            onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                                                            className="w-full bg-[#09090B] border border-shark rounded-lg px-4 py-2.5 text-sm text-iron focus:outline-none focus:border-[#279da6]/40 transition-all pr-10"
+                                                            placeholder="••••••••"
+                                                        />
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => setShowPassword(!showPassword)}
+                                                            className="absolute right-3 top-1/2 -translate-y-1/2 text-storm-gray hover:text-white transition-colors"
+                                                        >
+                                                            {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                                <div>
+                                                    <label className="block text-[10px] font-black uppercase tracking-widest text-storm-gray mb-2">Confirm Password</label>
+                                                    <input
+                                                        type={showPassword ? "text" : "password"}
+                                                        value={formData.confirmPassword}
+                                                        onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
+                                                        className="w-full bg-[#09090B] border border-shark rounded-lg px-4 py-2.5 text-sm text-iron focus:outline-none focus:border-[#279da6]/40 transition-all"
+                                                        placeholder="••••••••"
+                                                    />
+                                                </div>
+                                            </div>
+
+                                            <div className="flex justify-end gap-3 pt-4">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => { setIsEditModalOpen(false); resetForm(); }}
+                                                    className="px-5 py-2.5 bg-shark/50 hover:bg-shark text-iron rounded-lg font-bold text-sm transition-all"
+                                                >
+                                                    Cancel
+                                                </button>
+                                                <button
+                                                    type="submit"
+                                                    disabled={isSubmitting}
+                                                    className="px-5 py-2.5 bg-[#279da6] hover:bg-[#279da6]/90 text-white rounded-lg font-bold text-sm transition-all flex items-center gap-2 shadow-lg shadow-[#279da6]/20"
+                                                >
+                                                    {isSubmitting ? <Loader2 size={16} className="animate-spin" /> : 'Update Member'}
+                                                </button>
+                                            </div>
+                                        </form>
                                     </div>
-                                    <div>
-                                        <label className="block text-[10px] font-black uppercase tracking-widest text-storm-gray mb-2">Email Address *</label>
-                                        <input
-                                            type="email"
-                                            value={formData.email}
-                                            onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                                            required
-                                            className="w-full bg-[#09090B] border border-shark rounded-lg px-4 py-2.5 text-sm text-iron focus:outline-none focus:border-[#279da6]/40 transition-all"
-                                        />
-                                    </div>
                                 </div>
+                            )
+                        }
 
-                                <div>
-                                    <label className="block text-[10px] font-black uppercase tracking-widest text-storm-gray mb-2">Role *</label>
-                                    <select
-                                        value={formData.role}
-                                        onChange={(e) => setFormData({ ...formData, role: e.target.value })}
-                                        className="w-full bg-[#09090B] border border-shark rounded-lg px-4 py-2.5 text-sm text-iron focus:outline-none focus:border-[#279da6]/40 transition-all"
-                                    >
-                                        <option value="viewer">Viewer — Can view assigned requests</option>
-                                        <option value="editor">Editor — Can view & chat on requests</option>
-                                        <option value="admin">Admin — Full access to assigned requests</option>
-                                    </select>
-                                </div>
-
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div>
-                                        <label className="block text-[10px] font-black uppercase tracking-widest text-storm-gray mb-2">New Password (Leave blank to keep current)</label>
-                                        <div className="relative">
-                                            <input
-                                                type={showPassword ? "text" : "password"}
-                                                value={formData.password}
-                                                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                                                className="w-full bg-[#09090B] border border-shark rounded-lg px-4 py-2.5 text-sm text-iron focus:outline-none focus:border-[#279da6]/40 transition-all pr-10"
-                                                placeholder="••••••••"
-                                            />
+                        {/* Delete Modal */}
+                        {
+                            isDeleteModalOpen && selectedMember && (
+                                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
+                                    <div className="bg-[#18181B] border border-shark rounded-3xl p-8 max-w-md w-full shadow-2xl animate-slide-up">
+                                        <div className="flex justify-between items-start mb-6">
+                                            <div className="w-12 h-12 rounded-2xl bg-rose-500/10 flex items-center justify-center text-rose-500">
+                                                <AlertTriangle size={24} />
+                                            </div>
+                                            <button onClick={() => { setIsDeleteModalOpen(false); resetForm(); }} className="text-storm-gray hover:text-white transition-colors">
+                                                <X size={20} />
+                                            </button>
+                                        </div>
+                                        <h2 className="text-xl font-bold text-iron mb-2">Delete Team Member?</h2>
+                                        <p className="text-storm-gray text-sm mb-8">
+                                            Are you sure you want to delete <strong className="text-white">{selectedMember.name}</strong>?
+                                            This will also delete their account and cannot be undone.
+                                        </p>
+                                        <div className="flex flex-col gap-3">
                                             <button
-                                                type="button"
-                                                onClick={() => setShowPassword(!showPassword)}
-                                                className="absolute right-3 top-1/2 -translate-y-1/2 text-storm-gray hover:text-white transition-colors"
+                                                onClick={handleDeleteConfirm}
+                                                disabled={isSubmitting}
+                                                className="w-full bg-rose-600 hover:bg-rose-700 text-white py-3 rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-2"
                                             >
-                                                {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                                                {isSubmitting ? <Loader2 size={16} className="animate-spin" /> : 'Yes, Delete Member'}
+                                            </button>
+                                            <button
+                                                onClick={() => { setIsDeleteModalOpen(false); resetForm(); }}
+                                                disabled={isSubmitting}
+                                                className="w-full bg-shark/50 hover:bg-shark text-iron py-3 rounded-xl font-bold text-sm transition-all"
+                                            >
+                                                Cancel
                                             </button>
                                         </div>
                                     </div>
-                                    <div>
-                                        <label className="block text-[10px] font-black uppercase tracking-widest text-storm-gray mb-2">Confirm Password</label>
-                                        <input
-                                            type={showPassword ? "text" : "password"}
-                                            value={formData.confirmPassword}
-                                            onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
-                                            className="w-full bg-[#09090B] border border-shark rounded-lg px-4 py-2.5 text-sm text-iron focus:outline-none focus:border-[#279da6]/40 transition-all"
-                                            placeholder="••••••••"
-                                        />
-                                    </div>
                                 </div>
-
-                                <div className="flex justify-end gap-3 pt-4">
-                                    <button
-                                        type="button"
-                                        onClick={() => { setIsEditModalOpen(false); resetForm(); }}
-                                        className="px-5 py-2.5 bg-shark/50 hover:bg-shark text-iron rounded-lg font-bold text-sm transition-all"
-                                    >
-                                        Cancel
-                                    </button>
-                                    <button
-                                        type="submit"
-                                        disabled={isSubmitting}
-                                        className="px-5 py-2.5 bg-[#279da6] hover:bg-[#279da6]/90 text-white rounded-lg font-bold text-sm transition-all flex items-center gap-2 shadow-lg shadow-[#279da6]/20"
-                                    >
-                                        {isSubmitting ? <Loader2 size={16} className="animate-spin" /> : 'Update Member'}
-                                    </button>
-                                </div>
-                            </form>
-                        </div>
-                    </div>
-                )
-            }
-
-            {/* Delete Modal */}
-            {
-                isDeleteModalOpen && selectedMember && (
-                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
-                        <div className="bg-[#18181B] border border-shark rounded-3xl p-8 max-w-md w-full shadow-2xl animate-slide-up">
-                            <div className="flex justify-between items-start mb-6">
-                                <div className="w-12 h-12 rounded-2xl bg-rose-500/10 flex items-center justify-center text-rose-500">
-                                    <AlertTriangle size={24} />
-                                </div>
-                                <button onClick={() => { setIsDeleteModalOpen(false); resetForm(); }} className="text-storm-gray hover:text-white transition-colors">
-                                    <X size={20} />
-                                </button>
-                            </div>
-                            <h2 className="text-xl font-bold text-iron mb-2">Delete Team Member?</h2>
-                            <p className="text-storm-gray text-sm mb-8">
-                                Are you sure you want to delete <strong className="text-white">{selectedMember.name}</strong>?
-                                This will also delete their account and cannot be undone.
-                            </p>
-                            <div className="flex flex-col gap-3">
-                                <button
-                                    onClick={handleDeleteConfirm}
-                                    disabled={isSubmitting}
-                                    className="w-full bg-rose-600 hover:bg-rose-700 text-white py-3 rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-2"
-                                >
-                                    {isSubmitting ? <Loader2 size={16} className="animate-spin" /> : 'Yes, Delete Member'}
-                                </button>
-                                <button
-                                    onClick={() => { setIsDeleteModalOpen(false); resetForm(); }}
-                                    disabled={isSubmitting}
-                                    className="w-full bg-shark/50 hover:bg-shark text-iron py-3 rounded-xl font-bold text-sm transition-all"
-                                >
-                                    Cancel
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                )
-            }
-        </div >
+                            )}
+                    </main>
+                </div>
+            </div>
+        </div>
     );
 }

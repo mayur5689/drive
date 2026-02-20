@@ -322,37 +322,13 @@ export default function FilesClient({ initialRootId, initialDriveItems, initialD
                         </div>
 
                         <div className="flex items-center gap-4">
-                            <div className="relative w-48">
-                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-santas-gray" size={12} />
-                                <input
-                                    type="text"
-                                    value={searchQuery}
-                                    onChange={(e) => setSearchQuery(e.target.value)}
-                                    placeholder="SEARCH..."
-                                    className="w-full bg-black/40 border border-shark/50 rounded-lg py-1.5 pl-9 pr-4 text-[10px] text-iron placeholder:text-storm-gray focus:outline-none focus:border-[#279da6]/40 transition-all font-black tracking-widest"
-                                />
-                            </div>
-                            <button
-                                onClick={refreshFolder}
-                                className="p-2 bg-shark/20 border border-shark rounded-lg text-storm-gray hover:text-white transition-all shrink-0"
-                            >
-                                <RefreshCw size={14} className={isDriveLoading ? 'animate-spin' : ''} />
-                            </button>
-                            <div className="h-4 w-[1px] bg-shark shrink-0" />
+
                             <button
                                 onClick={() => setIsCreatingFolder(true)}
-                                className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-shark/40 border border-shark text-storm-gray text-[11px] font-bold hover:text-[#279da6] hover:border-[#279da6]/30 transition-all whitespace-nowrap"
+                                className="flex items-center gap-1.5 px-2 py-1.5 text-xs font-bold text-santas-gray hover:text-white transition-colors group"
                             >
-                                <FolderPlus size={14} />
-                                <span>NEW FOLDER</span>
-                            </button>
-                            <button
-                                onClick={() => fileInputRef.current?.click()}
-                                disabled={isUploading}
-                                className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#279da6] text-white text-[11px] font-bold hover:bg-[#20838b] transition-all shadow-lg shadow-[#279da6]/20 disabled:opacity-50 whitespace-nowrap"
-                            >
-                                {isUploading ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}
-                                <span>UPLOAD</span>
+                                <Plus size={16} className="group-hover:text-white" />
+                                <span>new</span>
                             </button>
                             <input type="file" ref={fileInputRef} className="hidden" onChange={handleUpload} />
                         </div>
@@ -375,6 +351,43 @@ export default function FilesClient({ initialRootId, initialDriveItems, initialD
 
                     <main className="flex-1 overflow-y-auto custom-scrollbar relative bg-[#09090B]/30">
                         <div className="p-6">
+                            {/* Toolbar */}
+                            <div className="flex items-center justify-between mb-6">
+                                <div className="relative w-80">
+                                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-santas-gray" size={16} />
+                                    <input
+                                        type="text"
+                                        placeholder="Search files and folders"
+                                        value={searchQuery}
+                                        onChange={(e) => setSearchQuery(e.target.value)}
+                                        className="w-full bg-[#09090B] border border-shark/50 rounded-lg py-2 pl-10 pr-4 text-xs text-iron placeholder:text-storm-gray focus:outline-none focus:border-[#279da6]/40 transition-all"
+                                    />
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <button
+                                        onClick={refreshFolder}
+                                        className="p-2 bg-shark/20 border border-shark rounded-lg text-storm-gray hover:text-white transition-all shrink-0 mr-1"
+                                    >
+                                        <RefreshCw size={14} className={isDriveLoading ? 'animate-spin' : ''} />
+                                    </button>
+                                    <button
+                                        onClick={() => fileInputRef.current?.click()}
+                                        disabled={isUploading}
+                                        className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-shark hover:bg-shark/40 text-iron text-xs font-bold transition-all disabled:opacity-50"
+                                    >
+                                        {isUploading ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}
+                                        <span>Upload File</span>
+                                    </button>
+                                    <button
+                                        onClick={() => setIsCreatingFolder(true)}
+                                        className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#279da6] text-white text-xs font-bold hover:bg-[#279da6]/90 transition-all shadow-lg hover:shadow-[#279da6]/20"
+                                    >
+                                        <Plus size={14} />
+                                        <span>New Folder</span>
+                                    </button>
+                                </div>
+                            </div>
+
                             {/* New Folder Creation Input */}
                             {isCreatingFolder && (
                                 <div className="flex items-center gap-3 p-4 bg-shark/20 border border-[#279da6]/30 rounded-2xl mb-6 animate-slide-up">
