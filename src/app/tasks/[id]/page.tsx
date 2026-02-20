@@ -95,10 +95,8 @@ export default function TaskDetailsPage() {
     const [newMessage, setNewMessage] = useState('');
     const [isLoading, setIsLoading] = useState(true);
     const [isSending, setIsSending] = useState(false);
-    const [isUploading, setIsUploading] = useState(false);
     const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
     const [requests, setRequests] = useState<any[]>([]);
-    const fileInputRef = useRef<HTMLInputElement>(null);
     const dateInputRef = useRef<HTMLInputElement>(null);
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const editorRef = useRef<HTMLDivElement>(null);
@@ -164,15 +162,19 @@ export default function TaskDetailsPage() {
                         table: 'task_messages',
                         filter: `task_id=eq.${id}`,
                     },
-                    (payload) => {
-                        const newMsg = payload.new as Message;
-                        setMessages(prev => {
-                            if (prev.some(m => m.id === newMsg.id)) return prev;
-                            if (newMsg.sender_id !== profile?.id) {
-                                fetchMessages();
-                            }
-                            return prev;
-                        });
+                    async (payload) => {
+                        const { data, error } = await supabase
+                            .from('task_messages')
+                            .select('*, sender:sender_id(full_name, role, avatar_url)')
+                            .eq('id', payload.new.id)
+                            .single();
+
+                        if (!error && data) {
+                            setMessages(prev => {
+                                if (prev.some(m => m.id === data.id)) return prev;
+                                return [...prev, data as Message];
+                            });
+                        }
                     }
                 )
                 .subscribe();
@@ -236,12 +238,12 @@ export default function TaskDetailsPage() {
         }
     };
 
-    const handleSendMessage = async (e?: React.FormEvent, attachments: any[] = []) => {
+    const handleSendMessage = async (e?: React.FormEvent) => {
         if (e) e.preventDefault();
         const editorHtml = editorRef.current?.innerHTML || '';
         const textContent = editorRef.current?.textContent?.trim() || '';
 
-        if ((!textContent && attachments.length === 0) || !displayProfile || isSending) return;
+        if (!textContent || !displayProfile || isSending) return;
 
         const messageContent = textContent ? editorHtml : '';
         setIsSending(true);
@@ -255,7 +257,7 @@ export default function TaskDetailsPage() {
             task_id: id as string,
             sender_id: displayProfile.id,
             message: messageContent,
-            attachments: attachments,
+            attachments: [],
             is_read: false,
             created_at: new Date().toISOString(),
             sender: {
@@ -273,7 +275,7 @@ export default function TaskDetailsPage() {
                 body: JSON.stringify({
                     message: messageContent,
                     sender_id: displayProfile.id,
-                    attachments
+                    attachments: []
                 })
             });
 
@@ -295,43 +297,10 @@ export default function TaskDetailsPage() {
         }
     };
 
-    const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (!file || !displayProfile) return;
 
-        setIsUploading(true);
-        const formData = new FormData();
-        formData.append('file', file);
-        formData.append('taskId', id as string);
-        formData.append('senderId', displayProfile.id);
-
-        try {
-            const response = await fetch('/api/upload', {
-                method: 'POST',
-                body: formData
-            });
-
-            if (response.ok) {
-                const data = await response.json();
-                handleSendMessage(undefined, [{
-                    url: data.url,
-                    name: data.name,
-                    type: data.type
-                }]);
-            } else {
-                alert("Upload failed");
-            }
-        } catch (error) {
-            console.error('Upload error:', error);
-            alert("Error uploading file");
-        } finally {
-            setIsUploading(false);
-            if (fileInputRef.current) fileInputRef.current.value = '';
-        }
-    };
 
     const handleUpdateField = async (field: string, value: any) => {
-        if (!task) return;
+        if (!task || !isSuperAdmin) return;
 
         const originalTask = { ...task };
         const newTask = { ...task, [field]: value };
@@ -369,7 +338,7 @@ export default function TaskDetailsPage() {
     };
 
     const handleDeleteTask = async () => {
-        if (!task) return;
+        if (!task || !isSuperAdmin) return;
         setIsDeleting(true);
         setDeleteError(null);
 
@@ -557,30 +526,6 @@ export default function TaskDetailsPage() {
                                                                         <div key={i}>{line}</div>
                                                                     ))
                                                                 )}
-                                                                {msg.attachments && msg.attachments.length > 0 && (
-                                                                    <div className="mt-3 space-y-2">
-                                                                        {msg.attachments.map((at: any, idx: number) => (
-                                                                            <div key={idx} onClick={() => window.open(at.url, '_blank')} className="block group/at cursor-pointer">
-                                                                                {at.type?.startsWith('image/') ? (
-                                                                                    <div className="relative rounded-lg overflow-hidden border border-white/10 shadow-lg max-w-[240px]">
-                                                                                        <img src={at.url} alt={at.name} className="w-full h-auto" />
-                                                                                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/at:opacity-100 transition-opacity flex items-center justify-center">
-                                                                                            <span className="text-[10px] font-black uppercase text-white">View Full Image</span>
-                                                                                        </div>
-                                                                                    </div>
-                                                                                ) : (
-                                                                                    <div className="flex items-center gap-3 bg-white/5 hover:bg-white/10 p-3 rounded-xl border border-white/10 transition-all max-w-[280px]">
-                                                                                        <Paperclip size={18} className="text-[#279da6]" />
-                                                                                        <div className="min-w-0">
-                                                                                            <p className="text-xs font-bold truncate text-white">{at.name}</p>
-                                                                                            <p className="text-[10px] text-storm-gray font-bold uppercase tracking-widest">View File</p>
-                                                                                        </div>
-                                                                                    </div>
-                                                                                )}
-                                                                            </div>
-                                                                        ))}
-                                                                    </div>
-                                                                )}
                                                             </div>
                                                         </div>
                                                     </div>
@@ -620,21 +565,7 @@ export default function TaskDetailsPage() {
                                                 data-placeholder="Write your message here..."
                                                 className="w-full bg-transparent text-iron p-4 text-sm focus:outline-none min-h-[120px] empty:before:content-[attr(data-placeholder)] empty:before:text-storm-gray empty:before:pointer-events-none [&_a]:text-[#279da6] [&_a]:underline"
                                             />
-                                            <div className="flex items-center justify-between p-3 bg-shark/10">
-                                                <input
-                                                    type="file"
-                                                    ref={fileInputRef}
-                                                    className="hidden"
-                                                    onChange={handleFileUpload}
-                                                />
-                                                <button
-                                                    onClick={() => fileInputRef.current?.click()}
-                                                    disabled={isUploading}
-                                                    className="flex items-center gap-2 px-3 py-1.5 text-xs font-bold text-santas-gray hover:text-white transition-all group"
-                                                >
-                                                    {isUploading ? <Loader2 size={14} className="animate-spin" /> : <Paperclip size={14} className="group-hover:text-[#279da6]" />}
-                                                    <span>{isUploading ? 'Uploading...' : 'Attach Files'}</span>
-                                                </button>
+                                            <div className="flex items-center justify-end p-3 bg-shark/10">
                                                 <button
                                                     onClick={() => handleSendMessage()}
                                                     disabled={isSending || !newMessage.trim()}
@@ -688,8 +619,9 @@ export default function TaskDetailsPage() {
                                             <span className="text-[12px] font-bold text-storm-gray w-20">Status</span>
                                             <select
                                                 value={task.status}
+                                                disabled={!isSuperAdmin}
                                                 onChange={(e) => handleUpdateField('status', e.target.value)}
-                                                className="flex-1 bg-shark/30 text-iron border border-shark/60 px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-shark/50 focus:outline-none transition-all appearance-none cursor-pointer"
+                                                className="flex-1 bg-shark/30 text-iron border border-shark/60 px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-shark/50 focus:outline-none transition-all appearance-none cursor-not-allowed disabled:opacity-70"
                                             >
                                                 <option value="Todo">Todo</option>
                                                 <option value="In Progress">In Progress</option>
@@ -704,8 +636,9 @@ export default function TaskDetailsPage() {
                                             <div className="flex-1 relative">
                                                 <select
                                                     value={task.priority}
+                                                    disabled={!isSuperAdmin}
                                                     onChange={(e) => handleUpdateField('priority', e.target.value)}
-                                                    className={`w-full bg-shark/20 border border-shark/40 pl-5 pr-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest focus:outline-none cursor-pointer hover:bg-shark/30 transition-all appearance-none ${task.priority === 'Critical' ? 'text-rose-500' :
+                                                    className={`w-full bg-shark/20 border border-shark/40 pl-5 pr-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest focus:outline-none cursor-not-allowed disabled:opacity-70 transition-all appearance-none ${task.priority === 'Critical' ? 'text-rose-500' :
                                                         task.priority === 'High' ? 'text-amber-500' :
                                                             task.priority === 'Medium' ? 'text-blue-400' :
                                                                 'text-storm-gray'
@@ -730,8 +663,9 @@ export default function TaskDetailsPage() {
                                             <div className="flex-1 flex items-center gap-2">
                                                 <select
                                                     value={task.assigned_to || ''}
+                                                    disabled={!isSuperAdmin}
                                                     onChange={(e) => handleUpdateField('assigned_to', e.target.value)}
-                                                    className="flex-1 bg-transparent text-[11px] font-bold text-iron focus:outline-none cursor-pointer hover:text-white transition-all appearance-none"
+                                                    className="flex-1 bg-transparent text-[11px] font-bold text-iron focus:outline-none cursor-not-allowed disabled:opacity-70 hover:text-white transition-all appearance-none"
                                                 >
                                                     <option value="">Unassigned</option>
                                                     {teamMembers.filter((tm: any) => tm.profile_id).map((tm: any) => (
@@ -756,8 +690,9 @@ export default function TaskDetailsPage() {
                                             <div className="flex-1 relative group">
                                                 <select
                                                     value=""
+                                                    disabled={!isSuperAdmin}
                                                     onChange={(e) => {
-                                                        if (e.target.value) {
+                                                        if (e.target.value && isSuperAdmin) {
                                                             const id = e.target.value;
                                                             const currentIds = task.request_links?.map(l => l.request?.id).filter(Boolean) as string[] || [];
                                                             if (!currentIds.includes(id)) {
@@ -765,7 +700,7 @@ export default function TaskDetailsPage() {
                                                             }
                                                         }
                                                     }}
-                                                    className="w-full bg-shark/20 border border-shark/40 px-3 py-2 rounded-lg text-xs font-bold text-iron focus:outline-none cursor-pointer hover:bg-shark/30 transition-all appearance-none"
+                                                    className="w-full bg-shark/20 border border-shark/40 px-3 py-2 rounded-lg text-xs font-bold text-iron focus:outline-none cursor-not-allowed disabled:opacity-50 transition-all appearance-none"
                                                 >
                                                     <option value="">Add Connection...</option>
                                                     {requests.filter(r => !task.request_links?.some(l => l.request?.id === r.id)).map((r: any) => (
@@ -789,16 +724,18 @@ export default function TaskDetailsPage() {
                                                         >
                                                             {link.request ? link.request.title : 'Unknown'}
                                                         </span>
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => {
-                                                                const currentIds = task.request_links?.map(l => l.request?.id).filter(Boolean) as string[] || [];
-                                                                handleUpdateField('request_ids', currentIds.filter(id => id !== link.request?.id));
-                                                            }}
-                                                            className="text-storm-gray hover:text-white transition-colors"
-                                                        >
-                                                            <X size={10} />
-                                                        </button>
+                                                        {isSuperAdmin && (
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => {
+                                                                    const currentIds = task.request_links?.map(l => l.request?.id).filter(Boolean) as string[] || [];
+                                                                    handleUpdateField('request_ids', currentIds.filter(id => id !== link.request?.id));
+                                                                }}
+                                                                className="text-storm-gray hover:text-white transition-colors"
+                                                            >
+                                                                <X size={10} />
+                                                            </button>
+                                                        )}
                                                     </div>
                                                 ))}
                                             </div>

@@ -7,6 +7,7 @@ import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
 import {
     ChevronLeft,
+    ChevronDown,
     MoreHorizontal,
     Send,
     Paperclip,
@@ -188,6 +189,7 @@ export default function RequestDetailsPage() {
     const [isLoadingFiles, setIsLoadingFiles] = useState(false);
     const [isCreatingTask, setIsCreatingTask] = useState(false);
     const [newTaskTitle, setNewTaskTitle] = useState('');
+    const [newTaskAssigneeId, setNewTaskAssigneeId] = useState<string>('');
 
     // WYSIWYG formatting helpers
     const execFormat = (command: string, value?: string) => {
@@ -291,6 +293,10 @@ export default function RequestDetailsPage() {
                 }
 
                 setRequest(found);
+                // Pre-set new task assignee to request assignee
+                if (found.assigned_to && !newTaskAssigneeId) {
+                    setNewTaskAssigneeId(found.assigned_to);
+                }
             }
 
             // Fetch team members for assignment dropdown
@@ -611,7 +617,8 @@ export default function RequestDetailsPage() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     title: newTaskTitle.trim(),
-                    request_id: id,
+                    request_ids: [id],
+                    assigned_to: newTaskAssigneeId || null,
                     created_by: displayProfile.id,
                     status: 'Todo',
                     priority: 'Medium'
@@ -1033,28 +1040,53 @@ export default function RequestDetailsPage() {
                                     <div className="flex-1 overflow-y-auto custom-scrollbar p-6">
                                         <div className="max-w-4xl mx-auto">
                                             {/* Create Task Quick-Add */}
-                                            <div className="flex items-center gap-3 mb-6">
-                                                <div className="flex-1 relative">
-                                                    <input
-                                                        type="text"
-                                                        value={newTaskTitle}
-                                                        onChange={(e) => setNewTaskTitle(e.target.value)}
-                                                        onKeyDown={(e) => {
-                                                            if (e.key === 'Enter' && newTaskTitle.trim()) handleCreateLinkedTask();
-                                                        }}
-                                                        placeholder="Create a new task linked to this request..."
-                                                        className="w-full bg-shark/20 border border-shark/50 rounded-xl py-3 px-4 text-sm text-iron placeholder:text-storm-gray/50 focus:outline-none focus:border-[#279da6]/40 transition-all"
-                                                    />
+                                            {displayProfile?.role === 'super_admin' && (
+                                                <div className="flex flex-col md:flex-row items-stretch md:items-center gap-3 mb-8 bg-shark/10 p-4 rounded-2xl border border-shark/40">
+                                                    <div className="flex-1 relative group">
+                                                        <div className="absolute left-4 top-1/2 -translate-y-1/2 text-storm-gray group-focus-within:text-[#279da6] transition-colors pointer-events-none">
+                                                            <CheckSquare size={18} />
+                                                        </div>
+                                                        <input
+                                                            type="text"
+                                                            value={newTaskTitle}
+                                                            onChange={(e) => setNewTaskTitle(e.target.value)}
+                                                            onKeyDown={(e) => {
+                                                                if (e.key === 'Enter' && newTaskTitle.trim()) handleCreateLinkedTask();
+                                                            }}
+                                                            placeholder="What needs to be done?"
+                                                            className="w-full bg-[#09090B] border border-shark/60 rounded-xl py-3 pl-12 pr-4 text-sm text-iron placeholder:text-storm-gray/50 focus:outline-none focus:border-[#279da6]/60 transition-all font-bold"
+                                                        />
+                                                    </div>
+
+                                                    <div className="w-full md:w-56 relative group">
+                                                        <div className="absolute left-4 top-1/2 -translate-y-1/2 text-storm-gray group-focus-within:text-[#279da6] transition-colors pointer-events-none">
+                                                            <User size={16} />
+                                                        </div>
+                                                        <select
+                                                            value={newTaskAssigneeId}
+                                                            onChange={(e) => setNewTaskAssigneeId(e.target.value)}
+                                                            className="w-full bg-[#09090B] border border-shark/60 rounded-xl py-3 pl-11 pr-10 text-xs text-iron focus:outline-none focus:border-[#279da6]/60 transition-all font-bold appearance-none cursor-pointer [color-scheme:dark]"
+                                                        >
+                                                            <option value="">Unassigned</option>
+                                                            {teamMembers.filter((tm: any) => tm.profile_id).map((tm: any) => (
+                                                                <option key={tm.id} value={tm.profile_id}>{tm.name}</option>
+                                                            ))}
+                                                        </select>
+                                                        <div className="absolute right-4 top-1/2 -translate-y-1/2 text-storm-gray pointer-events-none">
+                                                            <ChevronDown size={14} />
+                                                        </div>
+                                                    </div>
+
+                                                    <button
+                                                        onClick={handleCreateLinkedTask}
+                                                        disabled={!newTaskTitle.trim() || isCreatingTask}
+                                                        className="flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-[#279da6] text-white text-[10px] font-black uppercase tracking-widest hover:bg-[#20838b] transition-all shadow-lg shadow-[#279da6]/20 disabled:opacity-40 whitespace-nowrap"
+                                                    >
+                                                        {isCreatingTask ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
+                                                        Add Task
+                                                    </button>
                                                 </div>
-                                                <button
-                                                    onClick={handleCreateLinkedTask}
-                                                    disabled={!newTaskTitle.trim() || isCreatingTask}
-                                                    className="flex items-center gap-2 px-5 py-3 rounded-xl bg-[#279da6] text-white text-xs font-black uppercase tracking-widest hover:bg-[#20838b] transition-all shadow-lg shadow-[#279da6]/20 disabled:opacity-40"
-                                                >
-                                                    {isCreatingTask ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
-                                                    Add Task
-                                                </button>
-                                            </div>
+                                            )}
 
                                             {isLoadingTasks ? (
                                                 <div className="flex items-center justify-center py-20">

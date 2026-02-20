@@ -191,7 +191,7 @@ export default function TasksClient({ initialTasks, profiles, teamMembers, reque
                         tabs={taskTabs}
                         activeTab={activeTab}
                         setActiveTab={setActiveTab}
-                        onCreate={() => setShowCreateModal(true)}
+                        onCreate={displayProfile?.role === 'super_admin' ? () => setShowCreateModal(true) : undefined}
                     />
 
                     <main className="flex-1 overflow-y-auto custom-scrollbar">

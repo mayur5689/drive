@@ -5,8 +5,7 @@ import Linkify from 'linkify-react';
 import {
     X, Send, User, Calendar, Flag, Loader2, Trash2,
     CheckCircle2, CircleDashed, RefreshCcw, AlertCircle,
-    MessageSquare, Paperclip, CheckCheck, Check, Shield,
-    FileText, File as FileIcon, Download, ChevronLeft
+    MessageSquare, CheckCheck, Check, Shield, ChevronLeft, FileText
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { TaskItem } from '@/lib/data/tasks';
@@ -54,7 +53,8 @@ export default function TaskDetailModal({
     teamMembers,
     requests
 }: TaskDetailModalProps) {
-    const { user, profile } = useAuth();
+    const { profile, viewAsProfile } = useAuth();
+    const displayProfile = viewAsProfile || profile;
     const [isDeleting, setIsDeleting] = useState(false);
     const [formData, setFormData] = useState({
         title: '',
@@ -71,10 +71,7 @@ export default function TaskDetailModal({
     const [newMessage, setNewMessage] = useState('');
     const [isLoadingMessages, setIsLoadingMessages] = useState(false);
     const [isSending, setIsSending] = useState(false);
-    const [isUploading, setIsUploading] = useState(false);
-    const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
     const messagesEndRef = useRef<HTMLDivElement>(null);
-    const fileInputRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => {
         if (task) {
@@ -147,87 +144,56 @@ export default function TaskDetailModal({
         }
     };
 
-    const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (e.target.files) {
-            const files = Array.from(e.target.files);
-            setSelectedFiles(prev => [...prev, ...files]);
-        }
-    };
+    const handleSendMessage = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!newMessage.trim() || !displayProfile || isSending || !task) return;
 
-    const removeFile = (index: number) => {
-        setSelectedFiles((prev: File[]) => prev.filter((_, i: number) => i !== index));
-    };
-
-    const uploadFiles = async (files: File[]): Promise<Attachment[]> => {
-        const uploadedAttachments: Attachment[] = [];
-        setIsUploading(true);
-
-        for (const file of files) {
-            const fd = new FormData();
-            fd.append('file', file);
-            fd.append('taskId', task!.id);
-            if (profile?.id) fd.append('senderId', profile.id);
-
-            try {
-                const response = await fetch('/api/upload', {
-                    method: 'POST',
-                    body: fd
-                });
-
-                if (response.ok) {
-                    const data = await response.json();
-                    uploadedAttachments.push({
-                        name: data.name,
-                        url: data.url,
-                        type: data.type
-                    });
-                }
-            } catch (error) {
-                console.error('Upload failed:', error);
-            }
-        }
-
-        setIsUploading(false);
-        return uploadedAttachments;
-    };
-
-    const handleSendMessage = async (e?: React.FormEvent) => {
-        if (e) e.preventDefault();
-        if ((!newMessage.trim() && selectedFiles.length === 0) || !profile || isSending || !task) return;
-
-        setIsSending(true);
         const messageText = newMessage.trim();
-        const filesToUpload = [...selectedFiles];
+        setIsSending(true);
         setNewMessage('');
-        setSelectedFiles([]);
+
+        // Optimistic update
+        const tempId = `temp-${Date.now()}`;
+        const optimisticMessage: Message = {
+            id: tempId,
+            task_id: task.id,
+            sender_id: displayProfile.id,
+            message: messageText,
+            attachments: [],
+            is_read: false,
+            created_at: new Date().toISOString(),
+            sender: {
+                full_name: displayProfile.full_name || 'You',
+                role: displayProfile.role || 'team_member'
+            }
+        };
+
+        setMessages((prev: Message[]) => [...prev, optimisticMessage]);
 
         try {
-            let attachments: Attachment[] = [];
-            if (filesToUpload.length > 0) {
-                attachments = await uploadFiles(filesToUpload);
-                if (attachments.length === 0 && messageText === '') {
-                    setIsSending(false);
-                    alert("Failed to upload attachments. Please try again.");
-                    return;
-                }
-            }
-
             const response = await fetch(`/api/tasks/${task.id}/messages`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    message: messageText || (attachments.length > 0 ? `Shared ${attachments.length} attachment(s)` : ''),
-                    sender_id: profile.id,
-                    attachments
+                    message: messageText,
+                    sender_id: displayProfile.id,
+                    attachments: []
                 })
             });
 
             if (!response.ok) {
                 const err = await response.json();
                 console.error('Send failed:', err.error);
+                setNewMessage(messageText);
+                setMessages((prev: Message[]) => prev.filter(m => m.id !== tempId));
+            } else {
+                const actualMessage = await response.json();
+                setMessages((prev: Message[]) => prev.map(m => m.id === tempId ? actualMessage : m));
             }
         } catch (error) {
             console.error('Send error:', error);
+            setNewMessage(messageText);
+            setMessages((prev: Message[]) => prev.filter(m => m.id !== tempId));
         } finally {
             setIsSending(false);
         }
@@ -236,6 +202,7 @@ export default function TaskDetailModal({
     if (!isOpen || !task) return null;
 
     const handleUpdate = async (field: string, value: any) => {
+        if (displayProfile?.role !== 'super_admin') return;
         const updatedData = { ...formData, [field]: value };
         setFormData(updatedData);
 
@@ -267,6 +234,7 @@ export default function TaskDetailModal({
     };
 
     const handleDelete = async () => {
+        if (displayProfile?.role !== 'super_admin') return;
         if (!confirm('Are you sure you want to delete this task? This action cannot be undone.')) return;
         setIsDeleting(true);
         try {
@@ -299,33 +267,6 @@ export default function TaskDetailModal({
         }
     };
 
-    const renderAttachment = (att: Attachment) => {
-        const isImage = att.type?.startsWith('image/');
-
-        if (isImage) {
-            return (
-                <div key={att.url} className="mt-2 rounded-lg overflow-hidden border border-white/10 group/img relative cursor-pointer" onClick={() => window.open(att.url, '_blank')}>
-                    <img src={att.url} alt={att.name} className="max-w-full h-auto max-h-60 object-cover" />
-                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/img:opacity-100 transition-opacity flex items-center justify-center">
-                        <Download size={20} className="text-white" />
-                    </div>
-                </div>
-            );
-        }
-
-        return (
-            <div key={att.url} className="mt-2 flex items-center gap-3 p-3 bg-black/20 rounded-xl border border-white/5 hover:border-[#279da6]/30 transition-all cursor-pointer group/file" onClick={() => window.open(att.url, '_blank')}>
-                <div className="w-10 h-10 rounded-lg bg-[#279da6]/10 flex items-center justify-center text-[#279da6]">
-                    {att.type?.includes('pdf') ? <FileText size={20} /> : <FileIcon size={20} />}
-                </div>
-                <div className="flex-1 min-w-0">
-                    <p className="text-[11px] font-bold text-iron truncate">{att.name}</p>
-                    <p className="text-[9px] font-medium text-storm-gray uppercase tracking-widest">Click to download</p>
-                </div>
-                <Download size={14} className="text-storm-gray group-hover/file:text-[#279da6]" />
-            </div>
-        );
-    };
 
     return (
         <div className="fixed inset-0 z-[60] flex justify-end animate-fade-in">
@@ -353,14 +294,16 @@ export default function TaskDetailModal({
                                 </div>
                             </div>
                         </div>
-                        <button
-                            onClick={handleDelete}
-                            disabled={isDeleting}
-                            className="flex items-center gap-2 px-3 py-2 text-[10px] font-black uppercase text-storm-gray hover:text-rose-500 hover:bg-rose-500/10 rounded-xl transition-all border border-transparent hover:border-rose-500/20"
-                        >
-                            {isDeleting ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
-                            <span>Delete</span>
-                        </button>
+                        {displayProfile?.role === 'super_admin' && (
+                            <button
+                                onClick={handleDelete}
+                                disabled={isDeleting}
+                                className="flex items-center gap-2 px-3 py-2 text-[10px] font-black uppercase text-storm-gray hover:text-rose-500 hover:bg-rose-500/10 rounded-xl transition-all border border-transparent hover:border-rose-500/20"
+                            >
+                                {isDeleting ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
+                                <span>Delete</span>
+                            </button>
+                        )}
                     </div>
 
                     {/* Task Detail Content */}
@@ -370,6 +313,7 @@ export default function TaskDetailModal({
                             <input
                                 className="bg-transparent text-xl font-black text-white uppercase tracking-tighter focus:outline-none w-full border-b border-transparent focus:border-[#279da6]/30 pb-1"
                                 value={formData.title}
+                                readOnly={displayProfile?.role !== 'super_admin'}
                                 onChange={(e) => setFormData({ ...formData, title: e.target.value })}
                                 onBlur={() => handleUpdate('title', formData.title)}
                             />
@@ -385,8 +329,9 @@ export default function TaskDetailModal({
                                     </div>
                                     <select
                                         value={formData.status}
+                                        disabled={displayProfile?.role !== 'super_admin'}
                                         onChange={e => handleUpdate('status', e.target.value)}
-                                        className="flex-1 bg-transparent p-3 pl-2 pr-10 !text-white appearance-none focus:outline-none transition-all cursor-pointer font-bold text-xs [color-scheme:dark]"
+                                        className="flex-1 bg-transparent p-3 pl-2 pr-10 !text-white appearance-none focus:outline-none transition-all cursor-not-allowed disabled:opacity-70 font-bold text-xs [color-scheme:dark]"
                                     >
                                         {['Todo', 'In Progress', 'Review', 'Done'].map(s => (
                                             <option key={s} value={s} className="bg-[#18181B] !text-white">{s}</option>
@@ -403,8 +348,9 @@ export default function TaskDetailModal({
                                     </div>
                                     <select
                                         value={formData.priority}
+                                        disabled={displayProfile?.role !== 'super_admin'}
                                         onChange={e => handleUpdate('priority', e.target.value)}
-                                        className={`flex-1 bg-transparent p-3 pl-2 pr-10 appearance-none focus:outline-none transition-all cursor-pointer font-bold text-xs [color-scheme:dark] ${formData.priority === 'Critical' ? '!text-rose-500' :
+                                        className={`flex-1 bg-transparent p-3 pl-2 pr-10 appearance-none focus:outline-none transition-all cursor-not-allowed disabled:opacity-70 font-bold text-xs [color-scheme:dark] ${formData.priority === 'Critical' ? '!text-rose-500' :
                                             formData.priority === 'High' ? '!text-amber-500' :
                                                 formData.priority === 'Medium' ? '!text-malibu' : '!text-storm-gray'
                                             }`}
@@ -427,8 +373,9 @@ export default function TaskDetailModal({
                                     </div>
                                     <select
                                         value={formData.assigned_to}
+                                        disabled={displayProfile?.role !== 'super_admin'}
                                         onChange={e => handleUpdate('assigned_to', e.target.value)}
-                                        className="flex-1 bg-transparent p-3 pl-2 pr-10 !text-white appearance-none focus:outline-none transition-all cursor-pointer font-bold text-xs [color-scheme:dark]"
+                                        className="flex-1 bg-transparent p-3 pl-2 pr-10 !text-white appearance-none focus:outline-none transition-all cursor-not-allowed disabled:opacity-70 font-bold text-xs [color-scheme:dark]"
                                     >
                                         <option value="" className="bg-[#18181B] !text-white">Unassigned</option>
                                         {assignees.map((a: any) => (
@@ -445,9 +392,10 @@ export default function TaskDetailModal({
                                     <input
                                         type="date"
                                         value={formData.due_date}
+                                        readOnly={displayProfile?.role !== 'super_admin'}
                                         onChange={e => setFormData({ ...formData, due_date: e.target.value })}
                                         onBlur={() => handleUpdate('due_date', formData.due_date)}
-                                        className="w-full bg-black/40 border border-shark rounded-xl p-3 pl-10 text-iron focus:border-[#279da6]/50 focus:outline-none transition-all font-bold text-xs [color-scheme:dark]"
+                                        className="w-full bg-black/40 border border-shark rounded-xl p-3 pl-10 text-iron focus:border-[#279da6]/50 focus:outline-none transition-all font-bold text-xs [color-scheme:dark] disabled:opacity-50"
                                     />
                                 </div>
                             </div>
@@ -463,6 +411,7 @@ export default function TaskDetailModal({
                                     </div>
                                     <select
                                         value=""
+                                        disabled={displayProfile?.role !== 'super_admin'}
                                         onChange={e => {
                                             if (e.target.value) {
                                                 const id = e.target.value;
@@ -472,7 +421,7 @@ export default function TaskDetailModal({
                                                 handleUpdate('request_ids', newIds);
                                             }
                                         }}
-                                        className="flex-1 bg-transparent p-3 pl-2 pr-10 !text-white appearance-none focus:outline-none transition-all cursor-pointer font-bold text-xs [color-scheme:dark]"
+                                        className="flex-1 bg-transparent p-3 pl-2 pr-10 !text-white appearance-none focus:outline-none transition-all cursor-not-allowed disabled:opacity-50 font-bold text-xs [color-scheme:dark]"
                                     >
                                         <option value="" className="bg-[#18181B] !text-white">Add connection...</option>
                                         {requests.filter(r => !formData.request_ids.includes(r.id)).map((r: any) => (
@@ -493,16 +442,18 @@ export default function TaskDetailModal({
                                                     <span className="text-[9px] font-bold text-[#279da6] truncate max-w-[200px]">
                                                         {req ? req.title : 'Loading...'}
                                                     </span>
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => {
-                                                            const newIds = formData.request_ids.filter(id => id !== rid);
-                                                            handleUpdate('request_ids', newIds);
-                                                        }}
-                                                        className="text-storm-gray hover:text-white transition-colors"
-                                                    >
-                                                        <X size={10} />
-                                                    </button>
+                                                    {displayProfile?.role === 'super_admin' && (
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => {
+                                                                const newIds = formData.request_ids.filter(id => id !== rid);
+                                                                handleUpdate('request_ids', newIds);
+                                                            }}
+                                                            className="text-storm-gray hover:text-white transition-colors"
+                                                        >
+                                                            <X size={10} />
+                                                        </button>
+                                                    )}
                                                 </div>
                                             );
                                         })}
@@ -518,9 +469,10 @@ export default function TaskDetailModal({
                                 rows={5}
                                 placeholder="Describe the task in detail..."
                                 value={formData.description}
+                                readOnly={displayProfile?.role !== 'super_admin'}
                                 onChange={e => setFormData({ ...formData, description: e.target.value })}
                                 onBlur={() => handleUpdate('description', formData.description)}
-                                className="w-full bg-black/40 border border-shark rounded-xl p-4 text-iron placeholder:text-storm-gray focus:border-[#279da6]/50 focus:outline-none transition-all resize-none text-sm leading-relaxed"
+                                className="w-full bg-black/40 border border-shark rounded-xl p-4 text-iron placeholder:text-storm-gray focus:border-[#279da6]/50 focus:outline-none transition-all resize-none text-sm leading-relaxed disabled:opacity-70 cursor-not-allowed"
                             />
                         </div>
                     </div>
@@ -570,93 +522,56 @@ export default function TaskDetailModal({
                                 <p className="text-xs font-bold text-iron uppercase">No discussion yet</p>
                                 <p className="text-[10px] font-medium text-storm-gray max-w-[200px]">Start the conversation about this task.</p>
                             </div>
-                        ) : (
-                            messages.map((msg: Message, index: number) => {
-                                const isMe = msg.sender_id === profile?.id;
-                                const showAvatar = index === 0 || messages[index - 1].sender_id !== msg.sender_id;
+                        ) : messages.map((msg: Message, index: number) => {
+                            const isMe = msg.sender_id === displayProfile?.id;
+                            const showAvatar = index === 0 || messages[index - 1].sender_id !== msg.sender_id;
 
-                                return (
-                                    <div key={msg.id} className={`flex flex-col ${isMe ? 'items-end' : 'items-start'}`}>
-                                        {!isMe && showAvatar && (
-                                            <div className="flex items-center gap-2 mb-2 ml-1">
-                                                <div className="w-6 h-6 rounded-lg bg-[#279da6]/20 flex items-center justify-center text-[10px] font-black text-[#279da6]">
-                                                    {msg.sender?.full_name?.[0] || 'U'}
-                                                </div>
-                                                <span className="text-[10px] font-black text-storm-gray uppercase tracking-widest flex items-center gap-1">
-                                                    {msg.sender?.full_name}
-                                                    {msg.sender?.role !== 'client' && <Shield size={10} className="text-[#279da6]" />}
-                                                </span>
+                            return (
+                                <div key={msg.id} className={`flex flex-col ${isMe ? 'items-end' : 'items-start'}`}>
+                                    {!isMe && showAvatar && (
+                                        <div className="flex items-center gap-2 mb-2 ml-1">
+                                            <div className="w-6 h-6 rounded-lg bg-[#279da6]/20 flex items-center justify-center text-[10px] font-black text-[#279da6]">
+                                                {msg.sender?.full_name?.[0] || 'U'}
                                             </div>
-                                        )}
-                                        <div className={`max-w-[85%] px-4 py-3 rounded-2xl text-sm font-medium leading-relaxed group relative ${isMe
-                                            ? 'bg-[#279da6] text-white rounded-tr-none shadow-lg shadow-[#279da6]/10'
-                                            : 'bg-[#18181B] text-iron border border-shark rounded-tl-none'
-                                            }`}>
-                                            <Linkify
-                                                options={{
-                                                    target: '_blank',
-                                                    className: isMe ? 'text-white underline font-bold' : 'text-[#279da6] underline font-bold'
-                                                }}
-                                            >
-                                                {msg.message}
-                                            </Linkify>
+                                            <span className="text-[10px] font-black text-storm-gray uppercase tracking-widest flex items-center gap-1">
+                                                {msg.sender?.full_name}
+                                                {msg.sender?.role !== 'client' && <Shield size={10} className="text-[#279da6]" />}
+                                            </span>
+                                        </div>
+                                    )}
+                                    <div className={`max-w-[85%] px-4 py-3 rounded-2xl text-sm font-medium leading-relaxed group relative ${isMe
+                                        ? 'bg-[#279da6] text-white rounded-tr-none shadow-lg shadow-[#279da6]/10'
+                                        : 'bg-[#18181B] text-iron border border-shark rounded-tl-none'
+                                        }`}>
+                                        <Linkify
+                                            options={{
+                                                target: '_blank',
+                                                className: isMe ? 'text-white underline font-bold' : 'text-[#279da6] underline font-bold'
+                                            }}
+                                        >
+                                            {msg.message}
+                                        </Linkify>
 
-                                            {msg.attachments && msg.attachments.length > 0 && (
-                                                <div className="mt-2 space-y-2">
-                                                    {msg.attachments.map(renderAttachment)}
-                                                </div>
+
+
+                                        <div className={`absolute bottom-[-18px] ${isMe ? 'right-0' : 'left-0'} flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity`}>
+                                            <span className="text-[8px] font-bold text-storm-gray uppercase">
+                                                {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                            </span>
+                                            {isMe && (
+                                                msg.is_read ? <CheckCheck size={10} className="text-[#279da6]" /> : <Check size={10} className="text-storm-gray" />
                                             )}
-
-                                            <div className={`absolute bottom-[-18px] ${isMe ? 'right-0' : 'left-0'} flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity`}>
-                                                <span className="text-[8px] font-bold text-storm-gray uppercase">
-                                                    {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                                </span>
-                                                {isMe && (
-                                                    msg.is_read ? <CheckCheck size={10} className="text-[#279da6]" /> : <Check size={10} className="text-storm-gray" />
-                                                )}
-                                            </div>
                                         </div>
                                     </div>
-                                );
-                            })
-                        )}
+                                </div>
+                            );
+                        })}
                         <div ref={messagesEndRef} />
                     </div>
 
                     {/* Input Area - identical to ChatDrawer */}
                     <div className="p-4 bg-[#09090B]/50 backdrop-blur-md border-t border-shark sticky bottom-0 shrink-0">
                         <form onSubmit={handleSendMessage} className="flex flex-col gap-3">
-                            {/* Selected Files Preview */}
-                            {selectedFiles.length > 0 && (
-                                <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-2">
-                                    {selectedFiles.map((file: File, idx: number) => (
-                                        <div key={idx} className="relative group/file-preview shrink-0">
-                                            <div className="w-12 h-12 rounded-xl bg-shark/40 border border-shark flex items-center justify-center overflow-hidden">
-                                                {file.type.startsWith('image/') ? (
-                                                    <img src={URL.createObjectURL(file)} className="w-full h-full object-cover" />
-                                                ) : (
-                                                    <FileIcon size={20} className="text-storm-gray" />
-                                                )}
-                                            </div>
-                                            <button
-                                                type="button"
-                                                onClick={() => removeFile(idx)}
-                                                className="absolute -top-1 -right-1 w-5 h-5 bg-rose-500 text-white rounded-full flex items-center justify-center shadow-lg opacity-0 group-hover/file-preview:opacity-100 transition-opacity"
-                                            >
-                                                <Trash2 size={10} />
-                                            </button>
-                                        </div>
-                                    ))}
-                                    <button
-                                        type="button"
-                                        onClick={() => fileInputRef.current?.click()}
-                                        className="w-12 h-12 rounded-xl border border-dashed border-shark flex items-center justify-center text-storm-gray hover:text-[#279da6] hover:border-[#279da6]/50 transition-all shrink-0"
-                                    >
-                                        <Paperclip size={18} />
-                                    </button>
-                                </div>
-                            )}
-
                             <div className="relative group">
                                 <textarea
                                     value={newMessage}
@@ -667,35 +582,19 @@ export default function TaskDetailModal({
                                             handleSendMessage(e);
                                         }
                                     }}
-                                    placeholder={isUploading ? "Uploading files..." : "Type a message..."}
-                                    disabled={isUploading}
+                                    placeholder="Type a message..."
                                     className="w-full bg-[#18181B] border border-shark/60 rounded-2xl py-3 pl-4 pr-12 text-sm text-iron focus:outline-none focus:border-[#279da6]/50 transition-all font-bold min-h-[52px] max-h-32 resize-none custom-scrollbar"
                                 />
                                 <button
                                     type="submit"
-                                    disabled={(!newMessage.trim() && selectedFiles.length === 0) || isSending || isUploading}
+                                    disabled={!newMessage.trim() || isSending}
                                     className="absolute right-2 top-1/2 -translate-y-1/2 p-2 rounded-xl bg-[#279da6] text-white hover:bg-[#279da6]/90 transition-all disabled:opacity-30 disabled:hover:scale-100 hover:scale-105 active:scale-95 shadow-lg shadow-[#279da6]/20"
                                 >
                                     {isSending ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} />}
                                 </button>
                             </div>
-                            <input
-                                type="file"
-                                multiple
-                                ref={fileInputRef}
-                                onChange={handleFileSelect}
-                                className="hidden"
-                            />
-                            <div className="flex items-center justify-between px-2">
-                                <button
-                                    type="button"
-                                    onClick={() => fileInputRef.current?.click()}
-                                    className="flex items-center gap-2 text-storm-gray hover:text-white transition-colors"
-                                >
-                                    <Paperclip size={14} />
-                                    <span className="text-[10px] font-bold uppercase tracking-widest">Attach files</span>
-                                </button>
-                                <span className="text-[8px] font-bold text-storm-gray uppercase tracking-widest">Enter to send</span>
+                            <div className="flex items-center justify-center px-2">
+                                <span className="text-[8px] font-bold text-storm-gray uppercase tracking-widest">Enter to send • Shift+Enter for new line</span>
                             </div>
                         </form>
                     </div>
