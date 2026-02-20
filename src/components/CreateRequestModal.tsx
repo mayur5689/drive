@@ -171,12 +171,12 @@ export default function CreateRequestModal({ isOpen, onClose, onSuccess }: Creat
                                 <label className="text-[10px] font-black text-storm-gray uppercase tracking-[0.2em] ml-1">
                                     Client <span className="text-rose-500">(Required)</span>
                                 </label>
-                                <div className="relative group">
-                                    <div className="absolute left-4 top-1/2 -translate-y-1/2 text-storm-gray group-focus-within:text-[#279da6] transition-colors">
+                                <div className="flex items-center bg-[#09090B] border border-shark/60 rounded-xl focus-within:border-[#279da6]/60 transition-all group overflow-hidden relative">
+                                    <div className="pl-4 text-storm-gray group-focus-within:text-[#279da6] transition-colors pointer-events-none">
                                         <User size={18} />
                                     </div>
                                     <select
-                                        className="w-full bg-[#09090B] border border-shark/60 rounded-xl py-3 px-4 text-sm text-iron focus:outline-none focus:border-[#279da6]/60 appearance-none cursor-pointer"
+                                        className="flex-1 bg-transparent py-3 pl-2 pr-10 text-sm text-iron focus:outline-none appearance-none cursor-pointer"
                                         value={selectedClientId}
                                         onChange={(e) => setSelectedClientId(e.target.value)}
                                     >
@@ -223,8 +223,8 @@ export default function CreateRequestModal({ isOpen, onClose, onSuccess }: Creat
                                 <label className="text-[10px] font-black text-storm-gray uppercase tracking-[0.2em] ml-1">
                                     Title <span className="text-rose-500">(Required)</span>
                                 </label>
-                                <div className="relative group">
-                                    <div className="absolute left-4 top-1/2 -translate-y-1/2 text-storm-gray group-focus-within:text-[#279da6] transition-colors">
+                                <div className="flex items-center bg-[#09090B] border border-shark/60 rounded-xl focus-within:border-[#279da6]/60 transition-all group overflow-hidden relative">
+                                    <div className="pl-4 text-storm-gray group-focus-within:text-[#279da6] transition-colors pointer-events-none">
                                         <Type size={18} />
                                     </div>
                                     <input
@@ -232,7 +232,7 @@ export default function CreateRequestModal({ isOpen, onClose, onSuccess }: Creat
                                         value={title}
                                         onChange={(e) => setTitle(e.target.value)}
                                         placeholder="Enter request title"
-                                        className="w-full bg-[#18181B] border border-shark/60 rounded-2xl py-4 pl-12 pr-4 text-sm text-iron focus:outline-none focus:border-[#279da6]/50 transition-all font-bold"
+                                        className="flex-1 bg-transparent py-3 pl-2 pr-4 text-sm text-iron focus:outline-none transition-all font-bold"
                                     />
                                 </div>
                             </div>
@@ -264,14 +264,14 @@ export default function CreateRequestModal({ isOpen, onClose, onSuccess }: Creat
                                 <label className="text-[10px] font-black text-storm-gray uppercase tracking-[0.2em] ml-1">
                                     Priority
                                 </label>
-                                <div className="relative group">
-                                    <div className="absolute left-4 top-1/2 -translate-y-1/2 text-storm-gray group-focus-within:text-[#279da6] transition-colors">
+                                <div className="flex items-center bg-[#09090B] border border-shark/60 rounded-xl focus-within:border-[#279da6]/60 transition-all group overflow-hidden relative">
+                                    <div className="pl-4 text-storm-gray group-focus-within:text-[#279da6] transition-colors pointer-events-none">
                                         <BarChart size={18} />
                                     </div>
                                     <select
                                         value={priority}
                                         onChange={(e) => setPriority(e.target.value)}
-                                        className="w-full bg-[#18181B] border border-shark/60 rounded-2xl py-4 pl-12 pr-12 text-sm text-iron focus:outline-none focus:border-[#279da6]/50 transition-all font-bold appearance-none cursor-pointer"
+                                        className="flex-1 bg-transparent py-3 pl-2 pr-10 text-sm text-iron focus:outline-none appearance-none cursor-pointer font-bold"
                                     >
                                         <option value="Low">Low</option>
                                         <option value="Medium">Medium</option>

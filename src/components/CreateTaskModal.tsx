@@ -122,14 +122,16 @@ export default function CreateTaskModal({ isOpen, onClose, onSuccess, profiles, 
                         {/* Title */}
                         <div className="space-y-2">
                             <label className="text-[11px] font-black text-storm-gray uppercase tracking-widest ml-1">Task Title</label>
-                            <input
-                                required
-                                type="text"
-                                placeholder="What needs to be done?"
-                                value={formData.title}
-                                onChange={e => setFormData({ ...formData, title: e.target.value })}
-                                className="w-full bg-black/40 border border-shark rounded-2xl p-4 text-iron placeholder:text-storm-gray focus:border-[#279da6]/50 focus:outline-none transition-all"
-                            />
+                            <div className="flex items-center bg-black/40 border border-shark rounded-2xl focus-within:border-[#279da6]/50 transition-all group overflow-hidden relative">
+                                <input
+                                    required
+                                    type="text"
+                                    placeholder="What needs to be done?"
+                                    value={formData.title}
+                                    onChange={e => setFormData({ ...formData, title: e.target.value })}
+                                    className="flex-1 bg-transparent p-4 text-iron placeholder:text-storm-gray focus:outline-none"
+                                />
+                            </div>
                         </div>
 
                         {/* Description */}
@@ -148,8 +150,10 @@ export default function CreateTaskModal({ isOpen, onClose, onSuccess, profiles, 
                             {/* Assisnee */}
                             <div className="space-y-2">
                                 <label className="text-[11px] font-black text-storm-gray uppercase tracking-widest ml-1">Assign To</label>
-                                <div className="relative">
-                                    <User className="absolute left-4 top-1/2 -translate-y-1/2 text-storm-gray z-10" size={16} />
+                                <div className="flex items-center bg-[#09090B] border border-shark rounded-2xl focus-within:border-[#279da6]/50 transition-all group overflow-hidden relative">
+                                    <div className="pl-4 text-storm-gray group-focus-within:text-[#279da6] transition-colors pointer-events-none">
+                                        <User size={16} />
+                                    </div>
                                     <select
                                         value={selectedTeamMemberId}
                                         onChange={e => {
@@ -159,7 +163,7 @@ export default function CreateTaskModal({ isOpen, onClose, onSuccess, profiles, 
                                             setFormData(prev => ({ ...prev, assigned_to: tm?.profileId || '' }));
                                             setSuggestedRequests([]);
                                         }}
-                                        className="w-full bg-[#09090B] border border-shark rounded-2xl p-4 pl-12 pr-10 !text-white appearance-none focus:border-[#279da6]/50 focus:outline-none transition-all cursor-pointer [color-scheme:dark] relative z-0"
+                                        className="flex-1 bg-transparent p-4 pl-2 pr-10 !text-white appearance-none focus:outline-none transition-all cursor-pointer [color-scheme:dark]"
                                     >
                                         <option value="" className="bg-[#18181B] !text-white">Unassigned</option>
                                         {assignees.map(a => (
@@ -177,12 +181,14 @@ export default function CreateTaskModal({ isOpen, onClose, onSuccess, profiles, 
                             {/* Priority */}
                             <div className="space-y-2">
                                 <label className="text-[11px] font-black text-storm-gray uppercase tracking-widest ml-1">Priority Level</label>
-                                <div className="relative">
-                                    <Flag className="absolute left-4 top-1/2 -translate-y-1/2 text-storm-gray z-10" size={16} />
+                                <div className="flex items-center bg-[#09090B] border border-shark rounded-2xl focus-within:border-[#279da6]/50 transition-all group overflow-hidden relative">
+                                    <div className="pl-4 text-storm-gray group-focus-within:text-[#279da6] transition-colors pointer-events-none">
+                                        <Flag size={16} />
+                                    </div>
                                     <select
                                         value={formData.priority}
                                         onChange={e => setFormData({ ...formData, priority: e.target.value })}
-                                        className="w-full bg-[#09090B] border border-shark rounded-2xl p-4 pl-12 pr-10 !text-white appearance-none focus:border-[#279da6]/50 focus:outline-none transition-all cursor-pointer [color-scheme:dark] relative z-0"
+                                        className="flex-1 bg-transparent p-4 pl-2 pr-10 !text-white appearance-none focus:outline-none transition-all cursor-pointer [color-scheme:dark]"
                                     >
                                         {['Low', 'Medium', 'High', 'Critical'].map(p => (
                                             <option key={p} value={p} className="bg-[#18181B] !text-white">{p}</option>
@@ -201,8 +207,10 @@ export default function CreateTaskModal({ isOpen, onClose, onSuccess, profiles, 
                             <div className="space-y-2">
                                 <label className="text-[11px] font-black text-storm-gray uppercase tracking-widest ml-1">Link to Request(s) (Optional)</label>
                                 <div className="space-y-3">
-                                    <div className="relative">
-                                        <AlertTriangle className="absolute left-4 top-1/2 -translate-y-1/2 text-storm-gray z-10" size={16} />
+                                    <div className="flex items-center bg-[#09090B] border border-shark rounded-2xl focus-within:border-[#279da6]/50 transition-all group overflow-hidden relative">
+                                        <div className="pl-4 text-storm-gray group-focus-within:text-[#279da6] transition-colors pointer-events-none">
+                                            <AlertTriangle size={16} />
+                                        </div>
                                         <select
                                             value=""
                                             onChange={e => {
@@ -216,7 +224,7 @@ export default function CreateTaskModal({ isOpen, onClose, onSuccess, profiles, 
                                                     }));
                                                 }
                                             }}
-                                            className="w-full bg-[#09090B] border border-shark rounded-2xl p-4 pl-12 pr-10 !text-white appearance-none focus:border-[#279da6]/50 focus:outline-none transition-all cursor-pointer [color-scheme:dark] relative z-0"
+                                            className="flex-1 bg-transparent p-4 pl-2 pr-10 !text-white appearance-none focus:outline-none transition-all cursor-pointer [color-scheme:dark]"
                                         >
                                             <option value="" className="bg-[#18181B] !text-white">Add Request Link...</option>
                                             {requests.filter(r => !formData.request_ids.includes(r.id)).map(r => (

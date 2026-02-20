@@ -379,14 +379,14 @@ export default function TaskDetailModal({
                         <div className="grid grid-cols-2 gap-4">
                             <div className="space-y-1.5">
                                 <label className="text-[10px] font-black text-storm-gray uppercase tracking-widest ml-1">Status</label>
-                                <div className="relative">
-                                    <div className="absolute left-3 top-1/2 -translate-y-1/2 z-10">
+                                <div className="flex items-center bg-black/40 border border-shark rounded-xl focus-within:border-[#279da6]/50 transition-all group overflow-hidden relative">
+                                    <div className="pl-3 text-storm-gray group-focus-within:text-[#279da6] transition-colors pointer-events-none">
                                         {getStatusIcon(formData.status)}
                                     </div>
                                     <select
                                         value={formData.status}
                                         onChange={e => handleUpdate('status', e.target.value)}
-                                        className="w-full bg-black/40 border border-shark rounded-xl p-3 pl-10 pr-10 !text-white appearance-none focus:border-[#279da6]/50 focus:outline-none transition-all cursor-pointer font-bold text-xs [color-scheme:dark]"
+                                        className="flex-1 bg-transparent p-3 pl-2 pr-10 !text-white appearance-none focus:outline-none transition-all cursor-pointer font-bold text-xs [color-scheme:dark]"
                                     >
                                         {['Todo', 'In Progress', 'Review', 'Done'].map(s => (
                                             <option key={s} value={s} className="bg-[#18181B] !text-white">{s}</option>
@@ -397,12 +397,14 @@ export default function TaskDetailModal({
 
                             <div className="space-y-1.5">
                                 <label className="text-[10px] font-black text-storm-gray uppercase tracking-widest ml-1">Priority</label>
-                                <div className="relative">
-                                    <Flag className="absolute left-3 top-1/2 -translate-y-1/2 text-storm-gray z-10" size={14} />
+                                <div className="flex items-center bg-black/40 border border-shark rounded-xl focus-within:border-[#279da6]/50 transition-all group overflow-hidden relative">
+                                    <div className="pl-3 text-storm-gray group-focus-within:text-[#279da6] transition-colors pointer-events-none">
+                                        <Flag size={14} />
+                                    </div>
                                     <select
                                         value={formData.priority}
                                         onChange={e => handleUpdate('priority', e.target.value)}
-                                        className={`w-full bg-black/40 border border-shark rounded-xl p-3 pl-10 pr-10 appearance-none focus:border-[#279da6]/50 focus:outline-none transition-all cursor-pointer font-bold text-xs [color-scheme:dark] ${formData.priority === 'Critical' ? '!text-rose-500' :
+                                        className={`flex-1 bg-transparent p-3 pl-2 pr-10 appearance-none focus:outline-none transition-all cursor-pointer font-bold text-xs [color-scheme:dark] ${formData.priority === 'Critical' ? '!text-rose-500' :
                                             formData.priority === 'High' ? '!text-amber-500' :
                                                 formData.priority === 'Medium' ? '!text-malibu' : '!text-storm-gray'
                                             }`}
@@ -419,12 +421,14 @@ export default function TaskDetailModal({
                         <div className="grid grid-cols-2 gap-4">
                             <div className="space-y-1.5">
                                 <label className="text-[10px] font-black text-storm-gray uppercase tracking-widest ml-1">Assigned To</label>
-                                <div className="relative">
-                                    <User className="absolute left-3 top-1/2 -translate-y-1/2 text-storm-gray z-10" size={14} />
+                                <div className="flex items-center bg-black/40 border border-shark rounded-xl focus-within:border-[#279da6]/50 transition-all group overflow-hidden relative">
+                                    <div className="pl-3 text-storm-gray group-focus-within:text-[#279da6] transition-colors pointer-events-none">
+                                        <User size={14} />
+                                    </div>
                                     <select
                                         value={formData.assigned_to}
                                         onChange={e => handleUpdate('assigned_to', e.target.value)}
-                                        className="w-full bg-black/40 border border-shark rounded-xl p-3 pl-10 pr-10 !text-white appearance-none focus:border-[#279da6]/50 focus:outline-none transition-all cursor-pointer font-bold text-xs [color-scheme:dark]"
+                                        className="flex-1 bg-transparent p-3 pl-2 pr-10 !text-white appearance-none focus:outline-none transition-all cursor-pointer font-bold text-xs [color-scheme:dark]"
                                     >
                                         <option value="" className="bg-[#18181B] !text-white">Unassigned</option>
                                         {assignees.map((a: any) => (
@@ -453,8 +457,10 @@ export default function TaskDetailModal({
                         <div className="space-y-1.5">
                             <label className="text-[10px] font-black text-storm-gray uppercase tracking-widest ml-1">Linked Request(s)</label>
                             <div className="space-y-3">
-                                <div className="relative">
-                                    <FileText className="absolute left-3 top-1/2 -translate-y-1/2 text-storm-gray z-10" size={14} />
+                                <div className="flex items-center bg-transparent border border-shark rounded-xl focus-within:border-[#279da6]/50 transition-all group overflow-hidden relative">
+                                    <div className="pl-3 text-storm-gray group-focus-within:text-[#279da6] transition-colors pointer-events-none">
+                                        <FileText size={14} />
+                                    </div>
                                     <select
                                         value=""
                                         onChange={e => {
@@ -466,7 +472,7 @@ export default function TaskDetailModal({
                                                 handleUpdate('request_ids', newIds);
                                             }
                                         }}
-                                        className="w-full bg-black/40 border border-shark rounded-xl p-3 pl-10 pr-10 !text-white appearance-none focus:border-[#279da6]/50 focus:outline-none transition-all cursor-pointer font-bold text-xs [color-scheme:dark]"
+                                        className="flex-1 bg-transparent p-3 pl-2 pr-10 !text-white appearance-none focus:outline-none transition-all cursor-pointer font-bold text-xs [color-scheme:dark]"
                                     >
                                         <option value="" className="bg-[#18181B] !text-white">Add connection...</option>
                                         {requests.filter(r => !formData.request_ids.includes(r.id)).map((r: any) => (
