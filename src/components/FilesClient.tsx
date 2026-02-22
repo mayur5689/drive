@@ -65,19 +65,6 @@ export default function FilesClient({ initialRootId, initialDriveItems, initialD
     const router = useRouter();
     const displayProfile = viewAsProfile || profile;
 
-    useEffect(() => {
-        if (!isAuthLoading && displayProfile && displayProfile.role !== 'super_admin') {
-            router.replace('/');
-        }
-    }, [displayProfile, isAuthLoading, router]);
-
-    if (isAuthLoading || (displayProfile && displayProfile.role !== 'super_admin')) {
-        return (
-            <div className="flex items-center justify-center h-screen bg-[#09090B]">
-                <Loader2 size={32} className="animate-spin text-[#279da6]" />
-            </div>
-        );
-    }
     const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
     const [isLoadingInitial, setIsLoadingInitial] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
@@ -90,11 +77,6 @@ export default function FilesClient({ initialRootId, initialDriveItems, initialD
 
     const [driveItems, setDriveItems] = useState<DriveItem[]>(initialDriveItems);
     const [isDriveLoading, setIsDriveLoading] = useState(false);
-
-    // Update state when initialDriveItems changes (from SSR refresh)
-    useEffect(() => {
-        setDriveItems(initialDriveItems);
-    }, [initialDriveItems]);
 
     const [dbEnrichment, setDbEnrichment] = useState<DBEnrichment>(initialDbEnrichment);
 
@@ -116,6 +98,17 @@ export default function FilesClient({ initialRootId, initialDriveItems, initialD
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [theme, setTheme] = useState<'dark' | 'light'>('dark');
 
+    useEffect(() => {
+        if (!isAuthLoading && !displayProfile) {
+            router.replace('/login');
+        }
+    }, [displayProfile, isAuthLoading, router]);
+
+    // Update state when initialDriveItems changes (from SSR refresh)
+    useEffect(() => {
+        setDriveItems(initialDriveItems);
+    }, [initialDriveItems]);
+
     // Theme toggle effect
     useEffect(() => {
         const root = window.document.documentElement;
@@ -128,6 +121,15 @@ export default function FilesClient({ initialRootId, initialDriveItems, initialD
 
     const isSuperAdmin = displayProfile?.role === 'super_admin';
     const isAdmin = displayProfile?.role === 'admin' || isSuperAdmin;
+
+    if (isAuthLoading) {
+        return (
+            <div className="flex items-center justify-center h-screen bg-[#09090B]">
+                <Loader2 size={32} className="animate-spin text-[#279da6]" />
+            </div>
+        );
+    }
+
 
     // Fetch Root and Initial Content
     const browseDriveFolder = async (folderId: string) => {

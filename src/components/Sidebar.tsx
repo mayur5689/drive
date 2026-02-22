@@ -102,12 +102,7 @@ export default function Sidebar({ isCollapsed }: SidebarProps) {
         (displayProfile?.role === 'team_member' && displayProfile?.team_role === 'admin');
 
     const menuItems = [
-        { name: 'Overview', icon: Home, path: '/' },
-        { name: 'Requests', icon: MessageSquare, path: '/requests' },
-        { name: 'Tasks', icon: Box, path: '/tasks', adminOnly: false, teamOnly: true },
-        { name: 'Files', icon: FolderOpen, path: '/files', superAdminOnly: true },
-        { name: 'Clients', icon: Users, path: '/clients', section: 'Users', adminOnly: true },
-        { name: 'Team', icon: UserPlus, path: '/team', section: 'Users', adminOnly: true },
+        { name: 'Drive', icon: FolderOpen, path: '/files' },
     ];
 
     const isSuperAdmin = displayProfile?.role === 'super_admin';
@@ -141,42 +136,9 @@ export default function Sidebar({ isCollapsed }: SidebarProps) {
                 </div>
 
                 {/* Navigation */}
-                <div className="flex-1 px-4 py-2 flex flex-col gap-1 overflow-y-auto no-scrollbar">
-                    {filteredItems.filter(item => !item.section).map((item) => (
-                        <SidebarItem key={item.name} item={item} isCollapsed={isCollapsed} isActive={pathname === item.path} />
-                    ))}
-
-                    {isAdmin && (
-                        <div className="flex flex-col gap-1">
-                            <button
-                                onClick={() => setIsUsersExpanded(!isUsersExpanded)}
-                                className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-bold transition-all relative group ${isUsersActive ? 'text-[#279da6] bg-[#279da6]/5' : 'text-storm-gray hover:text-iron hover:bg-shark/20'
-                                    } ${isCollapsed ? 'justify-center px-0' : ''}`}
-                            >
-                                {isUsersActive && (
-                                    <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-5 bg-[#279da6] rounded-r-full shadow-[0_0_15px_rgba(39,157,166,0.5)]" />
-                                )}
-                                <span className={`flex items-center justify-center shrink-0 ${isUsersActive ? 'text-[#279da6]' : 'text-storm-gray'}`}>
-                                    <Users size={18} strokeWidth={isUsersActive ? 2.5 : 2} />
-                                </span>
-                                {!isCollapsed && (
-                                    <>
-                                        <span className="truncate flex-1 text-left">Users</span>
-                                        {isUsersExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-                                    </>
-                                )}
-                            </button>
-
-                            {isUsersExpanded && (
-                                <div className={`flex flex-col gap-1 ${isCollapsed ? '' : 'ml-4 pl-4 border-l border-shark/40'} mt-1`}>
-                                    {filteredItems.filter(item => item.section === 'Users').map((item) => (
-                                        <SidebarItem key={item.name} item={item} isCollapsed={isCollapsed} isActive={pathname === item.path} />
-                                    ))}
-                                </div>
-                            )}
-                        </div>
-                    )}
-                </div>
+                {filteredItems.map((item) => (
+                    <SidebarItem key={item.name} item={item} isCollapsed={isCollapsed} isActive={pathname === item.path} />
+                ))}
 
                 {/* User Footer - hidden during impersonation */}
                 {!isImpersonating && (

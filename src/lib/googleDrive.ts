@@ -85,6 +85,46 @@ export async function getRootFolderId(): Promise<string> {
     return ENV_ROOT_FOLDER_ID;
 }
 
+/**
+ * Get or create a specific root folder for a user.
+ * Each user gets their own folder under the main root folder.
+ */
+export async function getUserRootFolderId(userId: string, email: string): Promise<string> {
+    const supabase = createServiceClient();
+
+    // 1. Check if user already has a folder assigned
+    const { data: profile } = await supabase
+        .from('profiles')
+        .select('drive_folder_id')
+        .eq('id', userId)
+        .maybeSingle();
+
+    if (profile?.drive_folder_id) {
+        return profile.drive_folder_id;
+    }
+
+    // 2. No folder assigned, create one under root
+    const rootId = await getRootFolderId();
+    const folderName = email || `User_${userId}`;
+    const newUserFolderId = await getOrCreateFolder(rootId, folderName);
+
+    // 3. Save it to the profile
+    // Note: We use maybeSingle() above, so if it's there we update.
+    // If not, we might need to handle the case where the profile record hasn't been created yet.
+    const { error: updateError } = await supabase
+        .from('profiles')
+        .update({ drive_folder_id: newUserFolderId })
+        .eq('id', userId);
+
+    if (updateError) {
+        console.error('Error saving user drive folder ID:', updateError);
+        // If update fails because profile doesn't exist, we might need to insert it
+        // but typically Supabase triggers or the auth flow handles profile creation.
+    }
+
+    return newUserFolderId;
+}
+
 // ─── Folder Validation ───
 
 /**

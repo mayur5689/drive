@@ -1,31 +1,27 @@
-import { getRootFilesData } from '@/lib/data/files';
-import { getClients } from '@/lib/data/clients';
-import { getRequestsData } from '@/lib/data/requests';
+import { getUserFilesData } from '@/lib/data/files';
 import FilesClient from '@/components/FilesClient';
+import { createSupabaseServerClient } from '@/lib/supabase-server';
+import { redirect } from 'next/navigation';
 
 // Force SSR
 export const dynamic = 'force-dynamic';
 
 export default async function FilesPage() {
-    // 1. Fetch initial drive content
-    const { rootId, items } = await getRootFilesData();
+    const supabase = await createSupabaseServerClient();
+    const { data: { user } } = await supabase.auth.getUser();
 
-    // 2. Fetch enrichment data (Clients & Requests)
-    const [clientsData, requestsData] = await Promise.all([
-        getClients(),
-        getRequestsData() // super_admin defaults
-    ]);
+    if (!user) {
+        redirect('/login');
+    }
 
-    const dbEnrichment = {
-        clients: clientsData.map((c: any) => ({ id: c.id, name: c.name, org: c.organization })),
-        requests: requestsData.map((r: any) => ({ id: r.id, title: r.title }))
-    };
+    // Fetch user-specific drive content
+    const { rootId, items } = await getUserFilesData(user.id, user.email || '');
 
     return (
         <FilesClient
             initialRootId={rootId}
             initialDriveItems={items}
-            initialDbEnrichment={dbEnrichment}
+            initialDbEnrichment={{ clients: [], requests: [] }}
         />
     );
 }

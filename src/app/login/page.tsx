@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
+import Link from 'next/link';
 import { Eye, EyeOff, Loader2, LogIn, ShieldCheck } from 'lucide-react';
 
 export default function LoginPage() {
@@ -141,7 +142,10 @@ export default function LoginPage() {
                     </form>
                 </div>
 
-                <div className="mt-8 text-center">
+                <div className="mt-8 text-center space-y-4">
+                    <p className="text-storm-gray text-xs font-bold uppercase tracking-widest">
+                        Don't have an account? <a href="/register" className="text-[#279da6] hover:underline">Register here</a>
+                    </p>
                     <p className="text-storm-gray text-[10px] font-bold uppercase tracking-widest">
                         Official Client Portal of <span className="text-iron">AneeVerse</span>
                     </p>

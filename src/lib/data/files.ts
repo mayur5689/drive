@@ -1,4 +1,4 @@
-import { getRootFolderId, listFolderContents } from '@/lib/googleDrive';
+import { getRootFolderId, listFolderContents, getUserRootFolderId } from '@/lib/googleDrive';
 
 export interface DriveItem {
     id: string;
@@ -14,6 +14,7 @@ export interface DriveItem {
 
 /**
  * Fetches the root folder ID and its contents
+ * @deprecated Use getUserFilesData for per-user folders
  */
 export async function getRootFilesData() {
     try {
@@ -36,6 +37,37 @@ export async function getRootFilesData() {
         };
     } catch (error) {
         console.error('Error fetching root files data:', error);
+        return {
+            rootId: '',
+            items: []
+        };
+    }
+}
+
+/**
+ * Fetches the specific root folder for a user and its contents
+ */
+export async function getUserFilesData(userId: string, email: string) {
+    try {
+        const rootId = await getUserRootFolderId(userId, email);
+        const items = await listFolderContents(rootId);
+
+        return {
+            rootId,
+            items: items.map((item: any) => ({
+                id: item.id,
+                name: item.name,
+                mimeType: item.mimeType,
+                isFolder: item.mimeType === 'application/vnd.google-apps.folder',
+                size: item.size ? parseInt(item.size) : null,
+                createdTime: item.createdTime,
+                webViewLink: item.webViewLink,
+                webContentLink: item.webContentLink,
+                previewUrl: item.thumbnailLink || null
+            }))
+        };
+    } catch (error) {
+        console.error(`Error fetching user files data for ${userId}:`, error);
         return {
             rootId: '',
             items: []
