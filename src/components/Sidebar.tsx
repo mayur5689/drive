@@ -35,6 +35,9 @@ interface SidebarItemProps {
         name: string;
         icon: any;
         path: string;
+        superAdminOnly?: boolean;
+        adminOnly?: boolean;
+        teamOnly?: boolean;
     };
     isActive: boolean;
     isCollapsed: boolean;
@@ -101,7 +104,7 @@ export default function Sidebar({ isCollapsed }: SidebarProps) {
         displayProfile?.role === 'admin' ||
         (displayProfile?.role === 'team_member' && displayProfile?.team_role === 'admin');
 
-    const menuItems = [
+    const menuItems: { name: string; icon: any; path: string; superAdminOnly?: boolean; adminOnly?: boolean; teamOnly?: boolean }[] = [
         { name: 'Drive', icon: FolderOpen, path: '/files' },
     ];
 
@@ -112,6 +115,7 @@ export default function Sidebar({ isCollapsed }: SidebarProps) {
         if (item.teamOnly && !isAdmin && displayProfile?.role !== 'team_member') return false;
         return true;
     });
+
     const isUsersActive = pathname.includes('/clients') || pathname.includes('/team');
 
     return (

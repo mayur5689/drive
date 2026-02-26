@@ -30,10 +30,13 @@ import {
     Filter,
     Moon,
     Sun,
+    Sparkles,
     Bell,
     Plus,
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
+import StorageInsights from '@/components/StorageInsights';
+import DuplicateDetector from '@/components/DuplicateDetector';
 
 interface DriveItem {
     id: string;
@@ -97,6 +100,11 @@ export default function FilesClient({ initialRootId, initialDriveItems, initialD
     const [isUploading, setIsUploading] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [theme, setTheme] = useState<'dark' | 'light'>('dark');
+
+    // AI States
+    const [isAISearching, setIsAISearching] = useState(false);
+    const [aiMatchedIds, setAiMatchedIds] = useState<string[] | null>(null);
+    const [aiTags, setAiTags] = useState<Record<string, { category: string, tags: string[] }>>({});
 
     useEffect(() => {
         if (!isAuthLoading && !displayProfile) {
@@ -180,7 +188,35 @@ export default function FilesClient({ initialRootId, initialDriveItems, initialD
             formData.append('file', file);
             formData.append('parentId', currentDriveFolderId);
             const res = await fetch('/api/drive/browse', { method: 'POST', body: formData });
-            if (res.ok) router.refresh();
+
+            if (res.ok) {
+                // Feature 3: AI Auto-Tagging
+                try {
+                    const tagRes = await fetch('/api/ai', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            action: 'tag',
+                            payload: { fileName: file.name, mimeType: file.type }
+                        })
+                    });
+                    const tagData = await tagRes.json();
+                    if (tagData.data) {
+                        // In a real app, we'd save this to DB. 
+                        // For now, we'll update local state for immediate feedback.
+                        setAiTags(prev => ({
+                            ...prev,
+                            // We don't have the new file ID yet without refreshing, 
+                            // so we'll store by name for this session's demo
+                            [file.name]: { category: tagData.data.category, tags: tagData.data.tags }
+                        }));
+                    }
+                } catch (tagErr) {
+                    console.error('Tagging error:', tagErr);
+                }
+
+                router.refresh();
+            }
         } catch (e) {
             console.error('Upload error:', e);
         } finally {
@@ -283,9 +319,47 @@ export default function FilesClient({ initialRootId, initialDriveItems, initialD
     };
 
     // ─── Filtered items for search ───
-    const filteredItems = driveItems.filter(item =>
-        item.name.toLowerCase().includes(searchQuery.toLowerCase())
-    );
+    const filteredItems = driveItems.filter(item => {
+        if (aiMatchedIds) {
+            return aiMatchedIds.includes(item.id);
+        }
+        return item.name.toLowerCase().includes(searchQuery.toLowerCase());
+    });
+
+    const handleAISearch = async () => {
+        if (!searchQuery.trim()) {
+            setAiMatchedIds(null);
+            return;
+        }
+
+        setIsAISearching(true);
+        try {
+            const res = await fetch('/api/ai', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    action: 'search',
+                    payload: {
+                        query: searchQuery,
+                        files: driveItems.map(f => ({ id: f.id, name: f.name, mimeType: f.mimeType }))
+                    }
+                })
+            });
+            const data = await res.json();
+            if (data.data?.matchedIds) {
+                setAiMatchedIds(data.data.matchedIds);
+            }
+        } catch (error) {
+            console.error('AI Search error:', error);
+        } finally {
+            setIsAISearching(false);
+        }
+    };
+
+    const clearAISearch = () => {
+        setAiMatchedIds(null);
+        setSearchQuery('');
+    };
 
     return (
         <div className={`flex h-screen bg-[#09090B] text-iron font-sans overflow-hidden transition-all duration-500 ${isImpersonating ? 'p-1.5' : ''}`} style={isImpersonating ? { backgroundColor: '#0f2b1a' } : undefined}>
@@ -353,17 +427,59 @@ export default function FilesClient({ initialRootId, initialDriveItems, initialD
 
                     <main className="flex-1 overflow-y-auto custom-scrollbar relative bg-[#09090B]/30">
                         <div className="p-6">
+                            {/* Feature 5: AI Storage Insights */}
+                            <StorageInsights
+                                fileStats={{
+                                    totalFiles: driveItems.length,
+                                    totalSize: driveItems.reduce((acc, f) => acc + (f.size || 0), 0),
+                                    typeCounts: driveItems.reduce((acc: any, f) => {
+                                        const type = getFileTypeLabel(f.mimeType);
+                                        acc[type] = (acc[type] || 0) + 1;
+                                        return acc;
+                                    }, {})
+                                }}
+                            />
+
+                            {/* Feature 6: Duplicate File Detection */}
+                            <DuplicateDetector
+                                files={driveItems.map(f => ({ id: f.id, name: f.name, mimeType: f.mimeType, size: f.size }))}
+                                onDeleteFile={(fileId, isFolder) => {
+                                    setDeleteTarget(driveItems.find(d => d.id === fileId) || null);
+                                    setIsDeleting(true);
+                                }}
+                            />
+
                             {/* Toolbar */}
                             <div className="flex items-center justify-between mb-6">
                                 <div className="relative w-80">
                                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-santas-gray" size={16} />
                                     <input
                                         type="text"
-                                        placeholder="Search files and folders"
+                                        placeholder="Search with AI (e.g. 'find my images')"
                                         value={searchQuery}
-                                        onChange={(e) => setSearchQuery(e.target.value)}
-                                        className="w-full bg-[#09090B] border border-shark/50 rounded-lg py-2 pl-10 pr-4 text-xs text-iron placeholder:text-storm-gray focus:outline-none focus:border-[#279da6]/40 transition-all"
+                                        onChange={(e) => {
+                                            setSearchQuery(e.target.value);
+                                            if (!e.target.value) setAiMatchedIds(null);
+                                        }}
+                                        onKeyDown={(e) => e.key === 'Enter' && handleAISearch()}
+                                        className="w-full bg-[#09090B] border border-shark/50 rounded-lg py-2 pl-10 pr-10 text-xs text-iron placeholder:text-storm-gray focus:outline-none focus:border-[#279da6]/40 transition-all"
                                     />
+                                    {aiMatchedIds ? (
+                                        <button
+                                            onClick={clearAISearch}
+                                            className="absolute right-3 top-1/2 -translate-y-1/2 text-rose-400 hover:text-rose-300"
+                                        >
+                                            <X size={14} />
+                                        </button>
+                                    ) : (
+                                        <button
+                                            onClick={handleAISearch}
+                                            disabled={isAISearching}
+                                            className="absolute right-3 top-1/2 -translate-y-1/2 text-[#279da6] hover:text-[#279da6]/80 transition-all opacity-60 hover:opacity-100"
+                                        >
+                                            {isAISearching ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
+                                        </button>
+                                    )}
                                 </div>
                                 <div className="flex items-center gap-2">
                                     <button
@@ -478,6 +594,19 @@ export default function FilesClient({ initialRootId, initialDriveItems, initialD
                                                                 </>
                                                             )}
                                                         </div>
+                                                        {/* AI Tags Display */}
+                                                        {aiTags[item.name] && (
+                                                            <div className="flex flex-wrap justify-center gap-1 mt-2">
+                                                                <span className="px-1.5 py-0.5 rounded bg-[#279da6]/10 text-[#279da6] text-[7px] font-black uppercase border border-[#279da6]/20">
+                                                                    {aiTags[item.name].category}
+                                                                </span>
+                                                                {aiTags[item.name].tags.map(tag => (
+                                                                    <span key={tag} className="px-1.5 py-0.5 rounded bg-shark/40 text-storm-gray text-[7px] font-black uppercase border border-shark">
+                                                                        #{tag}
+                                                                    </span>
+                                                                ))}
+                                                            </div>
+                                                        )}
                                                     </div>
                                                 )}
                                             </div>
