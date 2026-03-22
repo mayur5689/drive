@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//c/drive/src/components/**)",
+      "Bash(xargs wc:*)",
+      "Read(//c/drive/src/app/api/drive//**)",
+      "Read(//c/drive/migrations/**)",
+      "Read(//c/drive/src/app/**)",
+      "Read(//c/drive/**)",
+      "Bash(npm install:*)"
+    ]
+  }
+}

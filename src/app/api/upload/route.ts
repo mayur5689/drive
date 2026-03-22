@@ -1,101 +1,52 @@
 import { NextResponse } from 'next/server';
-import { v4 as uuidv4 } from 'uuid';
-import { createServiceClient } from '@/lib/supabase';
-import { ensureFolderPath, uploadFileToDrive } from '@/lib/googleDrive';
+import { uploadFile } from '@/lib/r2';
+import { insertFile, updateFileAI } from '@/lib/data/storage';
+import { askAIJSON } from '@/lib/ai';
 
 export async function POST(request: Request) {
     try {
         const formData = await request.formData();
         const file = formData.get('file') as File;
-        const requestId = formData.get('requestId') as string | null;
-        const taskId = formData.get('taskId') as string | null;
-        const senderId = formData.get('senderId') as string | null;
+        const userId = formData.get('userId') as string;
+        const folderId = formData.get('folderId') as string | null;
 
-        if (!file) {
-            return NextResponse.json({ error: "No file uploaded" }, { status: 400 });
+        if (!file || !userId) {
+            return NextResponse.json({ error: 'file and userId required' }, { status: 400 });
         }
 
-        // If requestId is provided, upload to Google Drive (chat attachments)
-        if (requestId) {
-            const supabase = createServiceClient();
-            // ... (keep existing drive logic)
-            const { data: req, error: reqErr } = await supabase
-                .from('requests')
-                .select(`
-                    id, title, client_id,
-                    client:client_id (id, full_name, email)
-                `)
-                .eq('id', requestId)
-                .single();
+        const buffer = Buffer.from(await file.arrayBuffer());
+        const r2Key = await uploadFile(userId, '', file.name, buffer, file.type);
 
-            if (reqErr) throw reqErr;
+        const fileRecord = await insertFile({
+            userId,
+            fileName: file.name,
+            fileSize: file.size,
+            mimeType: file.type || 'application/octet-stream',
+            r2Key,
+            folderId: folderId || null,
+        });
 
-            const { data: clientData } = await supabase
-                .from('clients')
-                .select('organization, name')
-                .ilike('email', (req.client as any)?.email || '')
-                .maybeSingle();
-
-            const clientName = clientData?.organization || clientData?.name || (req.client as any)?.full_name || 'Unknown';
-
-            let folder: 'production' | 'distributed' = 'production';
-            if (senderId) {
-                const { data: senderProfile } = await supabase
-                    .from('profiles')
-                    .select('role')
-                    .eq('id', senderId)
-                    .single();
-
-                if (senderProfile?.role === 'client') {
-                    folder = 'distributed';
-                }
-            }
-
-            const folderId = await ensureFolderPath(clientName, req.title, folder);
-            const fileBuffer = Buffer.from(await file.arrayBuffer());
-            const { fileId, webViewLink } = await uploadFileToDrive(
-                folderId,
-                file.name,
-                fileBuffer,
-                file.type
-            );
-
-            return NextResponse.json({
-                url: webViewLink,
-                name: file.name,
-                type: file.type,
-                drive_file_id: fileId
-            });
-        }
-
-        // Fallback: taskId or general upload → Supabase Storage
-        const supabase = createServiceClient();
-        const fileExtension = file.name.split('.').pop();
-        const fileName = `${uuidv4()}.${fileExtension}`;
-
-        // If taskId is provided, we can organize by task
-        const path = taskId ? `tasks/${taskId}/${fileName}` : fileName;
-
-        const { error } = await supabase.storage
-            .from('chat-attachments')
-            .upload(path, file, {
-                cacheControl: '3600',
-                upsert: false
-            });
-
-        if (error) throw error;
-
-        const { data: { publicUrl } } = supabase.storage
-            .from('chat-attachments')
-            .getPublicUrl(path);
+        // Auto-tag in background
+        autoTag(fileRecord.id, file.name, file.type).catch(() => {});
 
         return NextResponse.json({
-            url: publicUrl,
+            id: fileRecord.id,
+            url: r2Key,
             name: file.name,
-            type: file.type
+            type: file.type,
         });
     } catch (error: any) {
         console.error('Upload API Error:', error);
         return NextResponse.json({ error: error.message }, { status: 500 });
     }
+}
+
+async function autoTag(fileId: string, fileName: string, mimeType: string) {
+    try {
+        const prompt = `Analyze this file: "${fileName}" (type: ${mimeType || 'unknown'}). Return JSON: { "category": "one-word", "tags": ["tag1", "tag2"], "summary": "1 sentence" }`;
+        const result = await askAIJSON(prompt);
+        if (result.data) {
+            await updateFileAI(fileId, result.data.tags || [], result.data.category || 'General', result.data.summary);
+        }
+    } catch {}
 }

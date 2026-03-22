@@ -1,11 +1,10 @@
 'use client';
 
 import React, { useState } from 'react';
-import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import Link from 'next/link';
-import { Eye, EyeOff, Loader2, LogIn, ShieldCheck } from 'lucide-react';
+import { Eye, EyeOff, Loader2, LogIn, Cloud, AlertCircle } from 'lucide-react';
 
 export default function LoginPage() {
     const router = useRouter();
@@ -27,7 +26,6 @@ export default function LoginPage() {
             });
 
             if (signInError) throw signInError;
-
             router.push('/');
         } catch (err: any) {
             setError(err.message || 'Failed to sign in');
@@ -37,85 +35,73 @@ export default function LoginPage() {
     };
 
     return (
-        <div className="min-h-screen bg-[#09090B] flex items-center justify-center p-4 font-sans selection:bg-[#279da6]/30">
-            {/* Background Glows */}
-            <div className="fixed top-0 left-0 w-full h-full overflow-hidden pointer-events-none -z-10">
-                <div className="absolute top-[-10%] right-[-10%] w-[50%] h-[50%] bg-[#279da6]/5 blur-[120px] rounded-full" />
-                <div className="absolute bottom-[-10%] left-[-10%] w-[50%] h-[50%] bg-[#279da6]/5 blur-[120px] rounded-full" />
+        <div className="min-h-screen bg-[#000] flex items-center justify-center p-4 font-sans">
+            {/* Background effects */}
+            <div className="fixed inset-0 overflow-hidden pointer-events-none">
+                <div className="absolute top-[-20%] left-[50%] -translate-x-1/2 w-[600px] h-[600px] bg-[#6366f1]/[0.07] blur-[150px] rounded-full" />
+                <div className="absolute bottom-[-10%] left-[20%] w-[400px] h-[400px] bg-[#06b6d4]/[0.05] blur-[120px] rounded-full" />
             </div>
 
-            <div className="w-full max-w-md animate-slide-up">
-                {/* Logo Section */}
+            <div className="w-full max-w-[400px] animate-slide-up relative z-10">
+                {/* Logo */}
                 <div className="flex flex-col items-center mb-10">
-                    <div className="relative w-16 h-16 mb-4">
-                        <Image
-                            src="/images/Artboard 7@2x.png"
-                            alt="Aneeverse Logo"
-                            fill
-                            className="object-contain"
-                        />
+                    <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-[#6366f1] to-[#06b6d4] flex items-center justify-center mb-4 shadow-lg shadow-[#6366f1]/20">
+                        <Cloud size={28} className="text-white" />
                     </div>
-                    <h1 className="text-3xl font-black tracking-tighter text-[#279da6] select-none">
-                        aneeverse
+                    <h1 className="text-2xl font-bold tracking-tight text-white">
+                        AI Cloud Storage
                     </h1>
-                    <p className="text-storm-gray text-xs mt-2 font-medium uppercase tracking-[0.2em]">
-                        Unified Request Management
+                    <p className="text-[#71717a] text-sm mt-1">
+                        Your intelligent file manager
                     </p>
                 </div>
 
                 {/* Login Card */}
-                <div className="bg-[#18181B] border border-shark/50 rounded-3xl p-8 shadow-2xl relative overflow-hidden group">
-                    <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-[#279da6]/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-1000" />
-
-                    <div className="mb-8">
-                        <h2 className="text-xl font-bold text-iron">Welcome back</h2>
-                        <p className="text-storm-gray text-xs mt-1 font-medium italic">Enter your credentials to access your dashboard</p>
+                <div className="bg-[#0a0a0a] border border-[#1e1e1e] rounded-2xl p-8 shadow-2xl">
+                    <div className="mb-6">
+                        <h2 className="text-lg font-semibold text-white">Welcome back</h2>
+                        <p className="text-[#71717a] text-sm mt-1">Sign in to your account</p>
                     </div>
 
-                    <form onSubmit={handleLogin} className="space-y-6">
+                    <form onSubmit={handleLogin} className="space-y-5">
                         {error && (
-                            <div className="bg-rose-500/5 border border-rose-500/20 text-rose-500 text-[11px] font-bold p-3 rounded-xl flex items-center gap-2 animate-shake">
-                                <ShieldCheck size={14} />
+                            <div className="bg-[#ef4444]/10 border border-[#ef4444]/20 text-[#ef4444] text-sm p-3 rounded-xl flex items-center gap-2 animate-slide-down">
+                                <AlertCircle size={16} />
                                 {error}
                             </div>
                         )}
 
                         <div className="space-y-1.5">
-                            <label className="text-[10px] font-bold text-santas-gray uppercase tracking-widest ml-1">
-                                Email Address
+                            <label className="text-sm font-medium text-[#a1a1aa]">
+                                Email
                             </label>
                             <input
                                 required
                                 type="email"
-                                placeholder="name@company.com"
+                                placeholder="you@example.com"
                                 value={email}
                                 onChange={(e) => setEmail(e.target.value)}
-                                className="w-full bg-[#09090B] border border-shark/80 rounded-xl py-3 px-4 text-sm text-iron focus:outline-none focus:border-[#279da6]/60 focus:ring-1 focus:ring-[#279da6]/20 transition-all placeholder:text-storm-gray/40"
+                                className="w-full bg-[#111] border border-[#1e1e1e] rounded-xl py-2.5 px-4 text-sm text-white focus:outline-none focus:border-[#6366f1]/50 focus:ring-1 focus:ring-[#6366f1]/20 transition-all placeholder:text-[#3f3f46]"
                             />
                         </div>
 
                         <div className="space-y-1.5">
-                            <div className="flex items-center justify-between ml-1">
-                                <label className="text-[10px] font-bold text-santas-gray uppercase tracking-widest">
-                                    Password
-                                </label>
-                                <button type="button" className="text-[10px] font-bold text-[#279da6] hover:text-[#279da6]/80 transition-colors uppercase tracking-widest">
-                                    Forgot?
-                                </button>
-                            </div>
+                            <label className="text-sm font-medium text-[#a1a1aa]">
+                                Password
+                            </label>
                             <div className="relative">
                                 <input
                                     required
                                     type={showPassword ? "text" : "password"}
-                                    placeholder="••••••••"
+                                    placeholder="Enter your password"
                                     value={password}
                                     onChange={(e) => setPassword(e.target.value)}
-                                    className="w-full bg-[#09090B] border border-shark/80 rounded-xl py-3 px-4 text-sm text-iron focus:outline-none focus:border-[#279da6]/60 focus:ring-1 focus:ring-[#279da6]/20 transition-all placeholder:text-storm-gray/40"
+                                    className="w-full bg-[#111] border border-[#1e1e1e] rounded-xl py-2.5 px-4 text-sm text-white focus:outline-none focus:border-[#6366f1]/50 focus:ring-1 focus:ring-[#6366f1]/20 transition-all placeholder:text-[#3f3f46]"
                                 />
                                 <button
                                     type="button"
                                     onClick={() => setShowPassword(!showPassword)}
-                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-storm-gray hover:text-iron transition-colors"
+                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-[#71717a] hover:text-white transition-colors"
                                 >
                                     {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                                 </button>
@@ -125,31 +111,26 @@ export default function LoginPage() {
                         <button
                             type="submit"
                             disabled={isLoading}
-                            className="w-full bg-[#279da6] text-white py-3.5 rounded-xl font-bold text-xs shadow-lg shadow-[#279da6]/20 hover:bg-[#279da6]/90 active:scale-[0.98] transition-all flex items-center justify-center gap-2 group disabled:opacity-50 disabled:active:scale-100"
+                            className="w-full bg-[#6366f1] text-white py-2.5 rounded-xl font-medium text-sm hover:bg-[#818cf8] active:scale-[0.98] transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:active:scale-100 shadow-lg shadow-[#6366f1]/20"
                         >
                             {isLoading ? (
-                                <>
-                                    <Loader2 size={16} className="animate-spin" />
-                                    Authenticating...
-                                </>
+                                <Loader2 size={18} className="animate-spin" />
                             ) : (
                                 <>
-                                    <LogIn size={16} className="group-hover:translate-x-1 transition-transform" />
-                                    Sign In to Dashboard
+                                    <LogIn size={18} />
+                                    Sign In
                                 </>
                             )}
                         </button>
                     </form>
                 </div>
 
-                <div className="mt-8 text-center space-y-4">
-                    <p className="text-storm-gray text-xs font-bold uppercase tracking-widest">
-                        Don't have an account? <a href="/register" className="text-[#279da6] hover:underline">Register here</a>
-                    </p>
-                    <p className="text-storm-gray text-[10px] font-bold uppercase tracking-widest">
-                        Official Client Portal of <span className="text-iron">AneeVerse</span>
-                    </p>
-                </div>
+                <p className="text-center mt-6 text-sm text-[#71717a]">
+                    Don&apos;t have an account?{' '}
+                    <Link href="/register" className="text-[#6366f1] hover:text-[#818cf8] transition-colors font-medium">
+                        Sign up
+                    </Link>
+                </p>
             </div>
         </div>
     );

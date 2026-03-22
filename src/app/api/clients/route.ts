@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { supabase, createServiceClient } from '@/lib/supabase';
-import { getOrCreateFolder, getRootFolderId } from '@/lib/googleDrive';
+
 
 export async function GET() {
     try {
@@ -72,17 +72,6 @@ export async function POST(request: Request) {
             throw tableError;
         }
 
-        // Auto-create Google Drive folder for this client (only if requested)
-        if (body.create_folder !== false) {
-            const folderName = organization || name;
-            try {
-                const rootId = await getRootFolderId();
-                await getOrCreateFolder(rootId, folderName);
-            } catch (driveErr) {
-                console.warn('Could not create Drive folder for client:', driveErr);
-            }
-        }
-
         return NextResponse.json({
             message: "Client created and account activated",
             user: authData.user,
@@ -98,7 +87,7 @@ export async function POST(request: Request) {
 export async function PATCH(request: Request) {
     try {
         const body = await request.json();
-        const { id, name, organization, email, password, oldEmail, drive_folder_id } = body;
+        const { id, name, organization, email, password, oldEmail } = body;
 
         if (!id) {
             return NextResponse.json({ error: "Missing client ID" }, { status: 400 });
@@ -111,7 +100,7 @@ export async function PATCH(request: Request) {
         if (name) updateData.name = name;
         if (organization) updateData.organization = organization;
         if (email) updateData.email = email;
-        if (drive_folder_id !== undefined) updateData.drive_folder_id = drive_folder_id || null;
+
 
         let clientData;
         if (Object.keys(updateData).length > 0) {

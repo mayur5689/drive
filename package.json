@@ -9,10 +9,12 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1014.0",
+    "@aws-sdk/s3-request-presigner": "^3.1014.0",
     "@supabase/ssr": "^0.8.0",
     "@supabase/supabase-js": "^2.95.3",
     "date-fns": "^4.1.0",
-    "googleapis": "^171.4.0",
+
     "linkify-react": "^4.3.2",
     "linkifyjs": "^4.3.2",
     "lucide-react": "^0.564.0",

@@ -1,10 +1,9 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import Sidebar from '@/components/Sidebar';
-import Header from '@/components/Header';
 import FilePreviewModal from '@/components/FilePreviewModal';
-import { usePathname, useRouter } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import {
     FolderOpen,
     ChevronRight,
@@ -15,323 +14,195 @@ import {
     File as FileIcon,
     Image as ImageIcon,
     Film,
+    Music,
+    Archive,
+    Code,
     Pencil,
     Trash2,
     Download,
     X,
     ArrowLeft,
-    HardDrive,
     RefreshCw,
-    CheckCircle2,
-    AlertCircle,
     FolderPlus,
     Check,
-    PanelLeft,
-    Filter,
-    Moon,
-    Sun,
     Sparkles,
-    Bell,
-    Plus,
+    Star,
+    Grid3X3,
+    List,
+    MoreVertical,
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import StorageInsights from '@/components/StorageInsights';
 import DuplicateDetector from '@/components/DuplicateDetector';
 
-interface DriveItem {
+interface StorageItem {
     id: string;
     name: string;
-    mimeType: string;
-    isFolder: boolean;
-    size: number | null;
-    createdTime: string;
-    webViewLink: string;
-    webContentLink: string | null;
-    previewUrl: string | null;
+    type: 'file' | 'folder';
+    mime_type?: string;
+    size?: number;
+    r2_key?: string;
+    preview_url?: string;
+    tags?: string[];
+    ai_summary?: string;
+    ai_category?: string;
+    is_starred?: boolean;
+    created_at: string;
+    updated_at: string;
 }
 
-interface DBEnrichment {
-    clients: { id: string; name: string; org: string }[];
-    requests: { id: string; title: string }[];
-}
-
-interface FilesClientProps {
-    initialRootId: string;
-    initialDriveItems: DriveItem[];
-    initialDbEnrichment: DBEnrichment;
-}
-
-
-
-export default function FilesClient({ initialRootId, initialDriveItems, initialDbEnrichment }: FilesClientProps) {
-    const { profile, viewAsProfile, isImpersonating, isLoading: isAuthLoading } = useAuth();
+export default function FilesClient() {
+    const { user, isLoading: isAuthLoading } = useAuth();
     const router = useRouter();
-    const displayProfile = viewAsProfile || profile;
 
     const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
-    const [isLoadingInitial, setIsLoadingInitial] = useState(false);
+    const [items, setItems] = useState<StorageItem[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState('');
+    const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
 
-    // Track breadcrumbs state
-    const [driveBreadcrumbs, setDriveBreadcrumbs] = useState<{ id: string; name: string }[]>([
-        { id: initialRootId, name: 'Files' }
+    // Navigation
+    const [breadcrumbs, setBreadcrumbs] = useState<{ id: string | null; name: string }[]>([
+        { id: null, name: 'My Files' }
     ]);
-    const [currentDriveFolderId, setCurrentDriveFolderId] = useState<string>(initialRootId);
-
-    const [driveItems, setDriveItems] = useState<DriveItem[]>(initialDriveItems);
-    const [isDriveLoading, setIsDriveLoading] = useState(false);
-
-    const [dbEnrichment, setDbEnrichment] = useState<DBEnrichment>(initialDbEnrichment);
+    const currentFolderId = breadcrumbs[breadcrumbs.length - 1].id;
 
     // Preview
-    const [previewFile, setPreviewFile] = useState<any | null>(null);
+    const [previewFile, setPreviewFile] = useState<StorageItem | null>(null);
     const [isPreviewOpen, setIsPreviewOpen] = useState(false);
 
-    // CRUD state
-    const [contextMenuFile, setContextMenuFile] = useState<DriveItem | null>(null);
-    const [isRenaming, setIsRenaming] = useState(false);
+    // CRUD
+    const [isRenaming, setIsRenaming] = useState<string | null>(null);
     const [renameValue, setRenameValue] = useState('');
-    const [isDeleting, setIsDeleting] = useState(false);
-    const [deleteTarget, setDeleteTarget] = useState<DriveItem | null>(null);
+    const [deleteTarget, setDeleteTarget] = useState<StorageItem | null>(null);
     const [isCreatingFolder, setIsCreatingFolder] = useState(false);
     const [newFolderName, setNewFolderName] = useState('');
+    const [actionMenu, setActionMenu] = useState<string | null>(null);
 
     // Upload
     const [isUploading, setIsUploading] = useState(false);
+    const [isDragOver, setIsDragOver] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
-    const [theme, setTheme] = useState<'dark' | 'light'>('dark');
 
-    // AI States
+    // AI
     const [isAISearching, setIsAISearching] = useState(false);
     const [aiMatchedIds, setAiMatchedIds] = useState<string[] | null>(null);
-    const [aiTags, setAiTags] = useState<Record<string, { category: string, tags: string[] }>>({});
 
+    // Auth redirect
     useEffect(() => {
-        if (!isAuthLoading && !displayProfile) {
+        if (!isAuthLoading && !user) {
             router.replace('/login');
         }
-    }, [displayProfile, isAuthLoading, router]);
+    }, [user, isAuthLoading, router]);
 
-    // Update state when initialDriveItems changes (from SSR refresh)
-    useEffect(() => {
-        setDriveItems(initialDriveItems);
-    }, [initialDriveItems]);
-
-    // Theme toggle effect
-    useEffect(() => {
-        const root = window.document.documentElement;
-        if (theme === 'light') {
-            root.classList.add('light');
-        } else {
-            root.classList.remove('light');
-        }
-    }, [theme]);
-
-    const isSuperAdmin = displayProfile?.role === 'super_admin';
-    const isAdmin = displayProfile?.role === 'admin' || isSuperAdmin;
-
-    if (isAuthLoading) {
-        return (
-            <div className="flex items-center justify-center h-screen bg-[#09090B]">
-                <Loader2 size={32} className="animate-spin text-[#279da6]" />
-            </div>
-        );
-    }
-
-
-    // Fetch Root and Initial Content
-    const browseDriveFolder = async (folderId: string) => {
-        setCurrentDriveFolderId(folderId);
-        setIsDriveLoading(true);
+    // Fetch items
+    const fetchItems = useCallback(async () => {
+        if (!user) return;
+        setIsLoading(true);
         try {
-            const res = await fetch(`/api/drive/browse?folderId=${folderId}`);
+            const params = new URLSearchParams({ userId: user.id });
+            if (currentFolderId) params.set('folderId', currentFolderId);
+            const res = await fetch(`/api/storage/browse?${params}`);
             if (res.ok) {
                 const data = await res.json();
-                setDriveItems(data);
+                setItems(data);
             }
         } catch (e) {
-            console.error('Browse error:', e);
+            console.error('Fetch error:', e);
         } finally {
-            setIsDriveLoading(false);
+            setIsLoading(false);
         }
-    };
+    }, [user, currentFolderId]);
 
-    const navigateToSubfolder = (item: DriveItem) => {
-        setDriveBreadcrumbs(prev => [...prev, { id: item.id, name: item.name }]);
-        browseDriveFolder(item.id);
+    useEffect(() => {
+        if (user) fetchItems();
+    }, [user, fetchItems]);
+
+    // Navigation
+    const navigateToFolder = (item: StorageItem) => {
+        setBreadcrumbs(prev => [...prev, { id: item.id, name: item.name }]);
     };
 
     const navigateToBreadcrumb = (index: number) => {
-        const crumb = driveBreadcrumbs[index];
-        setDriveBreadcrumbs(prev => prev.slice(0, index + 1));
-        browseDriveFolder(crumb.id);
+        setBreadcrumbs(prev => prev.slice(0, index + 1));
     };
 
-    const navigateBack = () => {
-        if (driveBreadcrumbs.length > 1) {
-            navigateToBreadcrumb(driveBreadcrumbs.length - 2);
-        }
-    };
-
-    const refreshFolder = () => {
-        if (currentDriveFolderId) browseDriveFolder(currentDriveFolderId);
-    };
-
-    // ─── CRUD Handlers ───
-    const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (!file || !currentDriveFolderId) return;
-
+    // Upload
+    const handleUpload = async (fileList: FileList | null) => {
+        if (!fileList || !user) return;
         setIsUploading(true);
-        try {
-            const formData = new FormData();
-            formData.append('file', file);
-            formData.append('parentId', currentDriveFolderId);
-            const res = await fetch('/api/drive/browse', { method: 'POST', body: formData });
+        setIsDragOver(false);
 
-            if (res.ok) {
-                // Feature 3: AI Auto-Tagging
-                try {
-                    const tagRes = await fetch('/api/ai', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            action: 'tag',
-                            payload: { fileName: file.name, mimeType: file.type }
-                        })
-                    });
-                    const tagData = await tagRes.json();
-                    if (tagData.data) {
-                        // In a real app, we'd save this to DB. 
-                        // For now, we'll update local state for immediate feedback.
-                        setAiTags(prev => ({
-                            ...prev,
-                            // We don't have the new file ID yet without refreshing, 
-                            // so we'll store by name for this session's demo
-                            [file.name]: { category: tagData.data.category, tags: tagData.data.tags }
-                        }));
-                    }
-                } catch (tagErr) {
-                    console.error('Tagging error:', tagErr);
-                }
+        for (const file of Array.from(fileList)) {
+            try {
+                const formData = new FormData();
+                formData.append('file', file);
+                formData.append('userId', user.id);
+                if (currentFolderId) formData.append('folderId', currentFolderId);
 
-                router.refresh();
+                await fetch('/api/storage/browse', { method: 'POST', body: formData });
+            } catch (e) {
+                console.error('Upload error:', e);
             }
-        } catch (e) {
-            console.error('Upload error:', e);
-        } finally {
-            setIsUploading(false);
-            if (fileInputRef.current) fileInputRef.current.value = '';
         }
+
+        setIsUploading(false);
+        if (fileInputRef.current) fileInputRef.current.value = '';
+        fetchItems();
     };
 
+    // Create folder
     const handleCreateFolder = async () => {
-        if (!newFolderName.trim() || !currentDriveFolderId) return;
+        if (!newFolderName.trim() || !user) return;
         try {
-            const res = await fetch('/api/drive/browse', {
+            await fetch('/api/storage/browse', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    parentId: currentDriveFolderId,
-                    folderName: newFolderName.trim()
+                    userId: user.id,
+                    folderName: newFolderName.trim(),
+                    parentId: currentFolderId,
                 })
             });
-            if (res.ok) {
-                setIsCreatingFolder(false);
-                setNewFolderName('');
-                router.refresh();
-            }
+            setIsCreatingFolder(false);
+            setNewFolderName('');
+            fetchItems();
         } catch (e) {
             console.error('Create folder error:', e);
         }
     };
 
-    const handleRename = async () => {
-        if (!contextMenuFile || !renameValue.trim()) return;
+    // Rename
+    const handleRename = async (item: StorageItem) => {
+        if (!renameValue.trim()) return;
         try {
-            const res = await fetch('/api/drive/browse', {
+            await fetch('/api/storage/browse', {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    id: contextMenuFile.id,
-                    newName: renameValue.trim(),
-                    isFolder: contextMenuFile.isFolder
-                })
+                body: JSON.stringify({ id: item.id, newName: renameValue.trim(), type: item.type })
             });
-            if (res.ok) {
-                setIsRenaming(false);
-                setContextMenuFile(null);
-                router.refresh();
-            }
+            setIsRenaming(null);
+            fetchItems();
         } catch (e) {
             console.error('Rename error:', e);
         }
     };
 
+    // Delete
     const handleDelete = async () => {
         if (!deleteTarget) return;
         try {
-            const res = await fetch(
-                `/api/drive/browse?id=${deleteTarget.id}&isFolder=${deleteTarget.isFolder}`,
-                { method: 'DELETE' }
-            );
-            if (res.ok) {
-                setDeleteTarget(null);
-                setIsDeleting(false);
-                router.refresh();
-            }
+            await fetch(`/api/storage/browse?id=${deleteTarget.id}&type=${deleteTarget.type}`, { method: 'DELETE' });
+            setDeleteTarget(null);
+            fetchItems();
         } catch (e) {
             console.error('Delete error:', e);
         }
     };
 
-    // ─── Visual Helpers ───
-    const getFileIcon = (mimeType: string, itemName?: string) => {
-        if (mimeType === 'application/vnd.google-apps.folder') {
-            // Check if it's a client or request folder
-            const isClient = dbEnrichment.clients.some(c => (c.org || c.name) === itemName);
-            const isRequest = dbEnrichment.requests.some(r => r.title === itemName);
-
-            if (isClient) return <div className="p-2.5 rounded-xl bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 shadow-[0_0_15px_rgba(6,182,212,0.1)]"><FolderOpen size={24} /></div>;
-            if (isRequest) return <div className="p-2.5 rounded-xl bg-blue-500/10 text-blue-400 border border-blue-500/20 shadow-[0_0_15px_rgba(59,130,246,0.1)]"><FolderOpen size={24} /></div>;
-
-            return <div className="p-2.5 rounded-xl bg-amber-500/10 text-amber-400"><FolderOpen size={24} /></div>;
-        }
-        if (mimeType?.startsWith('image/')) return <div className="p-2.5 rounded-xl bg-emerald-500/10 text-emerald-400"><ImageIcon size={24} /></div>;
-        if (mimeType?.includes('pdf')) return <div className="p-2.5 rounded-xl bg-rose-500/10 text-rose-400"><FileText size={24} /></div>;
-        if (mimeType?.startsWith('video/')) return <div className="p-2.5 rounded-xl bg-purple-500/10 text-purple-400"><Film size={24} /></div>;
-        return <div className="p-2.5 rounded-xl bg-blue-500/10 text-blue-400"><FileIcon size={24} /></div>;
-    };
-
-    const getFileTypeLabel = (mimeType: string) => {
-        if (mimeType === 'application/vnd.google-apps.folder') return 'FOLDER';
-        if (mimeType?.startsWith('image/')) return mimeType.replace('image/', '').toUpperCase();
-        if (mimeType?.includes('pdf')) return 'PDF';
-        const ext = mimeType?.split('/').pop()?.toUpperCase() || 'FILE';
-        return ext;
-    };
-
-    const formatFileSize = (bytes: number | null) => {
-        if (!bytes) return '';
-        if (bytes < 1024) return `${bytes} B`;
-        if (bytes < 1048576) return `${(bytes / 1024).toFixed(1)} KB`;
-        return `${(bytes / 1048576).toFixed(1)} MB`;
-    };
-
-    // ─── Filtered items for search ───
-    const filteredItems = driveItems.filter(item => {
-        if (aiMatchedIds) {
-            return aiMatchedIds.includes(item.id);
-        }
-        return item.name.toLowerCase().includes(searchQuery.toLowerCase());
-    });
-
+    // AI Search
     const handleAISearch = async () => {
-        if (!searchQuery.trim()) {
-            setAiMatchedIds(null);
-            return;
-        }
-
+        if (!searchQuery.trim()) { setAiMatchedIds(null); return; }
         setIsAISearching(true);
         try {
             const res = await fetch('/api/ai', {
@@ -339,347 +210,414 @@ export default function FilesClient({ initialRootId, initialDriveItems, initialD
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     action: 'search',
-                    payload: {
-                        query: searchQuery,
-                        files: driveItems.map(f => ({ id: f.id, name: f.name, mimeType: f.mimeType }))
-                    }
+                    payload: { query: searchQuery, files: items.map(f => ({ id: f.id, name: f.name, mime_type: f.mime_type })) }
                 })
             });
             const data = await res.json();
-            if (data.data?.matchedIds) {
-                setAiMatchedIds(data.data.matchedIds);
-            }
-        } catch (error) {
-            console.error('AI Search error:', error);
+            if (data.data?.matchedIds) setAiMatchedIds(data.data.matchedIds);
+        } catch (e) {
+            console.error('AI Search error:', e);
         } finally {
             setIsAISearching(false);
         }
     };
 
-    const clearAISearch = () => {
-        setAiMatchedIds(null);
-        setSearchQuery('');
+    // File icon
+    const getFileIcon = (item: StorageItem) => {
+        if (item.type === 'folder') return <FolderOpen size={22} />;
+        const mt = item.mime_type || '';
+        if (mt.startsWith('image/')) return <ImageIcon size={22} />;
+        if (mt.includes('pdf')) return <FileText size={22} />;
+        if (mt.startsWith('video/')) return <Film size={22} />;
+        if (mt.startsWith('audio/')) return <Music size={22} />;
+        if (mt.includes('zip') || mt.includes('rar') || mt.includes('tar')) return <Archive size={22} />;
+        if (mt.includes('javascript') || mt.includes('typescript') || mt.includes('json') || mt.includes('html') || mt.includes('css')) return <Code size={22} />;
+        return <FileIcon size={22} />;
     };
 
+    const getIconColor = (item: StorageItem) => {
+        if (item.type === 'folder') return 'text-[#f59e0b] bg-[#f59e0b]/10';
+        const mt = item.mime_type || '';
+        if (mt.startsWith('image/')) return 'text-[#22c55e] bg-[#22c55e]/10';
+        if (mt.includes('pdf')) return 'text-[#ef4444] bg-[#ef4444]/10';
+        if (mt.startsWith('video/')) return 'text-[#a855f7] bg-[#a855f7]/10';
+        if (mt.startsWith('audio/')) return 'text-[#ec4899] bg-[#ec4899]/10';
+        return 'text-[#6366f1] bg-[#6366f1]/10';
+    };
+
+    const formatSize = (bytes?: number) => {
+        if (!bytes) return '';
+        if (bytes < 1024) return `${bytes} B`;
+        if (bytes < 1048576) return `${(bytes / 1024).toFixed(1)} KB`;
+        if (bytes < 1073741824) return `${(bytes / 1048576).toFixed(1)} MB`;
+        return `${(bytes / 1073741824).toFixed(1)} GB`;
+    };
+
+    const getTypeLabel = (item: StorageItem) => {
+        if (item.type === 'folder') return 'Folder';
+        const mt = item.mime_type || '';
+        if (mt.startsWith('image/')) return mt.replace('image/', '').toUpperCase();
+        if (mt.includes('pdf')) return 'PDF';
+        if (mt.startsWith('video/')) return 'Video';
+        if (mt.startsWith('audio/')) return 'Audio';
+        return mt.split('/').pop()?.toUpperCase() || 'File';
+    };
+
+    // Filtered items
+    const filteredItems = items.filter(item => {
+        if (aiMatchedIds) return aiMatchedIds.includes(item.id);
+        if (!searchQuery) return true;
+        return item.name.toLowerCase().includes(searchQuery.toLowerCase());
+    });
+
+    // Drag & drop
+    const handleDragOver = (e: React.DragEvent) => { e.preventDefault(); setIsDragOver(true); };
+    const handleDragLeave = () => setIsDragOver(false);
+    const handleDrop = (e: React.DragEvent) => { e.preventDefault(); handleUpload(e.dataTransfer.files); };
+
+    if (isAuthLoading) {
+        return (
+            <div className="flex items-center justify-center h-screen bg-[#000]">
+                <Loader2 size={28} className="animate-spin text-[#6366f1]" />
+            </div>
+        );
+    }
+
     return (
-        <div className={`flex h-screen bg-[#09090B] text-iron font-sans overflow-hidden transition-all duration-500 ${isImpersonating ? 'p-1.5' : ''}`} style={isImpersonating ? { backgroundColor: '#0f2b1a' } : undefined}>
-            <Sidebar isCollapsed={isSidebarCollapsed} />
+        <div className="flex h-screen bg-[#000] text-white font-sans overflow-hidden">
+            <Sidebar isCollapsed={isSidebarCollapsed} onToggle={() => setIsSidebarCollapsed(!isSidebarCollapsed)} />
 
-            <div className="flex-1 flex flex-col min-w-0 bg-[#09090B] relative">
-                <div className={`flex-1 flex flex-col min-w-0 bg-[#121214] rounded-t-2xl overflow-hidden border-t border-l border-r mt-6 mr-6 transition-all duration-500 ${isImpersonating ? 'border-[#22c55e]/60 shadow-[0_0_15px_rgba(34,197,94,0.15)]' : 'border-shark'}`}>
-                    <div className="h-16 flex items-center justify-between px-6 shrink-0 z-30 border-b border-shark">
-                        <div className="flex items-center gap-4 flex-1 overflow-hidden">
-                            <button
-                                onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-                                className="p-1 text-santas-gray hover:text-white transition-colors"
-                            >
-                                <PanelLeft size={18} />
+            <div className="flex-1 flex flex-col min-w-0">
+                {/* Header */}
+                <div className="h-14 flex items-center justify-between px-6 border-b border-[#1e1e1e] bg-[#0a0a0a] shrink-0">
+                    <div className="flex items-center gap-2 min-w-0">
+                        {breadcrumbs.length > 1 && (
+                            <button onClick={() => navigateToBreadcrumb(breadcrumbs.length - 2)} className="p-1 text-[#71717a] hover:text-white transition-colors mr-1">
+                                <ArrowLeft size={18} />
                             </button>
-
-                            <div className="flex items-center gap-2 px-3 py-1.5 bg-shark/40 border border-shark rounded-lg shrink-0">
-                                <HardDrive size={16} className="text-[#279da6]" />
-                                <span className="text-[11px] font-bold text-iron uppercase tracking-tight">Files</span>
+                        )}
+                        {breadcrumbs.map((crumb, i) => (
+                            <div key={i} className="flex items-center gap-2">
+                                {i > 0 && <ChevronRight size={14} className="text-[#3f3f46]" />}
+                                <button
+                                    onClick={() => navigateToBreadcrumb(i)}
+                                    className={`text-sm font-medium transition-colors truncate max-w-[150px] ${i === breadcrumbs.length - 1 ? 'text-white' : 'text-[#71717a] hover:text-[#a1a1aa]'}`}
+                                >
+                                    {crumb.name}
+                                </button>
                             </div>
-
-                            {/* Breadcrumbs */}
-                            <div className="flex items-center gap-2 text-sm ml-2 overflow-hidden">
-                                {driveBreadcrumbs.map((crumb, i) => (
-                                    <React.Fragment key={crumb.id}>
-                                        {i > 0 && <ChevronRight size={14} className="text-storm-gray shrink-0" />}
-                                        <button
-                                            onClick={() => navigateToBreadcrumb(i)}
-                                            className={`font-black uppercase tracking-widest text-[10px] transition-all truncate max-w-[120px] ${i === driveBreadcrumbs.length - 1 ? 'text-[#279da6]' : 'text-storm-gray hover:text-iron'}`}
-                                        >
-                                            {crumb.name}
-                                        </button>
-                                    </React.Fragment>
-                                ))}
-                            </div>
-                        </div>
-
-                        <div className="flex items-center gap-4">
-
-                            <button
-                                onClick={() => setIsCreatingFolder(true)}
-                                className="flex items-center gap-1.5 px-2 py-1.5 text-xs font-bold text-santas-gray hover:text-white transition-colors group"
-                            >
-                                <Plus size={16} className="group-hover:text-white" />
-                                <span>new</span>
-                            </button>
-                            <input type="file" ref={fileInputRef} className="hidden" onChange={handleUpload} />
-                        </div>
-
-                        {/* Right side global elements */}
-                        <div className="flex items-center gap-3 ml-4">
-                            <div className="h-4 w-[1px] bg-shark" />
-                            <button
-                                onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-                                className="p-2 text-santas-gray hover:text-white rounded-lg hover:bg-shark/40 transition-all"
-                            >
-                                {theme === 'dark' ? <Moon size={18} /> : <Sun size={18} />}
-                            </button>
-                            <button className="p-2 text-santas-gray hover:text-white rounded-lg hover:bg-shark/40 transition-all relative">
-                                <Bell size={18} />
-                                <div className="absolute top-2 right-2.5 w-1.5 h-1.5 bg-red-500 rounded-full border border-black" />
-                            </button>
-                        </div>
+                        ))}
                     </div>
 
-                    <main className="flex-1 overflow-y-auto custom-scrollbar relative bg-[#09090B]/30">
-                        <div className="p-6">
-                            {/* Feature 5: AI Storage Insights */}
-                            <StorageInsights
-                                fileStats={{
-                                    totalFiles: driveItems.length,
-                                    totalSize: driveItems.reduce((acc, f) => acc + (f.size || 0), 0),
-                                    typeCounts: driveItems.reduce((acc: any, f) => {
-                                        const type = getFileTypeLabel(f.mimeType);
-                                        acc[type] = (acc[type] || 0) + 1;
-                                        return acc;
-                                    }, {})
-                                }}
+                    <div className="flex items-center gap-2">
+                        <div className="relative w-64">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[#3f3f46]" size={15} />
+                            <input
+                                type="text"
+                                placeholder="Search files with AI..."
+                                value={searchQuery}
+                                onChange={(e) => { setSearchQuery(e.target.value); if (!e.target.value) setAiMatchedIds(null); }}
+                                onKeyDown={(e) => e.key === 'Enter' && handleAISearch()}
+                                className="w-full bg-[#111] border border-[#1e1e1e] rounded-lg py-1.5 pl-9 pr-9 text-sm text-white placeholder:text-[#3f3f46] focus:outline-none focus:border-[#6366f1]/40 transition-all"
                             />
-
-                            {/* Feature 6: Duplicate File Detection */}
-                            <DuplicateDetector
-                                files={driveItems.map(f => ({ id: f.id, name: f.name, mimeType: f.mimeType, size: f.size }))}
-                                onDeleteFile={(fileId, isFolder) => {
-                                    setDeleteTarget(driveItems.find(d => d.id === fileId) || null);
-                                    setIsDeleting(true);
-                                }}
-                            />
-
-                            {/* Toolbar */}
-                            <div className="flex items-center justify-between mb-6">
-                                <div className="relative w-80">
-                                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-santas-gray" size={16} />
-                                    <input
-                                        type="text"
-                                        placeholder="Search with AI (e.g. 'find my images')"
-                                        value={searchQuery}
-                                        onChange={(e) => {
-                                            setSearchQuery(e.target.value);
-                                            if (!e.target.value) setAiMatchedIds(null);
-                                        }}
-                                        onKeyDown={(e) => e.key === 'Enter' && handleAISearch()}
-                                        className="w-full bg-[#09090B] border border-shark/50 rounded-lg py-2 pl-10 pr-10 text-xs text-iron placeholder:text-storm-gray focus:outline-none focus:border-[#279da6]/40 transition-all"
-                                    />
-                                    {aiMatchedIds ? (
-                                        <button
-                                            onClick={clearAISearch}
-                                            className="absolute right-3 top-1/2 -translate-y-1/2 text-rose-400 hover:text-rose-300"
-                                        >
-                                            <X size={14} />
-                                        </button>
-                                    ) : (
-                                        <button
-                                            onClick={handleAISearch}
-                                            disabled={isAISearching}
-                                            className="absolute right-3 top-1/2 -translate-y-1/2 text-[#279da6] hover:text-[#279da6]/80 transition-all opacity-60 hover:opacity-100"
-                                        >
-                                            {isAISearching ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
-                                        </button>
-                                    )}
-                                </div>
-                                <div className="flex items-center gap-2">
-                                    <button
-                                        onClick={refreshFolder}
-                                        className="p-2 bg-shark/20 border border-shark rounded-lg text-storm-gray hover:text-white transition-all shrink-0 mr-1"
-                                    >
-                                        <RefreshCw size={14} className={isDriveLoading ? 'animate-spin' : ''} />
-                                    </button>
-                                    <button
-                                        onClick={() => fileInputRef.current?.click()}
-                                        disabled={isUploading}
-                                        className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-shark hover:bg-shark/40 text-iron text-xs font-bold transition-all disabled:opacity-50"
-                                    >
-                                        {isUploading ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}
-                                        <span>Upload File</span>
-                                    </button>
-                                    <button
-                                        onClick={() => setIsCreatingFolder(true)}
-                                        className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#279da6] text-white text-xs font-bold hover:bg-[#279da6]/90 transition-all shadow-lg hover:shadow-[#279da6]/20"
-                                    >
-                                        <Plus size={14} />
-                                        <span>New Folder</span>
-                                    </button>
-                                </div>
-                            </div>
-
-                            {/* New Folder Creation Input */}
-                            {isCreatingFolder && (
-                                <div className="flex items-center gap-3 p-4 bg-shark/20 border border-[#279da6]/30 rounded-2xl mb-6 animate-slide-up">
-                                    <FolderPlus size={20} className="text-[#279da6] shrink-0" />
-                                    <input
-                                        type="text"
-                                        value={newFolderName}
-                                        onChange={(e) => setNewFolderName(e.target.value)}
-                                        onKeyDown={(e) => e.key === 'Enter' && handleCreateFolder()}
-                                        className="flex-1 bg-transparent border-none text-sm text-iron focus:outline-none font-bold"
-                                        placeholder="Enter folder name..."
-                                        autoFocus
-                                    />
-                                    <button onClick={handleCreateFolder} className="p-2 bg-[#279da6]/10 text-[#279da6] rounded-xl hover:bg-[#279da6]/20 transition-all">
-                                        <Check size={18} />
-                                    </button>
-                                    <button onClick={() => { setIsCreatingFolder(false); setNewFolderName(''); }} className="p-2 bg-shark/40 text-storm-gray rounded-xl hover:text-white transition-all">
-                                        <X size={18} />
-                                    </button>
-                                </div>
-                            )}
-
-                            {isDriveLoading && driveItems.length === 0 ? (
-                                <div className="flex flex-col items-center justify-center py-32 gap-4">
-                                    <Loader2 size={32} className="animate-spin text-[#279da6]" />
-                                    <p className="text-[10px] font-black text-storm-gray uppercase tracking-[0.3em]">Synching with Drive...</p>
-                                </div>
-                            ) : filteredItems.length === 0 ? (
-                                <div className="flex flex-col items-center justify-center py-32 text-center opacity-40">
-                                    <FolderOpen size={48} className="text-storm-gray mb-4" />
-                                    <p className="text-xs font-black text-iron uppercase mb-1 tracking-widest">THIS FOLDER IS EMPTY</p>
-                                    <p className="text-[10px] text-storm-gray uppercase tracking-widest">Upload your first file or create a subfolder.</p>
-                                </div>
-                            ) : (
-                                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-8 gap-6">
-                                    {filteredItems.map((item) => (
-                                        <div
-                                            key={item.id}
-                                            className="group relative flex flex-col items-center gap-4 p-6 rounded-3xl border border-shark/40 hover:border-[#279da6]/30 bg-[#18181B]/40 hover:bg-[#279da6]/5 transition-all cursor-pointer text-center overflow-hidden"
-                                            onClick={() => item.isFolder ? navigateToSubfolder(item) : (setPreviewFile({ ...item, url: item.webViewLink, previewUrl: item.previewUrl, type: item.mimeType }), setIsPreviewOpen(true))}
-                                        >
-                                            {/* Glow Background */}
-                                            <div className="absolute inset-0 bg-gradient-to-b from-white/[0.02] to-transparent pointer-events-none" />
-
-                                            <div className="relative z-10 group-hover:scale-110 transition-transform duration-300">
-                                                {getFileIcon(item.mimeType, item.name)}
-                                            </div>
-
-                                            <div className="relative z-10 w-full min-w-0">
-                                                {isRenaming && contextMenuFile?.id === item.id ? (
-                                                    <div className="flex flex-col items-center gap-2" onClick={e => e.stopPropagation()}>
-                                                        <input
-                                                            type="text"
-                                                            value={renameValue}
-                                                            onChange={e => setRenameValue(e.target.value)}
-                                                            onKeyDown={e => { if (e.key === 'Enter') handleRename(); if (e.key === 'Escape') setIsRenaming(false); }}
-                                                            autoFocus
-                                                            className="w-full bg-[#09090B] border border-[#279da6]/60 rounded-xl px-3 py-1.5 text-xs font-bold text-iron focus:outline-none text-center"
-                                                        />
-                                                        <div className="flex gap-1.5">
-                                                            <button onClick={handleRename} className="p-1 px-3 bg-[#279da6] text-white rounded-lg text-[10px] font-black uppercase">Save</button>
-                                                            <button onClick={() => setIsRenaming(false)} className="p-1 px-3 bg-shark/60 text-storm-gray rounded-lg text-[10px] font-black uppercase">Cancel</button>
-                                                        </div>
-                                                    </div>
-                                                ) : (
-                                                    <div className="space-y-1">
-                                                        <p className="text-[11px] font-black text-white truncate px-2 group-hover:text-[#279da6] transition-colors uppercase tracking-tight">{item.name}</p>
-                                                        <div className="flex items-center justify-center gap-2">
-                                                            <span className="text-[9px] font-black text-storm-gray uppercase tracking-widest">{getFileTypeLabel(item.mimeType)}</span>
-                                                            {dbEnrichment.clients.some(c => (c.org || c.name) === item.name) && (
-                                                                <>
-                                                                    <div className="w-1 h-1 rounded-full bg-cyan-500/40" />
-                                                                    <span className="text-[9px] font-black text-cyan-400 uppercase tracking-widest">CLIENT</span>
-                                                                </>
-                                                            )}
-                                                            {dbEnrichment.requests.some(r => r.title === item.name) && (
-                                                                <>
-                                                                    <div className="w-1 h-1 rounded-full bg-blue-500/40" />
-                                                                    <span className="text-[9px] font-black text-blue-400 uppercase tracking-widest">REQUEST</span>
-                                                                </>
-                                                            )}
-                                                            {!item.isFolder && item.size && (
-                                                                <>
-                                                                    <div className="w-1 h-1 rounded-full bg-shark" />
-                                                                    <span className="text-[9px] font-black text-storm-gray uppercase tracking-widest">{formatFileSize(item.size)}</span>
-                                                                </>
-                                                            )}
-                                                        </div>
-                                                        {/* AI Tags Display */}
-                                                        {aiTags[item.name] && (
-                                                            <div className="flex flex-wrap justify-center gap-1 mt-2">
-                                                                <span className="px-1.5 py-0.5 rounded bg-[#279da6]/10 text-[#279da6] text-[7px] font-black uppercase border border-[#279da6]/20">
-                                                                    {aiTags[item.name].category}
-                                                                </span>
-                                                                {aiTags[item.name].tags.map(tag => (
-                                                                    <span key={tag} className="px-1.5 py-0.5 rounded bg-shark/40 text-storm-gray text-[7px] font-black uppercase border border-shark">
-                                                                        #{tag}
-                                                                    </span>
-                                                                ))}
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                )}
-                                            </div>
-
-                                            {/* Floating Actions */}
-                                            <div className="absolute top-3 right-3 flex flex-col gap-2 opacity-0 group-hover:opacity-100 transition-all translate-x-2 group-hover:translate-x-0">
-                                                <button
-                                                    onClick={(e) => { e.stopPropagation(); setContextMenuFile(item); setRenameValue(item.name); setIsRenaming(true); }}
-                                                    className="p-2 rounded-xl bg-shark/80 hover:bg-[#279da6]/20 text-storm-gray hover:text-[#279da6] hover:scale-110 transition-all border border-shark"
-                                                >
-                                                    <Pencil size={12} />
-                                                </button>
-                                                <button
-                                                    onClick={(e) => { e.stopPropagation(); setDeleteTarget(item); setIsDeleting(true); }}
-                                                    className="p-2 rounded-xl bg-shark/80 hover:bg-rose-500/20 text-storm-gray hover:text-rose-400 hover:scale-110 transition-all border border-shark"
-                                                >
-                                                    <Trash2 size={12} />
-                                                </button>
-                                                {!item.isFolder && (
-                                                    <a
-                                                        href={item.webContentLink || item.webViewLink}
-                                                        target="_blank"
-                                                        rel="noopener noreferrer"
-                                                        onClick={(e) => e.stopPropagation()}
-                                                        className="p-2 rounded-xl bg-shark/80 hover:bg-white/10 text-storm-gray hover:text-white hover:scale-110 transition-all border border-shark"
-                                                    >
-                                                        <Download size={12} />
-                                                    </a>
-                                                )}
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
+                            {aiMatchedIds ? (
+                                <button onClick={() => { setAiMatchedIds(null); setSearchQuery(''); }} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#ef4444]">
+                                    <X size={14} />
+                                </button>
+                            ) : searchQuery && (
+                                <button onClick={handleAISearch} disabled={isAISearching} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#6366f1]">
+                                    {isAISearching ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
+                                </button>
                             )}
                         </div>
-                    </main>
+
+                        <div className="flex items-center border border-[#1e1e1e] rounded-lg overflow-hidden">
+                            <button onClick={() => setViewMode('grid')} className={`p-1.5 ${viewMode === 'grid' ? 'bg-[#6366f1]/10 text-[#818cf8]' : 'text-[#71717a] hover:text-white'} transition-all`}>
+                                <Grid3X3 size={16} />
+                            </button>
+                            <button onClick={() => setViewMode('list')} className={`p-1.5 ${viewMode === 'list' ? 'bg-[#6366f1]/10 text-[#818cf8]' : 'text-[#71717a] hover:text-white'} transition-all`}>
+                                <List size={16} />
+                            </button>
+                        </div>
+
+                        <button onClick={fetchItems} className="p-1.5 text-[#71717a] hover:text-white border border-[#1e1e1e] rounded-lg transition-all">
+                            <RefreshCw size={16} className={isLoading ? 'animate-spin' : ''} />
+                        </button>
+                    </div>
                 </div>
+
+                {/* Main */}
+                <main
+                    className="flex-1 overflow-y-auto custom-scrollbar relative"
+                    onDragOver={handleDragOver}
+                    onDragLeave={handleDragLeave}
+                    onDrop={handleDrop}
+                >
+                    {/* Drag overlay */}
+                    {isDragOver && (
+                        <div className="absolute inset-0 z-40 bg-[#6366f1]/10 border-2 border-dashed border-[#6366f1] rounded-xl m-4 flex items-center justify-center animate-fade-in">
+                            <div className="text-center">
+                                <Upload size={48} className="text-[#6366f1] mx-auto mb-3" />
+                                <p className="text-lg font-semibold text-white">Drop files here to upload</p>
+                            </div>
+                        </div>
+                    )}
+
+                    <div className="p-6">
+                        {/* AI Insights */}
+                        <StorageInsights
+                            fileStats={{
+                                totalFiles: items.filter(i => i.type === 'file').length,
+                                totalSize: items.reduce((acc, f) => acc + (f.size || 0), 0),
+                                typeCounts: items.reduce((acc: Record<string, number>, f) => {
+                                    if (f.type === 'file') {
+                                        const type = getTypeLabel(f);
+                                        acc[type] = (acc[type] || 0) + 1;
+                                    }
+                                    return acc;
+                                }, {})
+                            }}
+                        />
+
+                        {/* Duplicate Detector */}
+                        <DuplicateDetector
+                            files={items.filter(i => i.type === 'file').map(f => ({ id: f.id, name: f.name, mimeType: f.mime_type || '', size: f.size || null }))}
+                            onDeleteFile={(fileId) => {
+                                const target = items.find(d => d.id === fileId);
+                                if (target) setDeleteTarget(target);
+                            }}
+                        />
+
+                        {/* Action bar */}
+                        <div className="flex items-center gap-2 mb-5">
+                            <input type="file" ref={fileInputRef} className="hidden" multiple onChange={(e) => handleUpload(e.target.files)} />
+                            <button
+                                onClick={() => fileInputRef.current?.click()}
+                                disabled={isUploading}
+                                className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#6366f1] text-white text-sm font-medium hover:bg-[#818cf8] transition-all disabled:opacity-50"
+                            >
+                                {isUploading ? <Loader2 size={16} className="animate-spin" /> : <Upload size={16} />}
+                                Upload
+                            </button>
+                            <button
+                                onClick={() => setIsCreatingFolder(true)}
+                                className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-[#1e1e1e] text-[#a1a1aa] text-sm font-medium hover:bg-[#111] hover:text-white transition-all"
+                            >
+                                <FolderPlus size={16} />
+                                New Folder
+                            </button>
+                        </div>
+
+                        {/* New folder input */}
+                        {isCreatingFolder && (
+                            <div className="flex items-center gap-3 p-3 bg-[#0a0a0a] border border-[#6366f1]/30 rounded-xl mb-5 animate-slide-down">
+                                <FolderPlus size={18} className="text-[#6366f1] shrink-0" />
+                                <input
+                                    type="text"
+                                    value={newFolderName}
+                                    onChange={(e) => setNewFolderName(e.target.value)}
+                                    onKeyDown={(e) => { if (e.key === 'Enter') handleCreateFolder(); if (e.key === 'Escape') setIsCreatingFolder(false); }}
+                                    className="flex-1 bg-transparent text-sm text-white focus:outline-none"
+                                    placeholder="Folder name..."
+                                    autoFocus
+                                />
+                                <button onClick={handleCreateFolder} className="p-1.5 bg-[#6366f1]/10 text-[#6366f1] rounded-lg hover:bg-[#6366f1]/20 transition-all">
+                                    <Check size={16} />
+                                </button>
+                                <button onClick={() => { setIsCreatingFolder(false); setNewFolderName(''); }} className="p-1.5 text-[#71717a] hover:text-white transition-all">
+                                    <X size={16} />
+                                </button>
+                            </div>
+                        )}
+
+                        {/* Content */}
+                        {isLoading && items.length === 0 ? (
+                            <div className="flex flex-col items-center justify-center py-32 gap-3">
+                                <Loader2 size={28} className="animate-spin text-[#6366f1]" />
+                                <p className="text-sm text-[#71717a]">Loading files...</p>
+                            </div>
+                        ) : filteredItems.length === 0 ? (
+                            <div className="flex flex-col items-center justify-center py-32 text-center">
+                                <div className="w-16 h-16 rounded-2xl bg-[#111] border border-[#1e1e1e] flex items-center justify-center mb-4">
+                                    <FolderOpen size={28} className="text-[#3f3f46]" />
+                                </div>
+                                <p className="text-sm font-medium text-[#a1a1aa] mb-1">
+                                    {searchQuery ? 'No files match your search' : 'This folder is empty'}
+                                </p>
+                                <p className="text-xs text-[#71717a]">
+                                    {searchQuery ? 'Try a different search term' : 'Upload files or create a folder to get started'}
+                                </p>
+                            </div>
+                        ) : viewMode === 'grid' ? (
+                            /* Grid View */
+                            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7 gap-3">
+                                {filteredItems.map((item) => (
+                                    <div
+                                        key={item.id}
+                                        className="group relative flex flex-col items-center gap-3 p-4 rounded-xl border border-[#1e1e1e] hover:border-[#2a2a2a] bg-[#0a0a0a] hover:bg-[#111] transition-all cursor-pointer"
+                                        onClick={() => item.type === 'folder' ? navigateToFolder(item) : (setPreviewFile(item), setIsPreviewOpen(true))}
+                                    >
+                                        {/* Icon */}
+                                        <div className={`p-3 rounded-xl ${getIconColor(item)} transition-transform group-hover:scale-105`}>
+                                            {getFileIcon(item)}
+                                        </div>
+
+                                        {/* Name */}
+                                        {isRenaming === item.id ? (
+                                            <div className="w-full" onClick={e => e.stopPropagation()}>
+                                                <input
+                                                    type="text"
+                                                    value={renameValue}
+                                                    onChange={e => setRenameValue(e.target.value)}
+                                                    onKeyDown={e => { if (e.key === 'Enter') handleRename(item); if (e.key === 'Escape') setIsRenaming(null); }}
+                                                    autoFocus
+                                                    className="w-full bg-[#111] border border-[#6366f1]/50 rounded-lg px-2 py-1 text-xs text-white focus:outline-none text-center"
+                                                />
+                                            </div>
+                                        ) : (
+                                            <div className="w-full text-center min-w-0">
+                                                <p className="text-xs font-medium text-white truncate">{item.name}</p>
+                                                <div className="flex items-center justify-center gap-1.5 mt-1">
+                                                    <span className="text-[10px] text-[#71717a]">{getTypeLabel(item)}</span>
+                                                    {item.size ? (
+                                                        <>
+                                                            <span className="text-[#2a2a2a]">&middot;</span>
+                                                            <span className="text-[10px] text-[#71717a]">{formatSize(item.size)}</span>
+                                                        </>
+                                                    ) : null}
+                                                </div>
+                                                {/* AI tags */}
+                                                {item.tags && item.tags.length > 0 && (
+                                                    <div className="flex flex-wrap justify-center gap-1 mt-2">
+                                                        {item.ai_category && (
+                                                            <span className="px-1.5 py-0.5 rounded bg-[#6366f1]/10 text-[#818cf8] text-[9px] font-medium">
+                                                                {item.ai_category}
+                                                            </span>
+                                                        )}
+                                                        {item.tags.slice(0, 2).map(tag => (
+                                                            <span key={tag} className="px-1.5 py-0.5 rounded bg-[#111] text-[#71717a] text-[9px]">
+                                                                #{tag}
+                                                            </span>
+                                                        ))}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        )}
+
+                                        {/* Actions */}
+                                        <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-all">
+                                            <button
+                                                onClick={(e) => { e.stopPropagation(); setActionMenu(actionMenu === item.id ? null : item.id); }}
+                                                className="p-1 rounded-lg bg-[#111] border border-[#1e1e1e] text-[#71717a] hover:text-white transition-all"
+                                            >
+                                                <MoreVertical size={14} />
+                                            </button>
+                                            {actionMenu === item.id && (
+                                                <div className="absolute right-0 top-8 bg-[#0a0a0a] border border-[#1e1e1e] rounded-xl shadow-2xl py-1 min-w-[140px] z-20 animate-scale-in" onClick={e => e.stopPropagation()}>
+                                                    <button onClick={() => { setRenameValue(item.name); setIsRenaming(item.id); setActionMenu(null); }} className="w-full flex items-center gap-2 px-3 py-2 text-sm text-[#a1a1aa] hover:text-white hover:bg-[#111] transition-all">
+                                                        <Pencil size={14} /> Rename
+                                                    </button>
+                                                    {item.type === 'file' && item.preview_url && (
+                                                        <a href={item.preview_url} target="_blank" rel="noopener noreferrer" className="w-full flex items-center gap-2 px-3 py-2 text-sm text-[#a1a1aa] hover:text-white hover:bg-[#111] transition-all">
+                                                            <Download size={14} /> Download
+                                                        </a>
+                                                    )}
+                                                    <button onClick={() => { setDeleteTarget(item); setActionMenu(null); }} className="w-full flex items-center gap-2 px-3 py-2 text-sm text-[#ef4444] hover:bg-[#ef4444]/10 transition-all">
+                                                        <Trash2 size={14} /> Delete
+                                                    </button>
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        {/* Star indicator */}
+                                        {item.is_starred && (
+                                            <div className="absolute top-2 left-2">
+                                                <Star size={12} className="text-[#f59e0b] fill-[#f59e0b]" />
+                                            </div>
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
+                        ) : (
+                            /* List View */
+                            <div className="border border-[#1e1e1e] rounded-xl overflow-hidden">
+                                <div className="grid grid-cols-[1fr_100px_120px_80px] px-4 py-2 bg-[#0a0a0a] border-b border-[#1e1e1e] text-xs text-[#71717a] font-medium">
+                                    <span>Name</span>
+                                    <span>Type</span>
+                                    <span>Size</span>
+                                    <span className="text-right">Actions</span>
+                                </div>
+                                {filteredItems.map((item) => (
+                                    <div
+                                        key={item.id}
+                                        className="grid grid-cols-[1fr_100px_120px_80px] px-4 py-2.5 border-b border-[#1e1e1e] last:border-b-0 hover:bg-[#0a0a0a] transition-all cursor-pointer group items-center"
+                                        onClick={() => item.type === 'folder' ? navigateToFolder(item) : (setPreviewFile(item), setIsPreviewOpen(true))}
+                                    >
+                                        <div className="flex items-center gap-3 min-w-0">
+                                            <div className={`p-1.5 rounded-lg ${getIconColor(item)}`}>
+                                                {getFileIcon(item)}
+                                            </div>
+                                            <span className="text-sm text-white truncate">{item.name}</span>
+                                            {item.is_starred && <Star size={12} className="text-[#f59e0b] fill-[#f59e0b] shrink-0" />}
+                                            {item.tags && item.tags.length > 0 && (
+                                                <div className="flex gap-1 shrink-0">
+                                                    {item.tags.slice(0, 2).map(tag => (
+                                                        <span key={tag} className="px-1.5 py-0.5 rounded bg-[#111] text-[#71717a] text-[9px]">#{tag}</span>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </div>
+                                        <span className="text-xs text-[#71717a]">{getTypeLabel(item)}</span>
+                                        <span className="text-xs text-[#71717a]">{formatSize(item.size)}</span>
+                                        <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-all" onClick={e => e.stopPropagation()}>
+                                            <button onClick={() => { setRenameValue(item.name); setIsRenaming(item.id); }} className="p-1 text-[#71717a] hover:text-[#6366f1] transition-all">
+                                                <Pencil size={14} />
+                                            </button>
+                                            <button onClick={() => setDeleteTarget(item)} className="p-1 text-[#71717a] hover:text-[#ef4444] transition-all">
+                                                <Trash2 size={14} />
+                                            </button>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                </main>
             </div>
 
             {/* Delete Confirmation */}
-            {isDeleting && deleteTarget && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center px-4 bg-black/80 backdrop-blur-sm animate-fade-in">
-                    <div className="bg-[#18181B] border border-shark rounded-3xl p-8 max-w-md w-full shadow-2xl animate-scale-in">
-                        <div className="w-16 h-16 rounded-2xl bg-rose-500/10 flex items-center justify-center text-rose-500 mb-6 mx-auto">
-                            <Trash2 size={32} />
+            {deleteTarget && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center px-4 bg-black/70 backdrop-blur-sm animate-fade-in">
+                    <div className="bg-[#0a0a0a] border border-[#1e1e1e] rounded-2xl p-6 max-w-sm w-full shadow-2xl animate-scale-in">
+                        <div className="w-12 h-12 rounded-xl bg-[#ef4444]/10 flex items-center justify-center text-[#ef4444] mb-4 mx-auto">
+                            <Trash2 size={24} />
                         </div>
-                        <h3 className="text-xl font-black text-white text-center mb-2 uppercase tracking-tight">Confirm Deletion</h3>
-                        <p className="text-sm font-bold text-storm-gray text-center mb-8 uppercase tracking-widest text-[10px]">
-                            Are you sure you want to delete <span className="text-iron">"{deleteTarget.name}"</span>? This action cannot be undone.
+                        <h3 className="text-lg font-semibold text-white text-center mb-1">Delete {deleteTarget.type}?</h3>
+                        <p className="text-sm text-[#71717a] text-center mb-6">
+                            &ldquo;{deleteTarget.name}&rdquo; will be permanently deleted.
                         </p>
                         <div className="flex gap-3">
-                            <button
-                                onClick={() => { setIsDeleting(false); setDeleteTarget(null); }}
-                                className="flex-1 px-6 py-3 rounded-2xl bg-shark/40 hover:bg-shark border border-shark text- iron text-xs font-black uppercase tracking-widest transition-all"
-                            >
+                            <button onClick={() => setDeleteTarget(null)} className="flex-1 px-4 py-2.5 rounded-xl bg-[#111] border border-[#1e1e1e] text-white text-sm font-medium hover:bg-[#181818] transition-all">
                                 Cancel
                             </button>
-                            <button
-                                onClick={handleDelete}
-                                className="flex-1 px-6 py-3 rounded-2xl bg-rose-500 hover:bg-rose-600 text-white text-xs font-black uppercase tracking-widest transition-all shadow-lg shadow-rose-500/20"
-                            >
-                                Delete Now
+                            <button onClick={handleDelete} className="flex-1 px-4 py-2.5 rounded-xl bg-[#ef4444] text-white text-sm font-medium hover:bg-[#dc2626] transition-all">
+                                Delete
                             </button>
                         </div>
                     </div>
                 </div>
             )}
 
-            {/* File Preview Modal */}
+            {/* File Preview */}
             <FilePreviewModal
                 isOpen={isPreviewOpen}
                 onClose={() => { setIsPreviewOpen(false); setPreviewFile(null); }}
-                file={previewFile}
+                file={previewFile ? {
+                    name: previewFile.name,
+                    id: previewFile.id,
+                    url: previewFile.preview_url || '',
+                    type: previewFile.mime_type || '',
+                } : null}
             />
         </div>
     );

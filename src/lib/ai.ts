@@ -6,7 +6,6 @@
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY || '';
 const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions';
 
-// Use the free router — OpenRouter picks the best available free model automatically
 const FREE_MODEL = 'openrouter/free';
 
 /**
@@ -16,17 +15,14 @@ function extractContent(data: any): string {
     const choice = data.choices?.[0]?.message;
     if (!choice) return '';
 
-    // Standard models put text in content
     if (choice.content && choice.content.trim()) {
         return choice.content.trim();
     }
 
-    // Thinking models (nemotron, etc.) put text in reasoning
     if (choice.reasoning && choice.reasoning.trim()) {
         return choice.reasoning.trim();
     }
 
-    // Some models use reasoning_details array
     if (choice.reasoning_details?.length) {
         return choice.reasoning_details.map((d: any) => d.text || '').join('').trim();
     }
@@ -37,7 +33,7 @@ function extractContent(data: any): string {
 /**
  * Call OpenRouter with a prompt. Returns { text } or { error }.
  */
-export async function askGemini(prompt: string): Promise<{ text?: string; error?: string }> {
+export async function askAI(prompt: string): Promise<{ text?: string; error?: string }> {
     if (!OPENROUTER_API_KEY) {
         return { error: 'OPENROUTER_API_KEY is not set in .env.local' };
     }
@@ -49,7 +45,7 @@ export async function askGemini(prompt: string): Promise<{ text?: string; error?
                 'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
                 'Content-Type': 'application/json',
                 'HTTP-Referer': 'http://localhost:3000',
-                'X-Title': 'Personal Cloud Storage'
+                'X-Title': 'AI Cloud Storage'
             },
             body: JSON.stringify({
                 model: FREE_MODEL,
@@ -65,7 +61,6 @@ export async function askGemini(prompt: string): Promise<{ text?: string; error?
         if (!res.ok) {
             const errBody = await res.text();
             console.error('OpenRouter error:', res.status, errBody);
-            // If rate limited, return a friendly fallback
             if (res.status === 429) {
                 return { error: 'AI is temporarily busy. Please try again in a few seconds.' };
             }
@@ -90,17 +85,15 @@ export async function askGemini(prompt: string): Promise<{ text?: string; error?
 /**
  * Call OpenRouter and parse JSON from the response.
  */
-export async function askGeminiJSON(prompt: string): Promise<{ data?: any; error?: string }> {
+export async function askAIJSON(prompt: string): Promise<{ data?: any; error?: string }> {
     const fullPrompt = `${prompt}\n\nIMPORTANT: Return ONLY valid JSON. No markdown, no backticks, no explanation, no extra text. Just the raw JSON object.`;
-    const result = await askGemini(fullPrompt);
+    const result = await askAI(fullPrompt);
 
     if (result.error) return { error: result.error };
 
     try {
         let raw = (result.text || '').trim();
-        // Strip markdown code fences if present
         raw = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim();
-        // Try to extract JSON object from any surrounding text
         const jsonMatch = raw.match(/\{[\s\S]*\}/);
         if (jsonMatch) {
             return { data: JSON.parse(jsonMatch[0]) };

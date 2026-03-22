@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { askGemini, askGeminiJSON } from '@/lib/gemini';
+import { askAI, askAIJSON } from '@/lib/ai';
 
 export async function POST(req: NextRequest) {
     try {
@@ -32,10 +32,6 @@ export async function POST(req: NextRequest) {
     }
 }
 
-/**
- * Action: search
- * Payload: { query, files: [{id, name, mimeType}, ...] }
- */
 async function handleAISearch(payload: any) {
     const { query, files } = payload;
     if (!query || !files?.length) {
@@ -45,45 +41,37 @@ async function handleAISearch(payload: any) {
 You are a file search assistant. The user wants to find files using natural language.
 
 User query: "${query}"
-Files: ${JSON.stringify(files.map((f: any) => ({ id: f.id, name: f.name, type: f.mimeType })))}
+Files: ${JSON.stringify(files.map((f: any) => ({ id: f.id, name: f.name, type: f.mime_type || f.mimeType })))}
 
-Return ONLY the IDs of files that match the user's intent. If the user says "images", match image mimeTypes. If the user says "documents", match pdf/doc types. Match by name keywords too.
+Return ONLY the IDs of files that match the user's intent. If the user says "images", match image types. If the user says "documents", match pdf/doc types. Match by name keywords too.
 Return JSON: { "matchedIds": ["id1", "id2"] }
 If nothing matches, return: { "matchedIds": [] }
     `;
-    const result = await askGeminiJSON(prompt);
+    const result = await askAIJSON(prompt);
     return NextResponse.json(result);
 }
 
-/**
- * Action: chat
- * Payload: { message, history: [{role, content}, ...], fileMetadata? }
- */
 async function handleAIChat(payload: any) {
     const { message, history, fileMetadata } = payload;
     const historyText = (history || []).slice(-5).map((h: any) => `${h.role}: ${h.content}`).join('\n');
     const prompt = `
-You are an AI assistant for a Personal Cloud Storage application called "Drive".
+You are an AI assistant for "AI Cloud Storage" — a modern cloud storage application.
 You help users manage their files, understand their storage, and optimize their workflow.
 
-${fileMetadata ? `Context: The user has ${fileMetadata.totalFiles || 'some'} files. ${fileMetadata.summary || ''}` : ''}
+${fileMetadata ? `Context: The user has ${fileMetadata.totalFiles || 'some'} files totaling ${fileMetadata.totalSize ? Math.round(fileMetadata.totalSize / 1048576) + 'MB' : 'unknown size'}. ${fileMetadata.summary || ''}` : ''}
 ${historyText ? `Recent conversation:\n${historyText}` : ''}
 
 User: "${message}"
 
 Respond helpfully and concisely in 1-3 sentences. Be friendly and professional. Do not use markdown formatting.
     `;
-    const result = await askGemini(prompt);
+    const result = await askAI(prompt);
     if (result.error) {
         return NextResponse.json({ text: `Sorry, I encountered an issue: ${result.error}` });
     }
     return NextResponse.json({ text: result.text || "I'm here to help with your cloud storage!" });
 }
 
-/**
- * Action: tag
- * Payload: { fileName, mimeType }
- */
 async function handleAITagging(payload: any) {
     const { fileName, mimeType } = payload;
     if (!fileName) {
@@ -101,14 +89,10 @@ Return JSON with:
 
 Return JSON: { "category": "...", "tags": ["...", "..."], "suggestedFolder": "..." }
     `;
-    const result = await askGeminiJSON(prompt);
+    const result = await askAIJSON(prompt);
     return NextResponse.json(result);
 }
 
-/**
- * Action: summarize
- * Payload: { fileName, mimeType, description? }
- */
 async function handleAISummary(payload: any) {
     const { fileName, mimeType, description } = payload;
     const prompt = `
@@ -118,37 +102,28 @@ ${description ? `Description: "${description}"` : ''}
 Based on the file name and type, write a brief 1-sentence summary of what this file likely contains or is used for.
 Return JSON: { "summary": "..." }
     `;
-    const result = await askGeminiJSON(prompt);
+    const result = await askAIJSON(prompt);
     return NextResponse.json(result);
 }
 
-/**
- * Action: insights
- * Payload: { fileStats: { totalFiles, totalSize, typeCounts } }
- */
 async function handleAIInsights(payload: any) {
     const { fileStats } = payload;
     if (!fileStats || fileStats.totalFiles === 0) {
         return NextResponse.json({ data: { insights: ['Upload some files to get AI-powered storage insights!'] } });
     }
     const prompt = `
-You are a storage optimization expert. Analyze these drive statistics and give exactly 2 short, actionable tips.
+You are a storage optimization expert. Analyze these storage statistics and give exactly 2 short, actionable tips.
 
 Stats: ${JSON.stringify(fileStats)}
 
-Tips should be specific and helpful (e.g. "You have 15 images — consider creating an Images folder" or "Your root folder has many files, try organizing by project").
+Tips should be specific and helpful (e.g. "You have 15 images — consider creating an Images folder" or "Your storage has many files, try organizing by project").
 Keep each tip under 20 words.
 Return JSON: { "insights": ["tip1", "tip2"] }
     `;
-    const result = await askGeminiJSON(prompt);
+    const result = await askAIJSON(prompt);
     return NextResponse.json(result);
 }
 
-/**
- * Action: duplicates
- * Payload: { files: [{id, name, mimeType, size}, ...] }
- * Detects potential duplicate or very similar files and suggests merging.
- */
 async function handleDuplicateDetection(payload: any) {
     const { files } = payload;
     if (!files || files.length < 2) {
@@ -157,14 +132,14 @@ async function handleDuplicateDetection(payload: any) {
     const prompt = `
 You are a file deduplication assistant. Analyze these files and find potential duplicates or very similar files.
 
-Files: ${JSON.stringify(files.map((f: any) => ({ id: f.id, name: f.name, type: f.mimeType, size: f.size })))}
+Files: ${JSON.stringify(files.map((f: any) => ({ id: f.id, name: f.name, type: f.mime_type || f.mimeType, size: f.size })))}
 
 Look for:
 1. Files with exact same names
-2. Files with very similar names (e.g. "report.pdf" and "report (1).pdf" or "report_final.pdf" and "report_final_v2.pdf")
-3. Files that appear to be different versions of the same thing (e.g. "logo.png" and "logo_old.png")
+2. Files with very similar names (e.g. "report.pdf" and "report (1).pdf")
+3. Files that appear to be different versions of the same thing
 
-Group duplicates together. For each group, suggest which file to keep (usually the newest or the one without copy markers like "(1)").
+Group duplicates together. For each group, suggest which file to keep.
 
 Return JSON: {
     "hasDuplicates": true/false,
@@ -179,6 +154,6 @@ Return JSON: {
 
 If no duplicates found, return: { "hasDuplicates": false, "duplicates": [] }
     `;
-    const result = await askGeminiJSON(prompt);
+    const result = await askAIJSON(prompt);
     return NextResponse.json(result);
 }

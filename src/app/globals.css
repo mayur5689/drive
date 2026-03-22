@@ -1,38 +1,43 @@
 @import "tailwindcss";
 
 @theme {
-  --font-sans: "Public Sans", ui-sans-serif, system-ui, sans-serif;
-  --font-inter: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
 
-  --color-cod-gray: #09090B;
-  --color-woodsmoke: #121212;
-  --color-shark: #27272A;
-  --color-tuna: #3F3F46;
-  --color-santas-gray: #9F9FA9;
-  --color-storm-gray: #71717B;
-  --color-iron: #E4E4E7;
-  --color-malibu: #279da6;
-  --color-dodger-blue: #279da6;
-  --color-cornflower-blue: #279da6;
-  --color-bittersweet: #FF6467;
+  --color-bg: #000000;
+  --color-surface: #0a0a0a;
+  --color-surface-2: #111111;
+  --color-surface-3: #181818;
+  --color-border: #1e1e1e;
+  --color-border-hover: #2a2a2a;
+  --color-text: #fafafa;
+  --color-text-secondary: #a1a1aa;
+  --color-text-muted: #71717a;
+  --color-primary: #6366f1;
+  --color-primary-hover: #818cf8;
+  --color-accent: #06b6d4;
+  --color-destructive: #ef4444;
+  --color-success: #22c55e;
+  --color-warning: #f59e0b;
 }
 
 :root {
-  --background: #09090B;
-  --foreground: #E4E4E7;
+  --background: #000000;
+  --foreground: #fafafa;
   color-scheme: dark;
 }
 
 .light {
-  --background: #fdfdfd;
+  --background: #fafafa;
   --foreground: #09090b;
-  --color-cod-gray: #f2f2f5;
-  --color-woodsmoke: #f9f9fb;
-  --color-shark: #e1e1e8;
-  --color-tuna: #d4d4dc;
-  --color-iron: #09090b;
-  --color-santas-gray: #3f3f46;
-  --color-storm-gray: #71717a;
+  --color-bg: #fafafa;
+  --color-surface: #f4f4f5;
+  --color-surface-2: #e4e4e7;
+  --color-surface-3: #d4d4d8;
+  --color-border: #e4e4e7;
+  --color-border-hover: #d4d4d8;
+  --color-text: #09090b;
+  --color-text-secondary: #52525b;
+  --color-text-muted: #71717a;
 }
 
 body {
@@ -43,100 +48,82 @@ body {
 }
 
 * {
-  border-color: var(--color-shark);
+  border-color: var(--color-border);
 }
 
-.no-scrollbar::-webkit-scrollbar {
-  display: none;
-}
+/* Scrollbar */
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 
-.no-scrollbar {
-  -ms-overflow-style: none;
-  scrollbar-width: none;
-}
+.custom-scrollbar::-webkit-scrollbar { width: 4px; }
+.custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+.custom-scrollbar::-webkit-scrollbar-thumb { background: var(--color-border); border-radius: 9999px; }
 
-.custom-scrollbar::-webkit-scrollbar {
-  width: 4px;
-}
-
-.custom-scrollbar::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.custom-scrollbar::-webkit-scrollbar-thumb {
-  background: var(--color-shark);
-  border-radius: 9999px;
-}
-
+/* Animations */
 @keyframes fade-in {
-  from {
-    opacity: 0;
-  }
-
-  to {
-    opacity: 1;
-  }
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 @keyframes slide-up {
-  from {
-    opacity: 0;
-    transform: translateY(20px);
-  }
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: translateY(0); }
+}
 
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+@keyframes slide-down {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 @keyframes zoom-in {
-  from {
-    opacity: 0;
-    transform: scale(0.95);
-  }
-
-  to {
-    opacity: 1;
-    transform: scale(1);
-  }
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
 }
 
-.animate-fade-in {
-  animation: fade-in 0.4s ease-out forwards;
+@keyframes scale-in {
+  from { opacity: 0; transform: scale(0.9); }
+  to { opacity: 1; transform: scale(1); }
 }
 
-.animate-slide-up {
-  animation: slide-up 0.5s ease-out forwards;
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
 }
 
-.animate-zoom-in {
-  animation: zoom-in 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+@keyframes pulse-soft {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
 }
 
+.animate-fade-in { animation: fade-in 0.3s ease-out forwards; }
+.animate-slide-up { animation: slide-up 0.4s ease-out forwards; }
+.animate-slide-down { animation: slide-down 0.3s ease-out forwards; }
+.animate-zoom-in { animation: zoom-in 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+.animate-scale-in { animation: scale-in 0.3s ease-out forwards; }
+
+.shimmer {
+  background: linear-gradient(90deg, transparent 25%, rgba(255,255,255,0.05) 50%, transparent 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+/* Checkbox */
 input[type="checkbox"] {
   appearance: none;
   -webkit-appearance: none;
   width: 16px;
   height: 16px;
-  border: 1px solid var(--color-tuna);
+  border: 1px solid var(--color-border-hover);
   border-radius: 4px;
-  background-color: rgba(39, 39, 42, 0.4);
+  background-color: transparent;
   cursor: pointer;
   display: inline-grid;
   place-content: center;
   transition: all 0.2s ease;
 }
 
-input[type="checkbox"]:hover {
-  border-color: var(--color-santas-gray);
-}
-
-input[type="checkbox"]:checked {
-  background-color: var(--color-malibu);
-  border-color: var(--color-malibu);
-}
-
+input[type="checkbox"]:hover { border-color: var(--color-primary); }
+input[type="checkbox"]:checked { background-color: var(--color-primary); border-color: var(--color-primary); }
 input[type="checkbox"]:checked::before {
   content: "";
   width: 8px;
@@ -145,15 +132,8 @@ input[type="checkbox"]:checked::before {
   background-color: white;
 }
 
-/* Global Select & Option Visibility Fix */
-select,
-option {
-  color: white !important;
-  background-color: #09090B !important;
-  color-scheme: dark !important;
-}
-
-select option {
-  background-color: #18181B !important;
-  color: white !important;
+/* Select fix */
+select, option {
+  color: var(--color-text) !important;
+  background-color: var(--color-surface) !important;
 }
