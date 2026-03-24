@@ -1,54 +1,29 @@
 /**
- * OpenRouter AI Client — uses free models via the openrouter/free router.
- * Handles both standard and "thinking" models that put output in reasoning field.
+ * Mistral AI Client
+ * Uses Mistral.ai API for AI-powered features
  */
 
-const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY || '';
-const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions';
-
-const FREE_MODEL = 'openrouter/free';
-
-/**
- * Extract text from an OpenRouter response, handling both standard and thinking models.
- */
-function extractContent(data: any): string {
-    const choice = data.choices?.[0]?.message;
-    if (!choice) return '';
-
-    if (choice.content && choice.content.trim()) {
-        return choice.content.trim();
-    }
-
-    if (choice.reasoning && choice.reasoning.trim()) {
-        return choice.reasoning.trim();
-    }
-
-    if (choice.reasoning_details?.length) {
-        return choice.reasoning_details.map((d: any) => d.text || '').join('').trim();
-    }
-
-    return '';
-}
+const MISTRAL_API_KEY = process.env.MISTRAL_API_KEY || '';
+const MISTRAL_MODEL = 'mistral-small-latest';
+const MISTRAL_URL = 'https://api.mistral.ai/v1/chat/completions';
 
 /**
- * Call OpenRouter with a prompt. Returns { text } or { error }.
+ * Call Mistral AI with a prompt. Returns { text } or { error }.
  */
 export async function askAI(prompt: string): Promise<{ text?: string; error?: string }> {
-    if (!OPENROUTER_API_KEY) {
-        return { error: 'OPENROUTER_API_KEY is not set in .env.local' };
+    if (!MISTRAL_API_KEY) {
+        return { error: 'MISTRAL_API_KEY is not set in .env.local' };
     }
 
     try {
-        const res = await fetch(OPENROUTER_URL, {
+        const res = await fetch(MISTRAL_URL, {
             method: 'POST',
             headers: {
-                'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
+                'Authorization': `Bearer ${MISTRAL_API_KEY}`,
                 'Content-Type': 'application/json',
-                'HTTP-Referer': 'http://localhost:3000',
-                'X-Title': 'AI Cloud Storage'
             },
             body: JSON.stringify({
-                model: FREE_MODEL,
+                model: MISTRAL_MODEL,
                 messages: [
                     { role: 'system', content: 'You are a helpful assistant. Always respond directly and concisely. Never use markdown code fences unless asked.' },
                     { role: 'user', content: prompt }
@@ -60,7 +35,7 @@ export async function askAI(prompt: string): Promise<{ text?: string; error?: st
 
         if (!res.ok) {
             const errBody = await res.text();
-            console.error('OpenRouter error:', res.status, errBody);
+            console.error('Mistral API error:', res.status, errBody);
             if (res.status === 429) {
                 return { error: 'AI is temporarily busy. Please try again in a few seconds.' };
             }
@@ -68,7 +43,7 @@ export async function askAI(prompt: string): Promise<{ text?: string; error?: st
         }
 
         const data = await res.json();
-        const text = extractContent(data);
+        const text = data.choices?.[0]?.message?.content?.trim();
 
         if (!text) {
             console.error('Empty AI response:', JSON.stringify(data));
@@ -77,13 +52,13 @@ export async function askAI(prompt: string): Promise<{ text?: string; error?: st
 
         return { text };
     } catch (error: any) {
-        console.error('OpenRouter fetch error:', error);
+        console.error('Mistral API error:', error);
         return { error: error.message || 'Failed to reach AI service' };
     }
 }
 
 /**
- * Call OpenRouter and parse JSON from the response.
+ * Call Mistral and parse JSON from the response.
  */
 export async function askAIJSON(prompt: string): Promise<{ data?: any; error?: string }> {
     const fullPrompt = `${prompt}\n\nIMPORTANT: Return ONLY valid JSON. No markdown, no backticks, no explanation, no extra text. Just the raw JSON object.`;

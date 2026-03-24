@@ -2,13 +2,34 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { Sparkles, Send, Loader2, Bot, Minimize2 } from 'lucide-react';
+import { useAuth } from '@/context/AuthContext';
 
 export default function AIChatButton() {
+    const { user } = useAuth();
     const [isOpen, setIsOpen] = useState(false);
     const [message, setMessage] = useState('');
     const [chat, setChat] = useState<{ role: 'user' | 'assistant'; content: string }[]>([]);
     const [isLoading, setIsLoading] = useState(false);
+    const [fileMetadata, setFileMetadata] = useState<any>(null);
+    const [allFiles, setAllFiles] = useState<any[]>([]);
     const scrollRef = useRef<HTMLDivElement>(null);
+
+    // Fetch storage data when user is available
+    useEffect(() => {
+        const fetchStorageData = async () => {
+            if (!user?.id) return;
+
+            try {
+                const res = await fetch(`/api/storage/browse?userId=${user.id}`);
+                const items = await res.json();
+                setAllFiles(items || []);
+            } catch (error) {
+                console.error('Failed to fetch storage data:', error);
+            }
+        };
+
+        fetchStorageData();
+    }, [user?.id]);
 
     useEffect(() => {
         if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
@@ -24,10 +45,30 @@ export default function AIChatButton() {
         setIsLoading(true);
 
         try {
+            // Calculate file stats from allFiles
+            const fileStats = {
+                totalFiles: allFiles.filter((f: any) => f.type === 'file').length,
+                totalFolders: allFiles.filter((f: any) => f.type === 'folder').length,
+                totalSize: allFiles.filter((f: any) => f.type === 'file').reduce((sum: number, f: any) => sum + (f.size || 0), 0),
+                filesByType: allFiles.filter((f: any) => f.type === 'file').reduce((acc: any, f: any) => {
+                    const type = f.mime_type?.split('/')[0] || 'other';
+                    acc[type] = (acc[type] || 0) + 1;
+                    return acc;
+                }, {})
+            };
+
             const res = await fetch('/api/ai', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ action: 'chat', payload: { message: userMsg, history: chat } })
+                body: JSON.stringify({
+                    action: 'chat',
+                    payload: {
+                        message: userMsg,
+                        history: chat,
+                        fileMetadata: fileStats,
+                        files: allFiles.filter((f: any) => f.type === 'file')
+                    }
+                })
             });
             const data = await res.json();
             setChat(prev => [...prev, { role: 'assistant', content: data.text || "Sorry, I couldn't process that." }]);

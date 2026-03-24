@@ -42,7 +42,15 @@ export async function uploadFile(
 ): Promise<string> {
     const client = getR2Client();
     const cleanPath = folderPath ? `${folderPath}/` : '';
-    const key = `users/${userId}/${cleanPath}${fileName}`;
+
+    // Add UUID to make each upload unique, preventing duplicate key errors
+    const uuid = crypto.randomUUID();
+    const nameParts = fileName.split('.');
+    const ext = nameParts.length > 1 ? nameParts.pop() : '';
+    const baseName = nameParts.join('.');
+    const uniqueFileName = ext ? `${baseName}-${uuid}.${ext}` : `${fileName}-${uuid}`;
+
+    const key = `users/${userId}/${cleanPath}${uniqueFileName}`;
 
     await client.send(new PutObjectCommand({
         Bucket: R2_BUCKET_NAME,

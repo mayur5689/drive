@@ -52,19 +52,38 @@ If nothing matches, return: { "matchedIds": [] }
 }
 
 async function handleAIChat(payload: any) {
-    const { message, history, fileMetadata } = payload;
+    const { message, history, fileMetadata, files } = payload;
     const historyText = (history || []).slice(-5).map((h: any) => `${h.role}: ${h.content}`).join('\n');
-    const prompt = `
-You are an AI assistant for "AI Cloud Storage" — a modern cloud storage application.
-You help users manage their files, understand their storage, and optimize their workflow.
 
-${fileMetadata ? `Context: The user has ${fileMetadata.totalFiles || 'some'} files totaling ${fileMetadata.totalSize ? Math.round(fileMetadata.totalSize / 1048576) + 'MB' : 'unknown size'}. ${fileMetadata.summary || ''}` : ''}
-${historyText ? `Recent conversation:\n${historyText}` : ''}
+    // Build detailed context about user's storage
+    let context = 'You are an AI assistant for "AI Cloud Storage" — a modern cloud storage application.\nYou help users manage their files, understand their storage, and optimize their workflow.\n\n';
 
-User: "${message}"
+    if (fileMetadata) {
+        const totalMB = Math.round(fileMetadata.totalSize / 1048576);
+        const fileTypesList = Object.entries(fileMetadata.filesByType || {})
+            .map(([type, count]) => `${count} ${type} files`)
+            .join(', ');
 
-Respond helpfully and concisely in 1-3 sentences. Be friendly and professional. Do not use markdown formatting.
-    `;
+        context += `User's Storage Context:\n`;
+        context += `- Total Files: ${fileMetadata.totalFiles}\n`;
+        context += `- Total Folders: ${fileMetadata.totalFolders || 0}\n`;
+        context += `- Total Size: ${totalMB} MB\n`;
+        if (fileTypesList) {
+            context += `- File Types: ${fileTypesList}\n`;
+        }
+
+        // Add list of files if asking about specific files
+        if (message.toLowerCase().includes('pdf') || message.toLowerCase().includes('how many') || message.toLowerCase().includes('list')) {
+            const fileList = (files || []).slice(0, 20).map((f: any) => `${f.name} (${f.mime_type})`).join(', ');
+            if (fileList) {
+                context += `- Recent Files: ${fileList}\n`;
+            }
+        }
+        context += '\n';
+    }
+
+    const prompt = `${context}${historyText ? `Recent conversation:\n${historyText}\n\n` : ''}User: "${message}"\n\nRespond helpfully and concisely in 1-3 sentences. Be specific about their actual files and storage. Be friendly and professional. Do not use markdown formatting.`;
+
     const result = await askAI(prompt);
     if (result.error) {
         return NextResponse.json({ text: `Sorry, I encountered an issue: ${result.error}` });
