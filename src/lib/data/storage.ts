@@ -343,6 +343,86 @@ export async function toggleStarred(fileId: string, isStarred: boolean) {
 }
 
 /**
+ * Get starred files for a user (across all folders).
+ */
+export async function getStarredFiles(userId: string): Promise<StorageFile[]> {
+    const supabase = createServiceClient();
+    const { data, error } = await supabase
+        .from('files')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('is_starred', true)
+        .order('updated_at', { ascending: false });
+
+    if (error) {
+        console.error('Error fetching starred files:', error);
+        return [];
+    }
+
+    const filesWithUrls = await Promise.all(
+        (data || []).map(async (file) => {
+            try {
+                const preview_url = await getPresignedUrl(file.r2_key);
+                return { ...file, preview_url };
+            } catch {
+                return { ...file, preview_url: '' };
+            }
+        })
+    );
+
+    return filesWithUrls;
+}
+
+/**
+ * Get ALL files for a user (across all folders) — used by AI assistant.
+ */
+export async function getAllUserFiles(userId: string): Promise<StorageFile[]> {
+    const supabase = createServiceClient();
+    const { data, error } = await supabase
+        .from('files')
+        .select('*')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false });
+
+    if (error) {
+        console.error('Error fetching all files:', error);
+        return [];
+    }
+    return data || [];
+}
+
+/**
+ * Get ALL folders for a user (across all levels) — used by AI assistant.
+ */
+export async function getAllUserFolders(userId: string): Promise<StorageFolder[]> {
+    const supabase = createServiceClient();
+    const { data, error } = await supabase
+        .from('folders')
+        .select('*')
+        .eq('user_id', userId)
+        .order('name');
+
+    if (error) {
+        console.error('Error fetching all folders:', error);
+        return [];
+    }
+    return data || [];
+}
+
+/**
+ * Move a file to a different folder.
+ */
+export async function moveFile(fileId: string, targetFolderId: string | null) {
+    const supabase = createServiceClient();
+    const { error } = await supabase
+        .from('files')
+        .update({ folder_id: targetFolderId, updated_at: new Date().toISOString() })
+        .eq('id', fileId);
+
+    if (error) throw error;
+}
+
+/**
  * Update file AI metadata.
  */
 export async function updateFileAI(fileId: string, tags: string[], category: string, summary?: string) {

@@ -2,12 +2,11 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useSearchParams } from 'next/navigation';
 import {
     Cloud,
     FolderOpen,
     Star,
-    Clock,
     LogOut,
     ChevronLeft,
     ChevronRight,
@@ -16,6 +15,7 @@ import {
     AlertTriangle,
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
+import AccountModal from '@/components/AccountModal';
 
 interface SidebarProps {
     isCollapsed: boolean;
@@ -25,13 +25,15 @@ interface SidebarProps {
 const navItems = [
     { name: 'My Files', icon: FolderOpen, path: '/files' },
     { name: 'Starred', icon: Star, path: '/files?view=starred' },
-    { name: 'Recent', icon: Clock, path: '/files?view=recent' },
 ];
 
 export default function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
     const pathname = usePathname();
+    const searchParams = useSearchParams();
+    const currentView = searchParams.get('view');
     const { profile, signOut, isLoading } = useAuth();
     const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+    const [showAccountModal, setShowAccountModal] = useState(false);
     const [isLoggingOut, setIsLoggingOut] = useState(false);
 
     const handleSignOut = async () => {
@@ -72,7 +74,9 @@ export default function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
                 {/* Nav */}
                 <nav className="flex-1 p-3 space-y-1">
                     {navItems.map((item) => {
-                        const isActive = pathname === item.path || (item.path === '/files' && pathname === '/files' && !new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '').has('view'));
+                        const isActive = item.path === '/files'
+                            ? pathname === '/files' && !currentView
+                            : pathname === '/files' && currentView === item.path.split('view=')[1];
                         const Icon = item.icon;
                         return (
                             <Link
@@ -103,19 +107,26 @@ export default function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
                 {/* User */}
                 <div className="p-3 border-t border-[#1e1e1e]">
                     <div className={`flex items-center gap-3 ${isCollapsed ? 'justify-center' : ''}`}>
-                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#6366f1]/30 to-[#06b6d4]/20 flex items-center justify-center text-xs font-bold text-white shrink-0 border border-[#1e1e1e]">
+                        <button
+                            onClick={() => setShowAccountModal(true)}
+                            className="w-8 h-8 rounded-full bg-gradient-to-br from-[#6366f1]/30 to-[#06b6d4]/20 flex items-center justify-center text-xs font-bold text-white shrink-0 border border-[#1e1e1e] hover:border-[#6366f1]/40 transition-all"
+                            title="Account settings"
+                        >
                             {isLoading ? <Loader2 size={14} className="animate-spin text-[#6366f1]" /> : initials}
-                        </div>
+                        </button>
                         {!isCollapsed && (
                             <>
-                                <div className="flex-1 min-w-0">
+                                <button
+                                    onClick={() => setShowAccountModal(true)}
+                                    className="flex-1 min-w-0 text-left hover:opacity-80 transition-all"
+                                >
                                     <p className="text-sm font-medium text-white truncate">
                                         {profile?.full_name || 'User'}
                                     </p>
                                     <p className="text-xs text-[#71717a] truncate">
                                         {profile?.email}
                                     </p>
-                                </div>
+                                </button>
                                 <button
                                     onClick={() => setShowLogoutConfirm(true)}
                                     className="p-1.5 rounded-lg text-[#71717a] hover:text-[#ef4444] hover:bg-[#ef4444]/10 transition-all"
@@ -128,6 +139,9 @@ export default function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
                     </div>
                 </div>
             </aside>
+
+            {/* Account Modal */}
+            <AccountModal isOpen={showAccountModal} onClose={() => setShowAccountModal(false)} />
 
             {/* Logout modal */}
             {showLogoutConfirm && (

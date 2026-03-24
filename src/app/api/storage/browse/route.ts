@@ -3,6 +3,7 @@ import { createServiceClient } from '@/lib/supabase';
 import { uploadFile, deleteFile, deleteByPrefix } from '@/lib/r2';
 import {
     getStorageItems,
+    getStarredFiles,
     createFolder,
     insertFile,
     renameItem,
@@ -19,9 +20,31 @@ export async function GET(req: NextRequest) {
         const { searchParams } = new URL(req.url);
         const folderId = searchParams.get('folderId') || null;
         const userId = searchParams.get('userId');
+        const starred = searchParams.get('starred');
 
         if (!userId) {
             return NextResponse.json({ error: 'userId is required' }, { status: 400 });
+        }
+
+        // Starred view — return only starred files across all folders
+        if (starred === 'true') {
+            const files = await getStarredFiles(userId);
+            const items = files.map(f => ({
+                id: f.id,
+                name: f.file_name,
+                type: 'file' as const,
+                mime_type: f.mime_type,
+                size: f.file_size,
+                r2_key: f.r2_key,
+                preview_url: f.preview_url,
+                tags: f.tags,
+                ai_summary: f.ai_summary,
+                ai_category: f.ai_category,
+                is_starred: f.is_starred,
+                created_at: f.created_at,
+                updated_at: f.updated_at,
+            }));
+            return NextResponse.json(items);
         }
 
         const items = await getStorageItems(userId, folderId);

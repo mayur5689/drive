@@ -1,39 +1,64 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
-import { Sparkles, Send, Loader2, Bot, Minimize2 } from 'lucide-react';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { Sparkles, Send, Loader2, Bot, Minimize2, CheckCircle2, FolderPlus, Star, Trash2, ArrowRight } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 
+interface ChatMessage {
+    role: 'user' | 'assistant';
+    content: string;
+    actions?: AIAction[];
+    actionResults?: string[];
+}
+
+interface AIAction {
+    type: string;
+    name?: string;
+    id?: string;
+    newName?: string;
+    itemType?: string;
+    parentId?: string | null;
+    starred?: boolean;
+    targetFolderId?: string | null;
+}
+
+interface StorageContext {
+    files: any[];
+    folders: any[];
+    stats: { totalFiles: number; totalSize: number; typeCounts: Record<string, number> };
+}
+
 export default function AIChatButton() {
-    const { user } = useAuth();
+    const { user, profile } = useAuth();
     const [isOpen, setIsOpen] = useState(false);
     const [message, setMessage] = useState('');
-    const [chat, setChat] = useState<{ role: 'user' | 'assistant'; content: string }[]>([]);
+    const [chat, setChat] = useState<ChatMessage[]>([]);
     const [isLoading, setIsLoading] = useState(false);
-    const [fileMetadata, setFileMetadata] = useState<any>(null);
-    const [allFiles, setAllFiles] = useState<any[]>([]);
+    const [storageContext, setStorageContext] = useState<StorageContext | null>(null);
     const scrollRef = useRef<HTMLDivElement>(null);
 
-    // Fetch storage data when user is available
-    useEffect(() => {
-        const fetchStorageData = async () => {
-            if (!user?.id) return;
-
-            try {
-                const res = await fetch(`/api/storage/browse?userId=${user.id}`);
-                const items = await res.json();
-                setAllFiles(items || []);
-            } catch (error) {
-                console.error('Failed to fetch storage data:', error);
+    const fetchStorageContext = useCallback(async () => {
+        if (!user?.id) return;
+        try {
+            const res = await fetch(`/api/storage/all?userId=${user.id}`);
+            if (res.ok) {
+                const data = await res.json();
+                setStorageContext(data);
             }
-        };
-
-        fetchStorageData();
+        } catch (error) {
+            console.error('Failed to fetch storage context:', error);
+        }
     }, [user?.id]);
+
+    // Fetch full storage context when opened or user changes
+    useEffect(() => {
+        if (isOpen) fetchStorageContext();
+    }, [isOpen, fetchStorageContext]);
 
     useEffect(() => {
         if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-    }, [chat]);
+    }, [chat, isLoading]);
+
 
     const handleSend = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -45,18 +70,6 @@ export default function AIChatButton() {
         setIsLoading(true);
 
         try {
-            // Calculate file stats from allFiles
-            const fileStats = {
-                totalFiles: allFiles.filter((f: any) => f.type === 'file').length,
-                totalFolders: allFiles.filter((f: any) => f.type === 'folder').length,
-                totalSize: allFiles.filter((f: any) => f.type === 'file').reduce((sum: number, f: any) => sum + (f.size || 0), 0),
-                filesByType: allFiles.filter((f: any) => f.type === 'file').reduce((acc: any, f: any) => {
-                    const type = f.mime_type?.split('/')[0] || 'other';
-                    acc[type] = (acc[type] || 0) + 1;
-                    return acc;
-                }, {})
-            };
-
             const res = await fetch('/api/ai', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -64,14 +77,32 @@ export default function AIChatButton() {
                     action: 'chat',
                     payload: {
                         message: userMsg,
-                        history: chat,
-                        fileMetadata: fileStats,
-                        files: allFiles.filter((f: any) => f.type === 'file')
-                    }
-                })
+                        history: chat.map(m => ({ role: m.role, content: m.content })),
+                        storageContext: storageContext || { files: [], folders: [], stats: { totalFiles: 0, totalSize: 0, typeCounts: {} } },
+                        userProfile: { email: profile?.email, name: profile?.full_name },
+                        userId: user?.id,
+                    },
+                }),
             });
             const data = await res.json();
-            setChat(prev => [...prev, { role: 'assistant', content: data.text || "Sorry, I couldn't process that." }]);
+            const aiText = data.text || "Sorry, I couldn't process that.";
+            const serverActions = data.actions || [];
+
+            // Actions are now executed server-side — just show results and refresh
+            const actionResults = serverActions.map((a: any) => a.result || a.message || '');
+
+            if (serverActions.length > 0) {
+                // Refresh storage context and file list
+                await fetchStorageContext();
+                window.dispatchEvent(new CustomEvent('storage-changed'));
+            }
+
+            setChat(prev => [...prev, {
+                role: 'assistant',
+                content: aiText,
+                actions: serverActions.length > 0 ? serverActions : undefined,
+                actionResults: actionResults.length > 0 ? actionResults.filter(Boolean) : undefined,
+            }]);
         } catch {
             setChat(prev => [...prev, { role: 'assistant', content: "Something went wrong. Please try again." }]);
         } finally {
@@ -79,11 +110,29 @@ export default function AIChatButton() {
         }
     };
 
+    const getActionIcon = (type: string) => {
+        switch (type) {
+            case 'create_folder': return <FolderPlus size={12} />;
+            case 'star':
+            case 'unstar': return <Star size={12} />;
+            case 'delete': return <Trash2 size={12} />;
+            case 'move': return <ArrowRight size={12} />;
+            default: return <CheckCircle2 size={12} />;
+        }
+    };
+
     const suggestions = [
+        "What files do I have?",
+        "Create a folder called Documents",
         "How much storage am I using?",
-        "Help me organize my files",
-        "Find my recent documents",
+        "Organize my files",
     ];
+
+    const formatStorageInfo = () => {
+        if (!storageContext) return '';
+        const mb = ((storageContext.stats.totalSize || 0) / 1048576).toFixed(1);
+        return `${storageContext.stats.totalFiles} files · ${mb} MB`;
+    };
 
     return (
         <>
@@ -96,7 +145,7 @@ export default function AIChatButton() {
             </button>
 
             {/* Chat Panel */}
-            <div className={`fixed bottom-6 right-6 z-50 w-full max-w-[360px] h-[500px] bg-[#0a0a0a] border border-[#1e1e1e] rounded-2xl shadow-2xl overflow-hidden transition-all duration-300 flex flex-col ${isOpen ? 'translate-y-0 opacity-100 scale-100' : 'translate-y-8 opacity-0 scale-95 pointer-events-none'}`}>
+            <div className={`fixed bottom-6 right-6 z-50 w-full max-w-[400px] h-[550px] bg-[#0a0a0a] border border-[#1e1e1e] rounded-2xl shadow-2xl overflow-hidden transition-all duration-300 flex flex-col ${isOpen ? 'translate-y-0 opacity-100 scale-100' : 'translate-y-8 opacity-0 scale-95 pointer-events-none'}`}>
                 {/* Header */}
                 <div className="px-4 py-3 flex items-center justify-between border-b border-[#1e1e1e] bg-[#0a0a0a]">
                     <div className="flex items-center gap-3">
@@ -107,7 +156,9 @@ export default function AIChatButton() {
                             <h3 className="text-sm font-semibold text-white">AI Assistant</h3>
                             <div className="flex items-center gap-1.5">
                                 <div className="w-1.5 h-1.5 rounded-full bg-[#22c55e] animate-pulse" />
-                                <span className="text-[10px] text-[#71717a]">Online</span>
+                                <span className="text-[10px] text-[#71717a]">
+                                    {storageContext ? formatStorageInfo() : 'Connecting...'}
+                                </span>
                             </div>
                         </div>
                     </div>
@@ -122,14 +173,14 @@ export default function AIChatButton() {
                         <div className="flex flex-col items-center justify-center h-full text-center px-4">
                             <Bot size={36} className="mb-3 text-[#6366f1]" />
                             <p className="text-sm font-medium text-white mb-1">Hi! I&apos;m your AI assistant</p>
-                            <p className="text-xs text-[#71717a] mb-5">Ask me anything about your files</p>
+                            <p className="text-xs text-[#71717a] mb-5">I can manage your files, create folders, and answer questions about your storage.</p>
 
                             <div className="w-full space-y-2">
                                 {suggestions.map((s, i) => (
                                     <button
                                         key={i}
                                         onClick={() => { setMessage(s); }}
-                                        className="w-full text-left px-3 py-2 rounded-lg bg-[#111] border border-[#1e1e1e] text-xs text-[#a1a1aa] hover:text-white hover:border-[#2a2a2a] transition-all"
+                                        className="w-full text-left px-3 py-2 rounded-lg bg-[#111] border border-[#1e1e1e] text-xs text-[#a1a1aa] hover:text-white hover:border-[#6366f1]/30 transition-all"
                                     >
                                         {s}
                                     </button>
@@ -139,11 +190,25 @@ export default function AIChatButton() {
                     )}
                     {chat.map((msg, i) => (
                         <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'} animate-slide-up`}>
-                            <div className={`max-w-[85%] px-3.5 py-2.5 rounded-2xl text-sm leading-relaxed ${msg.role === 'user'
-                                ? 'bg-[#6366f1] text-white rounded-br-sm'
-                                : 'bg-[#111] border border-[#1e1e1e] text-[#a1a1aa] rounded-bl-sm'
-                                }`}>
-                                {msg.content}
+                            <div className={`max-w-[85%] ${msg.role === 'user' ? '' : ''}`}>
+                                <div className={`px-3.5 py-2.5 rounded-2xl text-sm leading-relaxed ${msg.role === 'user'
+                                    ? 'bg-[#6366f1] text-white rounded-br-sm'
+                                    : 'bg-[#111] border border-[#1e1e1e] text-[#d4d4d8] rounded-bl-sm'
+                                    }`}>
+                                    {msg.content}
+                                </div>
+
+                                {/* Action results */}
+                                {msg.actionResults && msg.actionResults.length > 0 && (
+                                    <div className="mt-1.5 space-y-1">
+                                        {msg.actionResults.map((result, j) => (
+                                            <div key={j} className="flex items-center gap-1.5 text-[10px] px-2.5 py-1.5 rounded-lg bg-[#22c55e]/10 border border-[#22c55e]/20 text-[#22c55e]">
+                                                {msg.actions?.[j] ? getActionIcon(msg.actions[j].type) : <CheckCircle2 size={12} />}
+                                                {result}
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
                             </div>
                         </div>
                     ))}
@@ -164,7 +229,7 @@ export default function AIChatButton() {
                             type="text"
                             value={message}
                             onChange={(e) => setMessage(e.target.value)}
-                            placeholder="Ask anything..."
+                            placeholder="Ask anything or give commands..."
                             className="w-full bg-[#111] border border-[#1e1e1e] rounded-xl py-2.5 pl-4 pr-11 text-sm text-white focus:outline-none focus:border-[#6366f1]/40 transition-all placeholder:text-[#3f3f46]"
                         />
                         <button

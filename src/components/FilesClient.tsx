@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import Sidebar from '@/components/Sidebar';
 import FilePreviewModal from '@/components/FilePreviewModal';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import {
     FolderOpen,
     ChevronRight,
@@ -30,6 +30,7 @@ import {
     Grid3X3,
     List,
     MoreVertical,
+    Link2,
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import StorageInsights from '@/components/StorageInsights';
@@ -54,6 +55,8 @@ interface StorageItem {
 export default function FilesClient() {
     const { user, isLoading: isAuthLoading } = useAuth();
     const router = useRouter();
+    const searchParams = useSearchParams();
+    const currentView = searchParams.get('view'); // 'starred' or null
 
     const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
     const [items, setItems] = useState<StorageItem[]>([]);
@@ -101,7 +104,11 @@ export default function FilesClient() {
         setIsLoading(true);
         try {
             const params = new URLSearchParams({ userId: user.id });
-            if (currentFolderId) params.set('folderId', currentFolderId);
+            if (currentView === 'starred') {
+                params.set('starred', 'true');
+            } else if (currentFolderId) {
+                params.set('folderId', currentFolderId);
+            }
             const res = await fetch(`/api/storage/browse?${params}`);
             if (res.ok) {
                 const data = await res.json();
@@ -112,11 +119,25 @@ export default function FilesClient() {
         } finally {
             setIsLoading(false);
         }
-    }, [user, currentFolderId]);
+    }, [user, currentFolderId, currentView]);
+
+    // Reset breadcrumbs when switching to starred view
+    useEffect(() => {
+        if (currentView === 'starred') {
+            setBreadcrumbs([{ id: null, name: 'My Files' }]);
+        }
+    }, [currentView]);
 
     useEffect(() => {
         if (user) fetchItems();
     }, [user, fetchItems]);
+
+    // Listen for storage changes from AI assistant
+    useEffect(() => {
+        const handler = () => fetchItems();
+        window.addEventListener('storage-changed', handler);
+        return () => window.removeEventListener('storage-changed', handler);
+    }, [fetchItems]);
 
     // Navigation
     const navigateToFolder = (item: StorageItem) => {
@@ -198,6 +219,41 @@ export default function FilesClient() {
         } catch (e) {
             console.error('Delete error:', e);
         }
+    };
+
+    // Toggle star
+    const handleToggleStar = async (item: StorageItem) => {
+        try {
+            await fetch('/api/ai', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    action: 'execute',
+                    payload: { type: item.is_starred ? 'unstar' : 'star', id: item.id, userId: user?.id },
+                }),
+            });
+            setActionMenu(null);
+            fetchItems();
+        } catch (e) {
+            console.error('Star error:', e);
+        }
+    };
+
+    // Share — copy presigned URL
+    const [shareToast, setShareToast] = useState(false);
+    const handleShare = async (item: StorageItem) => {
+        try {
+            const res = await fetch(`/api/storage/view?fileId=${item.id}`);
+            const data = await res.json();
+            if (data.url) {
+                await navigator.clipboard.writeText(data.url);
+                setShareToast(true);
+                setTimeout(() => setShareToast(false), 2000);
+            }
+        } catch (e) {
+            console.error('Share error:', e);
+        }
+        setActionMenu(null);
     };
 
     // AI Search
@@ -291,22 +347,31 @@ export default function FilesClient() {
                 {/* Header */}
                 <div className="h-14 flex items-center justify-between px-6 border-b border-[#1e1e1e] bg-[#0a0a0a] shrink-0">
                     <div className="flex items-center gap-2 min-w-0">
-                        {breadcrumbs.length > 1 && (
-                            <button onClick={() => navigateToBreadcrumb(breadcrumbs.length - 2)} className="p-1 text-[#71717a] hover:text-white transition-colors mr-1">
-                                <ArrowLeft size={18} />
-                            </button>
-                        )}
-                        {breadcrumbs.map((crumb, i) => (
-                            <div key={i} className="flex items-center gap-2">
-                                {i > 0 && <ChevronRight size={14} className="text-[#3f3f46]" />}
-                                <button
-                                    onClick={() => navigateToBreadcrumb(i)}
-                                    className={`text-sm font-medium transition-colors truncate max-w-[150px] ${i === breadcrumbs.length - 1 ? 'text-white' : 'text-[#71717a] hover:text-[#a1a1aa]'}`}
-                                >
-                                    {crumb.name}
-                                </button>
+                        {currentView === 'starred' ? (
+                            <div className="flex items-center gap-2">
+                                <Star size={18} className="text-[#f59e0b] fill-[#f59e0b]" />
+                                <span className="text-sm font-medium text-white">Starred Files</span>
                             </div>
-                        ))}
+                        ) : (
+                            <>
+                                {breadcrumbs.length > 1 && (
+                                    <button onClick={() => navigateToBreadcrumb(breadcrumbs.length - 2)} className="p-1 text-[#71717a] hover:text-white transition-colors mr-1">
+                                        <ArrowLeft size={18} />
+                                    </button>
+                                )}
+                                {breadcrumbs.map((crumb, i) => (
+                                    <div key={i} className="flex items-center gap-2">
+                                        {i > 0 && <ChevronRight size={14} className="text-[#3f3f46]" />}
+                                        <button
+                                            onClick={() => navigateToBreadcrumb(i)}
+                                            className={`text-sm font-medium transition-colors truncate max-w-[150px] ${i === breadcrumbs.length - 1 ? 'text-white' : 'text-[#71717a] hover:text-[#a1a1aa]'}`}
+                                        >
+                                            {crumb.name}
+                                        </button>
+                                    </div>
+                                ))}
+                            </>
+                        )}
                     </div>
 
                     <div className="flex items-center gap-2">
@@ -389,24 +454,26 @@ export default function FilesClient() {
                         />
 
                         {/* Action bar */}
-                        <div className="flex items-center gap-2 mb-5">
-                            <input type="file" ref={fileInputRef} className="hidden" multiple onChange={(e) => handleUpload(e.target.files)} />
-                            <button
-                                onClick={() => fileInputRef.current?.click()}
-                                disabled={isUploading}
-                                className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#6366f1] text-white text-sm font-medium hover:bg-[#818cf8] transition-all disabled:opacity-50"
-                            >
-                                {isUploading ? <Loader2 size={16} className="animate-spin" /> : <Upload size={16} />}
-                                Upload
-                            </button>
-                            <button
-                                onClick={() => setIsCreatingFolder(true)}
-                                className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-[#1e1e1e] text-[#a1a1aa] text-sm font-medium hover:bg-[#111] hover:text-white transition-all"
-                            >
-                                <FolderPlus size={16} />
-                                New Folder
-                            </button>
-                        </div>
+                        {currentView !== 'starred' && (
+                            <div className="flex items-center gap-2 mb-5">
+                                <input type="file" ref={fileInputRef} className="hidden" multiple onChange={(e) => handleUpload(e.target.files)} />
+                                <button
+                                    onClick={() => fileInputRef.current?.click()}
+                                    disabled={isUploading}
+                                    className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#6366f1] text-white text-sm font-medium hover:bg-[#818cf8] transition-all disabled:opacity-50"
+                                >
+                                    {isUploading ? <Loader2 size={16} className="animate-spin" /> : <Upload size={16} />}
+                                    Upload
+                                </button>
+                                <button
+                                    onClick={() => setIsCreatingFolder(true)}
+                                    className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-[#1e1e1e] text-[#a1a1aa] text-sm font-medium hover:bg-[#111] hover:text-white transition-all"
+                                >
+                                    <FolderPlus size={16} />
+                                    New Folder
+                                </button>
+                            </div>
+                        )}
 
                         {/* New folder input */}
                         {isCreatingFolder && (
@@ -442,10 +509,10 @@ export default function FilesClient() {
                                     <FolderOpen size={28} className="text-[#3f3f46]" />
                                 </div>
                                 <p className="text-sm font-medium text-[#a1a1aa] mb-1">
-                                    {searchQuery ? 'No files match your search' : 'This folder is empty'}
+                                    {searchQuery ? 'No files match your search' : currentView === 'starred' ? 'No starred files' : 'This folder is empty'}
                                 </p>
                                 <p className="text-xs text-[#71717a]">
-                                    {searchQuery ? 'Try a different search term' : 'Upload files or create a folder to get started'}
+                                    {searchQuery ? 'Try a different search term' : currentView === 'starred' ? 'Star files to quickly find them here' : 'Upload files or create a folder to get started'}
                                 </p>
                             </div>
                         ) : viewMode === 'grid' ? (
@@ -513,7 +580,18 @@ export default function FilesClient() {
                                                 <MoreVertical size={14} />
                                             </button>
                                             {actionMenu === item.id && (
-                                                <div className="absolute right-0 top-8 bg-[#0a0a0a] border border-[#1e1e1e] rounded-xl shadow-2xl py-1 min-w-[140px] z-20 animate-scale-in" onClick={e => e.stopPropagation()}>
+                                                <div className="absolute right-0 top-8 bg-[#0a0a0a] border border-[#1e1e1e] rounded-xl shadow-2xl py-1 min-w-[150px] z-20 animate-scale-in" onClick={e => e.stopPropagation()}>
+                                                    {item.type === 'file' && (
+                                                        <button onClick={() => handleToggleStar(item)} className="w-full flex items-center gap-2 px-3 py-2 text-sm text-[#a1a1aa] hover:text-white hover:bg-[#111] transition-all">
+                                                            <Star size={14} className={item.is_starred ? 'text-[#f59e0b] fill-[#f59e0b]' : ''} />
+                                                            {item.is_starred ? 'Unstar' : 'Star'}
+                                                        </button>
+                                                    )}
+                                                    {item.type === 'file' && (
+                                                        <button onClick={() => handleShare(item)} className="w-full flex items-center gap-2 px-3 py-2 text-sm text-[#a1a1aa] hover:text-white hover:bg-[#111] transition-all">
+                                                            <Link2 size={14} /> Share Link
+                                                        </button>
+                                                    )}
                                                     <button onClick={() => { setRenameValue(item.name); setIsRenaming(item.id); setActionMenu(null); }} className="w-full flex items-center gap-2 px-3 py-2 text-sm text-[#a1a1aa] hover:text-white hover:bg-[#111] transition-all">
                                                         <Pencil size={14} /> Rename
                                                     </button>
@@ -570,6 +648,16 @@ export default function FilesClient() {
                                         <span className="text-xs text-[#71717a]">{getTypeLabel(item)}</span>
                                         <span className="text-xs text-[#71717a]">{formatSize(item.size)}</span>
                                         <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-all" onClick={e => e.stopPropagation()}>
+                                            {item.type === 'file' && (
+                                                <button onClick={() => handleToggleStar(item)} className={`p-1 transition-all ${item.is_starred ? 'text-[#f59e0b]' : 'text-[#71717a] hover:text-[#f59e0b]'}`} title={item.is_starred ? 'Unstar' : 'Star'}>
+                                                    <Star size={14} className={item.is_starred ? 'fill-[#f59e0b]' : ''} />
+                                                </button>
+                                            )}
+                                            {item.type === 'file' && (
+                                                <button onClick={() => handleShare(item)} className="p-1 text-[#71717a] hover:text-[#06b6d4] transition-all" title="Share link">
+                                                    <Link2 size={14} />
+                                                </button>
+                                            )}
                                             <button onClick={() => { setRenameValue(item.name); setIsRenaming(item.id); }} className="p-1 text-[#71717a] hover:text-[#6366f1] transition-all">
                                                 <Pencil size={14} />
                                             </button>
@@ -605,6 +693,14 @@ export default function FilesClient() {
                             </button>
                         </div>
                     </div>
+                </div>
+            )}
+
+            {/* Share Toast */}
+            {shareToast && (
+                <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-[#22c55e]/10 border border-[#22c55e]/20 text-[#22c55e] text-sm px-4 py-2.5 rounded-xl flex items-center gap-2 shadow-2xl animate-slide-up">
+                    <Link2 size={16} />
+                    Share link copied to clipboard
                 </div>
             )}
 
