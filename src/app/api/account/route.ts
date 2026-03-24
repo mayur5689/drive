@@ -4,7 +4,7 @@ import { supabase, createServiceClient } from '@/lib/supabase';
 export async function PATCH(request: Request) {
     try {
         const body = await request.json();
-        const { id, fullName, email, password, avatarUrl, oldEmail } = body;
+        const { id, fullName, email, password, oldEmail } = body;
 
         if (!id) {
             return NextResponse.json({ error: "Missing user ID" }, { status: 400 });
@@ -18,8 +18,6 @@ export async function PATCH(request: Request) {
         // 1. Prepare updates for public.profiles
         const profileUpdates: any = {};
         if (fullName) profileUpdates.full_name = fullName;
-        if (email) profileUpdates.email = email;
-        if (avatarUrl) profileUpdates.avatar_url = avatarUrl;
 
         if (Object.keys(profileUpdates).length > 0) {
             updatePromises.push(
@@ -55,11 +53,8 @@ export async function PATCH(request: Request) {
         const authUpdates: any = {};
         if (email) authUpdates.email = email;
         if (password) authUpdates.password = password;
-        if (fullName || avatarUrl) {
-            authUpdates.user_metadata = {
-                ...(fullName && { full_name: fullName }),
-                ...(avatarUrl && { avatar_url: avatarUrl })
-            };
+        if (fullName) {
+            authUpdates.user_metadata = { full_name: fullName };
         }
 
         if (Object.keys(authUpdates).length > 0) {

@@ -19,7 +19,7 @@ export async function GET() {
 
         const { data: profiles, error } = await supabase
             .from('profiles')
-            .select('id, full_name, email, avatar_url')
+            .select('id, full_name')
             .order('full_name');
 
         if (error) throw error;

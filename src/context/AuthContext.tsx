@@ -8,7 +8,6 @@ export interface Profile {
     id: string;
     email: string;
     full_name: string;
-    avatar_url?: string;
 }
 
 interface AuthContextType {
@@ -60,19 +59,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         // Try DB profile first
         const { data, error } = await supabase
             .from('profiles')
-            .select('id, email, full_name')
+            .select('id, full_name')
             .eq('id', u.id)
             .single();
 
         if (!error && data) {
-            setProfile(data as Profile);
+            setProfile({
+                id: data.id,
+                email: u.email || '',
+                full_name: data.full_name || u.user_metadata?.full_name || u.email?.split('@')[0] || 'User',
+            });
         } else {
             // Fallback from auth metadata
             setProfile({
                 id: u.id,
                 email: u.email || '',
                 full_name: u.user_metadata?.full_name || u.email?.split('@')[0] || 'User',
-                avatar_url: u.user_metadata?.avatar_url,
             });
         }
     };
