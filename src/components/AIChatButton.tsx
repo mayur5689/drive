@@ -139,13 +139,13 @@ export default function AIChatButton() {
             {/* Floating Button */}
             <button
                 onClick={() => setIsOpen(true)}
-                className={`fixed bottom-6 right-6 z-50 p-3.5 rounded-full bg-gradient-to-br from-[#6366f1] to-[#06b6d4] text-white shadow-lg shadow-[#6366f1]/30 hover:scale-110 transition-all duration-300 ${isOpen ? 'scale-0 opacity-0' : 'scale-100 opacity-100'}`}
+                className={`fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-50 p-3.5 rounded-full bg-gradient-to-br from-[#6366f1] to-[#06b6d4] text-white shadow-lg shadow-[#6366f1]/30 hover:scale-110 transition-all duration-300 ${isOpen ? 'scale-0 opacity-0' : 'scale-100 opacity-100'}`}
             >
                 <Sparkles size={22} />
             </button>
 
-            {/* Chat Panel */}
-            <div className={`fixed bottom-6 right-6 z-50 w-full max-w-[400px] h-[550px] bg-[#0a0a0a] border border-[#1e1e1e] rounded-2xl shadow-2xl overflow-hidden transition-all duration-300 flex flex-col ${isOpen ? 'translate-y-0 opacity-100 scale-100' : 'translate-y-8 opacity-0 scale-95 pointer-events-none'}`}>
+            {/* Chat Panel — full screen on mobile, floating on desktop */}
+            <div className={`fixed inset-0 sm:inset-auto sm:bottom-6 sm:right-6 z-50 sm:w-[400px] sm:h-[550px] bg-[#0a0a0a] border-0 sm:border border-[#1e1e1e] sm:rounded-2xl shadow-2xl overflow-hidden transition-all duration-300 flex flex-col ${isOpen ? 'translate-y-0 opacity-100 scale-100' : 'translate-y-8 opacity-0 scale-95 pointer-events-none'}`}>
                 {/* Header */}
                 <div className="px-4 py-3 flex items-center justify-between border-b border-[#1e1e1e] bg-[#0a0a0a]">
                     <div className="flex items-center gap-3">

@@ -345,45 +345,50 @@ export default function FilesClient() {
 
             <div className="flex-1 flex flex-col min-w-0">
                 {/* Header */}
-                <div className="h-14 flex items-center justify-between px-6 border-b border-[#1e1e1e] bg-[#0a0a0a] shrink-0">
-                    <div className="flex items-center gap-2 min-w-0">
+                <div className="h-14 flex items-center justify-between pl-12 pr-4 md:px-6 border-b border-[#1e1e1e] bg-[#0a0a0a] shrink-0 gap-2">
+                    {/* Title / Breadcrumbs */}
+                    <div className="flex items-center gap-2 min-w-0 flex-1">
                         {currentView === 'starred' ? (
                             <div className="flex items-center gap-2">
-                                <Star size={18} className="text-[#f59e0b] fill-[#f59e0b]" />
-                                <span className="text-sm font-medium text-white">Starred Files</span>
+                                <Star size={16} className="text-[#f59e0b] fill-[#f59e0b] shrink-0" />
+                                <span className="text-sm font-medium text-white">Starred</span>
                             </div>
                         ) : (
                             <>
                                 {breadcrumbs.length > 1 && (
-                                    <button onClick={() => navigateToBreadcrumb(breadcrumbs.length - 2)} className="p-1 text-[#71717a] hover:text-white transition-colors mr-1">
+                                    <button onClick={() => navigateToBreadcrumb(breadcrumbs.length - 2)} className="p-1 text-[#71717a] hover:text-white transition-colors shrink-0">
                                         <ArrowLeft size={18} />
                                     </button>
                                 )}
-                                {breadcrumbs.map((crumb, i) => (
-                                    <div key={i} className="flex items-center gap-2">
-                                        {i > 0 && <ChevronRight size={14} className="text-[#3f3f46]" />}
-                                        <button
-                                            onClick={() => navigateToBreadcrumb(i)}
-                                            className={`text-sm font-medium transition-colors truncate max-w-[150px] ${i === breadcrumbs.length - 1 ? 'text-white' : 'text-[#71717a] hover:text-[#a1a1aa]'}`}
-                                        >
-                                            {crumb.name}
-                                        </button>
-                                    </div>
-                                ))}
+                                <div className="flex items-center gap-1 min-w-0 overflow-hidden">
+                                    {breadcrumbs.map((crumb, i) => (
+                                        <div key={i} className="flex items-center gap-1 shrink-0">
+                                            {i > 0 && <ChevronRight size={12} className="text-[#3f3f46]" />}
+                                            <button
+                                                onClick={() => navigateToBreadcrumb(i)}
+                                                className={`text-sm font-medium transition-colors truncate max-w-[100px] md:max-w-[150px] ${i === breadcrumbs.length - 1 ? 'text-white' : 'text-[#71717a] hover:text-[#a1a1aa]'}`}
+                                            >
+                                                {crumb.name}
+                                            </button>
+                                        </div>
+                                    ))}
+                                </div>
                             </>
                         )}
                     </div>
 
-                    <div className="flex items-center gap-2">
-                        <div className="relative w-64">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[#3f3f46]" size={15} />
+                    {/* Right controls */}
+                    <div className="flex items-center gap-1.5 shrink-0">
+                        {/* Search — full on desktop, icon-only on mobile */}
+                        <div className="relative hidden sm:block w-48 md:w-64">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[#3f3f46]" size={14} />
                             <input
                                 type="text"
-                                placeholder="Search files with AI..."
+                                placeholder="Search with AI..."
                                 value={searchQuery}
                                 onChange={(e) => { setSearchQuery(e.target.value); if (!e.target.value) setAiMatchedIds(null); }}
                                 onKeyDown={(e) => e.key === 'Enter' && handleAISearch()}
-                                className="w-full bg-[#111] border border-[#1e1e1e] rounded-lg py-1.5 pl-9 pr-9 text-sm text-white placeholder:text-[#3f3f46] focus:outline-none focus:border-[#6366f1]/40 transition-all"
+                                className="w-full bg-[#111] border border-[#1e1e1e] rounded-lg py-1.5 pl-8 pr-8 text-sm text-white placeholder:text-[#3f3f46] focus:outline-none focus:border-[#6366f1]/40 transition-all"
                             />
                             {aiMatchedIds ? (
                                 <button onClick={() => { setAiMatchedIds(null); setSearchQuery(''); }} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#ef4444]">
@@ -395,18 +400,22 @@ export default function FilesClient() {
                                 </button>
                             )}
                         </div>
+                        {/* Mobile search icon */}
+                        <button onClick={handleAISearch} className="sm:hidden p-1.5 text-[#71717a] hover:text-white border border-[#1e1e1e] rounded-lg transition-all">
+                            <Search size={16} />
+                        </button>
 
                         <div className="flex items-center border border-[#1e1e1e] rounded-lg overflow-hidden">
                             <button onClick={() => setViewMode('grid')} className={`p-1.5 ${viewMode === 'grid' ? 'bg-[#6366f1]/10 text-[#818cf8]' : 'text-[#71717a] hover:text-white'} transition-all`}>
-                                <Grid3X3 size={16} />
+                                <Grid3X3 size={15} />
                             </button>
                             <button onClick={() => setViewMode('list')} className={`p-1.5 ${viewMode === 'list' ? 'bg-[#6366f1]/10 text-[#818cf8]' : 'text-[#71717a] hover:text-white'} transition-all`}>
-                                <List size={16} />
+                                <List size={15} />
                             </button>
                         </div>
 
                         <button onClick={fetchItems} className="p-1.5 text-[#71717a] hover:text-white border border-[#1e1e1e] rounded-lg transition-all">
-                            <RefreshCw size={16} className={isLoading ? 'animate-spin' : ''} />
+                            <RefreshCw size={15} className={isLoading ? 'animate-spin' : ''} />
                         </button>
                     </div>
                 </div>
@@ -428,7 +437,7 @@ export default function FilesClient() {
                         </div>
                     )}
 
-                    <div className="p-6">
+                    <div className="p-3 sm:p-6">
                         {/* AI Insights */}
                         <StorageInsights
                             fileStats={{
@@ -553,9 +562,9 @@ export default function FilesClient() {
                                                         </>
                                                     ) : null}
                                                 </div>
-                                                {/* AI tags */}
+                                                {/* AI tags — hidden on mobile to save space */}
                                                 {item.tags && item.tags.length > 0 && (
-                                                    <div className="flex flex-wrap justify-center gap-1 mt-2">
+                                                    <div className="hidden sm:flex flex-wrap justify-center gap-1 mt-2">
                                                         {item.ai_category && (
                                                             <span className="px-1.5 py-0.5 rounded bg-[#6366f1]/10 text-[#818cf8] text-[9px] font-medium">
                                                                 {item.ai_category}
@@ -571,8 +580,8 @@ export default function FilesClient() {
                                             </div>
                                         )}
 
-                                        {/* Actions */}
-                                        <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-all">
+                                        {/* Actions — always visible on mobile, hover-only on desktop */}
+                                        <div className="absolute top-2 right-2 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-all">
                                             <button
                                                 onClick={(e) => { e.stopPropagation(); setActionMenu(actionMenu === item.id ? null : item.id); }}
                                                 className="p-1 rounded-lg bg-[#111] border border-[#1e1e1e] text-[#71717a] hover:text-white transition-all"
@@ -619,46 +628,47 @@ export default function FilesClient() {
                         ) : (
                             /* List View */
                             <div className="border border-[#1e1e1e] rounded-xl overflow-hidden">
-                                <div className="grid grid-cols-[1fr_100px_120px_80px] px-4 py-2 bg-[#0a0a0a] border-b border-[#1e1e1e] text-xs text-[#71717a] font-medium">
+                                <div className="grid grid-cols-[1fr_80px] sm:grid-cols-[1fr_100px_120px_80px] px-4 py-2 bg-[#0a0a0a] border-b border-[#1e1e1e] text-xs text-[#71717a] font-medium">
                                     <span>Name</span>
-                                    <span>Type</span>
-                                    <span>Size</span>
+                                    <span className="hidden sm:block">Type</span>
+                                    <span className="hidden sm:block">Size</span>
                                     <span className="text-right">Actions</span>
                                 </div>
                                 {filteredItems.map((item) => (
                                     <div
                                         key={item.id}
-                                        className="grid grid-cols-[1fr_100px_120px_80px] px-4 py-2.5 border-b border-[#1e1e1e] last:border-b-0 hover:bg-[#0a0a0a] transition-all cursor-pointer group items-center"
+                                        className="grid grid-cols-[1fr_80px] sm:grid-cols-[1fr_100px_120px_80px] px-4 py-2.5 border-b border-[#1e1e1e] last:border-b-0 hover:bg-[#0a0a0a] transition-all cursor-pointer group items-center"
                                         onClick={() => item.type === 'folder' ? navigateToFolder(item) : (setPreviewFile(item), setIsPreviewOpen(true))}
                                     >
-                                        <div className="flex items-center gap-3 min-w-0">
-                                            <div className={`p-1.5 rounded-lg ${getIconColor(item)}`}>
+                                        <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+                                            <div className={`p-1.5 rounded-lg shrink-0 ${getIconColor(item)}`}>
                                                 {getFileIcon(item)}
                                             </div>
                                             <span className="text-sm text-white truncate">{item.name}</span>
                                             {item.is_starred && <Star size={12} className="text-[#f59e0b] fill-[#f59e0b] shrink-0" />}
                                             {item.tags && item.tags.length > 0 && (
-                                                <div className="flex gap-1 shrink-0">
+                                                <div className="hidden sm:flex gap-1 shrink-0">
                                                     {item.tags.slice(0, 2).map(tag => (
                                                         <span key={tag} className="px-1.5 py-0.5 rounded bg-[#111] text-[#71717a] text-[9px]">#{tag}</span>
                                                     ))}
                                                 </div>
                                             )}
                                         </div>
-                                        <span className="text-xs text-[#71717a]">{getTypeLabel(item)}</span>
-                                        <span className="text-xs text-[#71717a]">{formatSize(item.size)}</span>
-                                        <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-all" onClick={e => e.stopPropagation()}>
+                                        <span className="hidden sm:block text-xs text-[#71717a]">{getTypeLabel(item)}</span>
+                                        <span className="hidden sm:block text-xs text-[#71717a]">{formatSize(item.size)}</span>
+                                        {/* Actions: always visible on mobile, hover-reveal on desktop */}
+                                        <div className="flex items-center justify-end gap-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-all" onClick={e => e.stopPropagation()}>
                                             {item.type === 'file' && (
                                                 <button onClick={() => handleToggleStar(item)} className={`p-1 transition-all ${item.is_starred ? 'text-[#f59e0b]' : 'text-[#71717a] hover:text-[#f59e0b]'}`} title={item.is_starred ? 'Unstar' : 'Star'}>
                                                     <Star size={14} className={item.is_starred ? 'fill-[#f59e0b]' : ''} />
                                                 </button>
                                             )}
                                             {item.type === 'file' && (
-                                                <button onClick={() => handleShare(item)} className="p-1 text-[#71717a] hover:text-[#06b6d4] transition-all" title="Share link">
+                                                <button onClick={() => handleShare(item)} className="hidden sm:block p-1 text-[#71717a] hover:text-[#06b6d4] transition-all" title="Share link">
                                                     <Link2 size={14} />
                                                 </button>
                                             )}
-                                            <button onClick={() => { setRenameValue(item.name); setIsRenaming(item.id); }} className="p-1 text-[#71717a] hover:text-[#6366f1] transition-all">
+                                            <button onClick={() => { setRenameValue(item.name); setIsRenaming(item.id); }} className="hidden sm:block p-1 text-[#71717a] hover:text-[#6366f1] transition-all">
                                                 <Pencil size={14} />
                                             </button>
                                             <button onClick={() => setDeleteTarget(item)} className="p-1 text-[#71717a] hover:text-[#ef4444] transition-all">
