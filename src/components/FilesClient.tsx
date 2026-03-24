@@ -316,7 +316,13 @@ export default function FilesClient() {
         if (mt.includes('pdf')) return 'PDF';
         if (mt.startsWith('video/')) return 'Video';
         if (mt.startsWith('audio/')) return 'Audio';
-        return mt.split('/').pop()?.toUpperCase() || 'File';
+        if (mt.includes('wordprocessingml') || mt.includes('msword')) return 'DOCX';
+        if (mt.includes('spreadsheetml') || mt.includes('ms-excel')) return 'XLSX';
+        if (mt.includes('presentationml') || mt.includes('ms-powerpoint')) return 'PPTX';
+        // For other types, use file extension from name
+        const ext = item.name.split('.').pop()?.toUpperCase();
+        if (ext && ext !== item.name.toUpperCase()) return ext;
+        return 'File';
     };
 
     // Filtered items
