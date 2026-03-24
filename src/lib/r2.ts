@@ -8,26 +8,25 @@ import {
 } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 
-const R2_ACCOUNT_ID = process.env.R2_ACCOUNT_ID || '';
-const R2_ACCESS_KEY_ID = process.env.R2_ACCESS_KEY_ID || '';
-const R2_SECRET_ACCESS_KEY = process.env.R2_SECRET_ACCESS_KEY || '';
-const R2_BUCKET_NAME = process.env.R2_BUCKET_NAME || '';
-const R2_PUBLIC_URL = process.env.R2_PUBLIC_URL || '';
-
-let s3Client: S3Client | null = null;
+function getBucket(): string {
+    return process.env.R2_BUCKET_NAME || '';
+}
 
 function getR2Client(): S3Client {
-    if (!s3Client) {
-        s3Client = new S3Client({
-            region: 'auto',
-            endpoint: `https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
-            credentials: {
-                accessKeyId: R2_ACCESS_KEY_ID,
-                secretAccessKey: R2_SECRET_ACCESS_KEY,
-            },
-        });
+    // Always create fresh — env vars may not be set at module load time in serverless
+    const accountId = process.env.R2_ACCOUNT_ID || '';
+    const accessKeyId = process.env.R2_ACCESS_KEY_ID || '';
+    const secretAccessKey = process.env.R2_SECRET_ACCESS_KEY || '';
+
+    if (!accountId || !accessKeyId || !secretAccessKey) {
+        throw new Error('R2 credentials not configured. Set R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY in environment.');
     }
-    return s3Client;
+
+    return new S3Client({
+        region: 'auto',
+        endpoint: `https://${accountId}.r2.cloudflarestorage.com`,
+        credentials: { accessKeyId, secretAccessKey },
+    });
 }
 
 /**
@@ -53,7 +52,7 @@ export async function uploadFile(
     const key = `users/${userId}/${cleanPath}${uniqueFileName}`;
 
     await client.send(new PutObjectCommand({
-        Bucket: R2_BUCKET_NAME,
+        Bucket: getBucket(),
         Key: key,
         Body: fileBuffer,
         ContentType: mimeType,
@@ -68,7 +67,7 @@ export async function uploadFile(
 export async function deleteFile(r2Key: string): Promise<void> {
     const client = getR2Client();
     await client.send(new DeleteObjectCommand({
-        Bucket: R2_BUCKET_NAME,
+        Bucket: getBucket(),
         Key: r2Key,
     }));
 }
@@ -79,7 +78,7 @@ export async function deleteFile(r2Key: string): Promise<void> {
 export async function deleteByPrefix(prefix: string): Promise<void> {
     const client = getR2Client();
     const listed = await client.send(new ListObjectsV2Command({
-        Bucket: R2_BUCKET_NAME,
+        Bucket: getBucket(),
         Prefix: prefix,
     }));
 
@@ -88,7 +87,7 @@ export async function deleteByPrefix(prefix: string): Promise<void> {
     const objects = listed.Contents.map(obj => ({ Key: obj.Key! }));
 
     await client.send(new DeleteObjectsCommand({
-        Bucket: R2_BUCKET_NAME,
+        Bucket: getBucket(),
         Delete: { Objects: objects },
     }));
 }
@@ -99,7 +98,7 @@ export async function deleteByPrefix(prefix: string): Promise<void> {
 export async function getPresignedUrl(r2Key: string, expiresIn = 3600): Promise<string> {
     const client = getR2Client();
     return getSignedUrl(client, new GetObjectCommand({
-        Bucket: R2_BUCKET_NAME,
+        Bucket: getBucket(),
         Key: r2Key,
     }), { expiresIn });
 }
@@ -108,8 +107,9 @@ export async function getPresignedUrl(r2Key: string, expiresIn = 3600): Promise<
  * Get a public URL if R2_PUBLIC_URL is configured, otherwise presigned.
  */
 export async function getPublicUrl(r2Key: string): Promise<string> {
-    if (R2_PUBLIC_URL) {
-        return `${R2_PUBLIC_URL}/${r2Key}`;
+    const publicUrl = process.env.R2_PUBLIC_URL;
+    if (publicUrl) {
+        return `${publicUrl}/${r2Key}`;
     }
     return getPresignedUrl(r2Key);
 }
@@ -120,7 +120,7 @@ export async function getPublicUrl(r2Key: string): Promise<string> {
 export async function getFileStream(r2Key: string) {
     const client = getR2Client();
     const response = await client.send(new GetObjectCommand({
-        Bucket: R2_BUCKET_NAME,
+        Bucket: getBucket(),
         Key: r2Key,
     }));
     return {
