@@ -13,6 +13,7 @@ import {
     Loader2,
     X,
     AlertTriangle,
+    Menu,
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import AccountModal from '@/components/AccountModal';
@@ -35,6 +36,7 @@ export default function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
     const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
     const [showAccountModal, setShowAccountModal] = useState(false);
     const [isLoggingOut, setIsLoggingOut] = useState(false);
+    const [mobileOpen, setMobileOpen] = useState(false);
 
     const handleSignOut = async () => {
         if (isLoggingOut) return;
@@ -56,88 +58,123 @@ export default function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
         .join('')
         .toUpperCase() || profile?.email?.[0]?.toUpperCase() || 'U';
 
-    return (
+    const NavContent = ({ onLinkClick }: { onLinkClick?: () => void }) => (
         <>
-            <aside className={`flex flex-col bg-[#0a0a0a] border-r border-[#1e1e1e] transition-all duration-300 ${isCollapsed ? 'w-[68px]' : 'w-[240px]'}`}>
-                {/* Brand */}
-                <div className={`h-16 flex items-center ${isCollapsed ? 'justify-center px-2' : 'px-5'} border-b border-[#1e1e1e]`}>
-                    <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#6366f1] to-[#06b6d4] flex items-center justify-center shrink-0">
-                        <Cloud size={16} className="text-white" />
+            {/* Brand */}
+            <div className={`h-16 flex items-center ${isCollapsed ? 'justify-center px-2' : 'px-5'} border-b border-[#1e1e1e] shrink-0`}>
+                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#6366f1] to-[#06b6d4] flex items-center justify-center shrink-0">
+                    <Cloud size={16} className="text-white" />
+                </div>
+                {!isCollapsed && (
+                    <div className="ml-3 min-w-0">
+                        <h1 className="text-sm font-bold text-white tracking-tight truncate">AI Cloud Storage</h1>
                     </div>
+                )}
+            </div>
+
+            {/* Nav */}
+            <nav className="flex-1 p-3 space-y-1">
+                {navItems.map((item) => {
+                    const isActive = item.path === '/files'
+                        ? pathname === '/files' && !currentView
+                        : pathname === '/files' && currentView === item.path.split('view=')[1];
+                    const Icon = item.icon;
+                    return (
+                        <Link
+                            key={item.name}
+                            href={item.path}
+                            onClick={onLinkClick}
+                            className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all ${isActive
+                                ? 'bg-[#6366f1]/10 text-[#818cf8]'
+                                : 'text-[#71717a] hover:text-[#a1a1aa] hover:bg-[#111]'
+                                } ${isCollapsed ? 'justify-center px-2' : ''}`}
+                        >
+                            <Icon size={18} strokeWidth={isActive ? 2.2 : 1.8} />
+                            {!isCollapsed && <span>{item.name}</span>}
+                        </Link>
+                    );
+                })}
+            </nav>
+
+            {/* Collapse toggle — desktop only */}
+            <div className="px-3 pb-2 hidden md:block">
+                <button
+                    onClick={onToggle}
+                    className="w-full flex items-center justify-center p-2 rounded-lg text-[#71717a] hover:text-[#a1a1aa] hover:bg-[#111] transition-all"
+                >
+                    {isCollapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
+                </button>
+            </div>
+
+            {/* User */}
+            <div className="p-3 border-t border-[#1e1e1e]">
+                <div className={`flex items-center gap-3 ${isCollapsed ? 'justify-center' : ''}`}>
+                    <button
+                        onClick={() => { setShowAccountModal(true); onLinkClick?.(); }}
+                        className="w-8 h-8 rounded-full bg-gradient-to-br from-[#6366f1]/30 to-[#06b6d4]/20 flex items-center justify-center text-xs font-bold text-white shrink-0 border border-[#1e1e1e] hover:border-[#6366f1]/40 transition-all"
+                        title="Account settings"
+                    >
+                        {isLoading ? <Loader2 size={14} className="animate-spin text-[#6366f1]" /> : initials}
+                    </button>
                     {!isCollapsed && (
-                        <div className="ml-3 min-w-0">
-                            <h1 className="text-sm font-bold text-white tracking-tight truncate">AI Cloud Storage</h1>
-                        </div>
+                        <>
+                            <button
+                                onClick={() => { setShowAccountModal(true); onLinkClick?.(); }}
+                                className="flex-1 min-w-0 text-left hover:opacity-80 transition-all"
+                            >
+                                <p className="text-sm font-medium text-white truncate">
+                                    {profile?.full_name || 'User'}
+                                </p>
+                                <p className="text-xs text-[#71717a] truncate">
+                                    {profile?.email}
+                                </p>
+                            </button>
+                            <button
+                                onClick={() => setShowLogoutConfirm(true)}
+                                className="p-1.5 rounded-lg text-[#71717a] hover:text-[#ef4444] hover:bg-[#ef4444]/10 transition-all"
+                                title="Sign out"
+                            >
+                                <LogOut size={16} />
+                            </button>
+                        </>
                     )}
                 </div>
+            </div>
+        </>
+    );
 
-                {/* Nav */}
-                <nav className="flex-1 p-3 space-y-1">
-                    {navItems.map((item) => {
-                        const isActive = item.path === '/files'
-                            ? pathname === '/files' && !currentView
-                            : pathname === '/files' && currentView === item.path.split('view=')[1];
-                        const Icon = item.icon;
-                        return (
-                            <Link
-                                key={item.name}
-                                href={item.path}
-                                className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all ${isActive
-                                    ? 'bg-[#6366f1]/10 text-[#818cf8]'
-                                    : 'text-[#71717a] hover:text-[#a1a1aa] hover:bg-[#111]'
-                                    } ${isCollapsed ? 'justify-center px-2' : ''}`}
-                            >
-                                <Icon size={18} strokeWidth={isActive ? 2.2 : 1.8} />
-                                {!isCollapsed && <span>{item.name}</span>}
-                            </Link>
-                        );
-                    })}
-                </nav>
+    return (
+        <>
+            {/* Mobile hamburger button — shown in header area */}
+            <button
+                onClick={() => setMobileOpen(true)}
+                className="md:hidden fixed top-3.5 left-4 z-40 p-1.5 text-[#71717a] hover:text-white"
+            >
+                <Menu size={20} />
+            </button>
 
-                {/* Collapse toggle */}
-                <div className="px-3 pb-2">
-                    <button
-                        onClick={onToggle}
-                        className="w-full flex items-center justify-center p-2 rounded-lg text-[#71717a] hover:text-[#a1a1aa] hover:bg-[#111] transition-all"
-                    >
-                        {isCollapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
-                    </button>
-                </div>
+            {/* Mobile overlay backdrop */}
+            {mobileOpen && (
+                <div
+                    className="md:hidden fixed inset-0 z-40 bg-black/60 backdrop-blur-sm"
+                    onClick={() => setMobileOpen(false)}
+                />
+            )}
 
-                {/* User */}
-                <div className="p-3 border-t border-[#1e1e1e]">
-                    <div className={`flex items-center gap-3 ${isCollapsed ? 'justify-center' : ''}`}>
-                        <button
-                            onClick={() => setShowAccountModal(true)}
-                            className="w-8 h-8 rounded-full bg-gradient-to-br from-[#6366f1]/30 to-[#06b6d4]/20 flex items-center justify-center text-xs font-bold text-white shrink-0 border border-[#1e1e1e] hover:border-[#6366f1]/40 transition-all"
-                            title="Account settings"
-                        >
-                            {isLoading ? <Loader2 size={14} className="animate-spin text-[#6366f1]" /> : initials}
-                        </button>
-                        {!isCollapsed && (
-                            <>
-                                <button
-                                    onClick={() => setShowAccountModal(true)}
-                                    className="flex-1 min-w-0 text-left hover:opacity-80 transition-all"
-                                >
-                                    <p className="text-sm font-medium text-white truncate">
-                                        {profile?.full_name || 'User'}
-                                    </p>
-                                    <p className="text-xs text-[#71717a] truncate">
-                                        {profile?.email}
-                                    </p>
-                                </button>
-                                <button
-                                    onClick={() => setShowLogoutConfirm(true)}
-                                    className="p-1.5 rounded-lg text-[#71717a] hover:text-[#ef4444] hover:bg-[#ef4444]/10 transition-all"
-                                    title="Sign out"
-                                >
-                                    <LogOut size={16} />
-                                </button>
-                            </>
-                        )}
-                    </div>
-                </div>
+            {/* Mobile drawer */}
+            <aside className={`md:hidden fixed top-0 left-0 z-50 h-full w-[260px] bg-[#0a0a0a] border-r border-[#1e1e1e] flex flex-col transition-transform duration-300 ${mobileOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+                <button
+                    onClick={() => setMobileOpen(false)}
+                    className="absolute top-4 right-4 p-1.5 text-[#71717a] hover:text-white"
+                >
+                    <X size={18} />
+                </button>
+                <NavContent onLinkClick={() => setMobileOpen(false)} />
+            </aside>
+
+            {/* Desktop sidebar */}
+            <aside className={`hidden md:flex flex-col bg-[#0a0a0a] border-r border-[#1e1e1e] transition-all duration-300 ${isCollapsed ? 'w-[68px]' : 'w-[240px]'}`}>
+                <NavContent />
             </aside>
 
             {/* Account Modal */}
