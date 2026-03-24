@@ -25,13 +25,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const [profile, setProfile] = useState<Profile | null>(null);
     const [isLoading, setIsLoading] = useState(true);
 
+    const setProfileFromAuth = (u: User) => {
+        setProfile({
+            id: u.id,
+            email: u.email || '',
+            full_name: u.user_metadata?.full_name || u.email?.split('@')[0] || 'User',
+        });
+    };
+
     useEffect(() => {
         const getSession = async () => {
             try {
                 const { data: { session } } = await supabase.auth.getSession();
                 if (session) {
                     setUser(session.user);
-                    await fetchProfile(session.user);
+                    // Set profile from auth metadata immediately — no blocking
+                    setProfileFromAuth(session.user);
+                    // Try DB profile in background (non-blocking)
+                    fetchProfile(session.user).catch(() => {});
                 }
             } catch (e) {
                 console.error('Auth session error:', e);
@@ -44,19 +55,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         const { data: { subscription } } = supabase.auth.onAuthStateChange(
             async (event, session) => {
-                try {
-                    if (event === 'SIGNED_OUT') {
-                        setProfile(null);
-                        setUser(null);
-                    } else if (session) {
-                        setUser(session.user);
-                        await fetchProfile(session.user);
-                    }
-                } catch (e) {
-                    console.error('Auth state change error:', e);
-                } finally {
-                    setIsLoading(false);
+                if (event === 'SIGNED_OUT') {
+                    setProfile(null);
+                    setUser(null);
+                } else if (session) {
+                    setUser(session.user);
+                    setProfileFromAuth(session.user);
+                    fetchProfile(session.user).catch(() => {});
                 }
+                setIsLoading(false);
             }
         );
 
